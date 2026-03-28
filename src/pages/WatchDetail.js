@@ -8,7 +8,51 @@ import Topbar from '../components/Topbar'
 const WHATSAPP_NUMBER = process.env.REACT_APP_WHATSAPP_NUMBER || ''
 const CATEGORIES = ['Watches', 'Jewellery', 'Bags']
 
-const BRANDS = ['Rolex', 'Patek Philippe', 'Audemars Piguet', 'Richard Mille', 'Omega', 'Cartier', 'IWC', 'Jaeger-LeCoultre', 'Vacheron Constantin', 'A. Lange & Söhne', 'Breitling', 'TAG Heuer', 'Panerai', 'Hublot', 'Blancpain', 'Breguet', 'Chopard', 'Girard-Perregaux', 'Ulysse Nardin', 'Zenith', 'Tudor', 'Grand Seiko', 'Bulgari', 'Van Cleef & Arpels', 'Graff', 'Harry Winston', 'Tiffany & Co', 'Piaget', 'De Beers', 'Mikimoto', 'Hermès', 'Chanel', 'Louis Vuitton', 'Gucci', 'Prada', 'Dior', 'Bottega Veneta', 'Celine', 'Balenciaga', 'Saint Laurent', 'Fendi', 'Loewe', 'Other']
+const BRANDS = [
+  'A. Lange & Söhne',
+  'Audemars Piguet',
+  'Balenciaga',
+  'Blancpain',
+  'Bottega Veneta',
+  'Breguet',
+  'Breitling',
+  'Bulgari',
+  'Cartier',
+  'Celine',
+  'Chanel',
+  'Chopard',
+  'De Beers',
+  'Dior',
+  'Fendi',
+  'Girard-Perregaux',
+  'Graff',
+  'Grand Seiko',
+  'Gucci',
+  'Harry Winston',
+  'Hermès',
+  'Hublot',
+  'IWC',
+  'Jaeger-LeCoultre',
+  'Loewe',
+  'Louis Vuitton',
+  'Mikimoto',
+  'Omega',
+  'Other',
+  'Panerai',
+  'Patek Philippe',
+  'Piaget',
+  'Prada',
+  'Richard Mille',
+  'Rolex',
+  'Saint Laurent',
+  'TAG Heuer',
+  'Tiffany & Co',
+  'Tudor',
+  'Ulysse Nardin',
+  'Vacheron Constantin',
+  'Van Cleef & Arpels',
+  'Zenith'
+]
 
 export default function WatchDetail() {
   const { id } = useParams()
