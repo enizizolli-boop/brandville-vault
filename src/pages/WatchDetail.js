@@ -109,19 +109,36 @@ export default function WatchDetail() {
     setUploadingImg(false)
   }
 
+  function fmtSharePrice(w) {
+    if (currency === 'EUR' && w.price_eur) return '€' + Number(w.price_eur).toLocaleString() + ' EUR'
+    if (w.price_usd) return '$' + Number(w.price_usd).toLocaleString() + ' USD'
+    return ''
+  }
+
+  function buildMsg(watch, price, link) {
+    const modelLine = watch.model.toLowerCase().startsWith(watch.brand.toLowerCase())
+      ? watch.model
+      : watch.brand + ' ' + watch.model
+    return '*' + modelLine + '*' +
+      '\nRef: ' + (watch.reference || '—') +
+      '\nCondition: ' + watch.condition +
+      '\nPrice: ' + price +
+      (watch.notes ? '\nNotes: ' + watch.notes : '') +
+      '\n\n' + link
+  }
+
   function handleWhatsApp() {
-    const price = currency === 'EUR' && watch.price_eur ? `€${Number(watch.price_eur).toLocaleString()}` : `${Number(watch.price_usd).toLocaleString()}`
-    const link = `https://project-20gho.vercel.app/catalog/${id}`
-    const text = encodeURIComponent(`*${watch.brand} ${watch.model}*\nRef: ${watch.reference || '—'}\nCondition: ${watch.condition}\nPrice: ${price}${watch.notes ? '\n' + watch.notes : ''}\n\n${link}`)
-    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank')
+    const price = fmtSharePrice(watch)
+    const link = 'https://project-20gho.vercel.app/catalog/' + id
+    window.open('https://wa.me/' + WHATSAPP_NUMBER + '?text=' + encodeURIComponent(buildMsg(watch, price, link)), '_blank')
   }
 
   function handleShare() {
-    const price = currency === 'EUR' && watch.price_eur ? `€${Number(watch.price_eur).toLocaleString()}` : `${Number(watch.price_usd).toLocaleString()}`
-    const link = `https://project-20gho.vercel.app/catalog/${id}`
-    const text = `${watch.brand} ${watch.model}\nRef: ${watch.reference || '—'}\nCondition: ${watch.condition}\nPrice: ${price}${watch.notes ? '\nNotes: ' + watch.notes : ''}\n\n${link}`
+    const price = fmtSharePrice(watch)
+    const link = 'https://project-20gho.vercel.app/catalog/' + id
+    const text = buildMsg(watch, price, link)
     if (navigator.share) {
-      navigator.share({ title: `${watch.brand} ${watch.model}`, text, url: link })
+      navigator.share({ title: watch.model, text: text, url: link })
     } else {
       navigator.clipboard.writeText(text)
       setMsg('Link and details copied to clipboard.')
