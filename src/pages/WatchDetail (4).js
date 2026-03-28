@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import Topbar from '../components/Topbar'
 
 const WHATSAPP_NUMBER = process.env.REACT_APP_WHATSAPP_NUMBER || ''
+const BRANDS = ['Rolex', 'Patek Philippe', 'Audemars Piguet', 'Richard Mille', 'Omega', 'Cartier', 'IWC', 'Jaeger-LeCoultre', 'Vacheron Constantin', 'A. Lange & Söhne']
 
 export default function WatchDetail() {
   const { id } = useParams()
@@ -21,6 +22,7 @@ export default function WatchDetail() {
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState({})
   const [saving, setSaving] = useState(false)
+  const [uploadingImg, setUploadingImg] = useState(false)
 
   const fetchWatch = useCallback(async () => {
     const { data } = await supabase
@@ -31,7 +33,11 @@ export default function WatchDetail() {
     if (data) {
       setWatch(data)
       setImages([...(data.watch_images || [])].sort((a, b) => a.position - b.position))
-      setEditForm({ brand: data.brand, model: data.model, reference: data.reference || '', condition: data.condition, price_usd: data.price_usd || '', price_eur: data.price_eur || '', notes: data.notes || '' })
+      setEditForm({
+        brand: data.brand, model: data.model, reference: data.reference || '',
+        condition: data.condition, price_usd: data.price_usd || '',
+        price_eur: data.price_eur || '', notes: data.notes || ''
+      })
     }
     setLoading(false)
   }, [id])
@@ -66,16 +72,39 @@ export default function WatchDetail() {
   async function handleSaveEdit() {
     setSaving(true)
     const { error } = await supabase.from('watches').update({
-      brand: editForm.brand,
-      model: editForm.model,
-      reference: editForm.reference || null,
-      condition: editForm.condition,
+      brand: editForm.brand, model: editForm.model,
+      reference: editForm.reference || null, condition: editForm.condition,
       price_usd: editForm.price_usd ? Number(editForm.price_usd) : null,
       price_eur: editForm.price_eur ? Number(editForm.price_eur) : null,
       notes: editForm.notes || null,
     }).eq('id', id)
     if (!error) { await fetchWatch(); setEditing(false); setMsg('Watch updated successfully.') }
     setSaving(false)
+  }
+
+  async function handleDeleteImage(img) {
+    const path = img.url.split('/object/public/watch-images/')[1]
+    if (path) await supabase.storage.from('watch-images').remove([decodeURIComponent(path)])
+    await supabase.from('watch_images').delete().eq('url', img.url)
+    setActiveImg(0)
+    await fetchWatch()
+  }
+
+  async function handleAddImages(e) {
+    const files = Array.from(e.target.files)
+    if (!files.length) return
+    setUploadingImg(true)
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      const ext = file.name.split('.').pop()
+      const path = `${id}/${Date.now()}_${i}.${ext}`
+      const { error: upErr } = await supabase.storage.from('watch-images').upload(path, file)
+      if (upErr) continue
+      const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path)
+      await supabase.from('watch_images').insert({ watch_id: id, url: publicUrl, position: images.length + i })
+    }
+    await fetchWatch()
+    setUploadingImg(false)
   }
 
   function handleWhatsApp() {
@@ -100,18 +129,20 @@ export default function WatchDetail() {
 
   const priceMain = currency === 'EUR' && watch.price_eur ? `€${Number(watch.price_eur).toLocaleString()}` : watch.price_usd ? `$${Number(watch.price_usd).toLocaleString()}` : '—'
   const priceSecondary = currency === 'EUR' && watch.price_usd ? `$${Number(watch.price_usd).toLocaleString()} USD` : currency === 'USD' && watch.price_eur ? `€${Number(watch.price_eur).toLocaleString()} EUR` : null
-  const canEdit = profile?.role === 'admin' || watch.posted_by === profile?.id
-
-  const BRANDS = ['Rolex', 'Patek Philippe', 'Audemars Piguet', 'Richard Mille', 'Omega', 'Cartier', 'IWC', 'Jaeger-LeCoultre', 'Vacheron Constantin', 'A. Lange & Söhne']
+  const canEdit = profile?.role === 'admin' || profile?.role === 'agent'
 
   return (
     <div className="page">
       <Topbar currency={currency} onCurrencyChange={setCurrency} />
       <div className="detail-page">
+
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div className="back-btn" style={{ margin: 0 }} onClick={() => navigate(-1)}>← Back</div>
           {canEdit && !editing && (
             <button className="btn btn-sm" onClick={() => setEditing(true)}>Edit</button>
+          )}
+          {editing && (
+            <button className="btn btn-sm" onClick={() => setEditing(false)}>Cancel</button>
           )}
         </div>
 
@@ -121,23 +152,41 @@ export default function WatchDetail() {
         {images.length > 0 ? (
           <div style={{ marginBottom: 20 }}>
             <div
-              style={{ width: '100%', height: 340, borderRadius: 12, overflow: 'hidden', border: '1px solid #e8e5e0', cursor: 'zoom-in', marginBottom: 8, background: '#f7f6f3' }}
-              onClick={() => setLightbox(activeImg)}
+              style={{ width: '100%', height: 340, borderRadius: 12, overflow: 'hidden', border: '1px solid #e8e5e0', cursor: editing ? 'default' : 'zoom-in', marginBottom: 8, background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}
+              onClick={() => !editing && setLightbox(activeImg)}
             >
-              <img src={images[activeImg].url} alt={watch.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={images[activeImg]?.url} alt={watch.model} style={{ maxWidth: '100%', maxHeight: '340px', objectFit: 'contain' }} />
+              {editing && (
+                <button
+                  onClick={() => handleDeleteImage(images[activeImg])}
+                  style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(180,0,0,0.8)', border: 'none', color: '#fff', borderRadius: 6, padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}
+                >Remove photo</button>
+              )}
             </div>
-            {images.length > 1 && (
-              <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
-                {images.map((img, i) => (
-                  <div key={i} onClick={() => setActiveImg(i)} style={{ width: 64, height: 64, flexShrink: 0, borderRadius: 8, overflow: 'hidden', border: `2px solid ${i === activeImg ? '#1a1a1a' : '#e8e5e0'}`, cursor: 'pointer' }}>
-                    <img src={img.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </div>
-                ))}
-              </div>
-            )}
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+              {images.map((img, i) => (
+                <div key={i} onClick={() => setActiveImg(i)} style={{ width: 64, height: 64, flexShrink: 0, borderRadius: 8, overflow: 'hidden', border: `2px solid ${i === activeImg ? '#1a1a1a' : '#e8e5e0'}`, cursor: 'pointer' }}>
+                  <img src={img.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </div>
+              ))}
+              {editing && (
+                <label style={{ width: 64, height: 64, flexShrink: 0, borderRadius: 8, border: '2px dashed #d0cdc8', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 24, color: '#aaa' }}>
+                  {uploadingImg ? <span className="spinner" style={{ width: 16, height: 16 }} /> : '+'}
+                  <input type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleAddImages} />
+                </label>
+              )}
+            </div>
           </div>
         ) : (
-          <div style={{ width: '100%', height: 280, borderRadius: 12, border: '1px solid #e8e5e0', background: '#f7f6f3', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 80, marginBottom: 20 }}>⌚</div>
+          <div style={{ width: '100%', height: 280, borderRadius: 12, border: '1px solid #e8e5e0', background: '#f7f6f3', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 80, marginBottom: 20, flexDirection: 'column', gap: 12 }}>
+            <span>⌚</span>
+            {editing && (
+              <label style={{ fontSize: 13, color: '#888', border: '1px solid #e0ddd8', borderRadius: 8, padding: '6px 14px', cursor: 'pointer' }}>
+                Add photos
+                <input type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleAddImages} />
+              </label>
+            )}
+          </div>
         )}
 
         {/* Edit form */}
@@ -163,10 +212,7 @@ export default function WatchDetail() {
               <div className="form-row"><label>Price EUR</label><input type="number" value={editForm.price_eur} onChange={e => setEditForm(f => ({ ...f, price_eur: e.target.value }))} /></div>
             </div>
             <div className="form-row"><label>Notes</label><textarea rows={2} value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} /></div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-dark" onClick={handleSaveEdit} disabled={saving} style={{ flex: 1 }}>{saving ? '...' : 'Save changes'}</button>
-              <button className="btn" onClick={() => setEditing(false)} style={{ flex: 1 }}>Cancel</button>
-            </div>
+            <button className="btn btn-dark btn-full" onClick={handleSaveEdit} disabled={saving}>{saving ? '...' : 'Save changes'}</button>
           </div>
         ) : (
           <>
