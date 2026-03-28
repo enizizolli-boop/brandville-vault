@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { useExchangeRate } from '../hooks/useExchangeRate'
 import Topbar from '../components/Topbar'
 
 const CATEGORIES = ['Watches', 'Jewellery', 'Bags']
@@ -18,11 +19,12 @@ const BRANDS = [
   'Other'
 ]
 
-const EMPTY_FORM = { category: 'Watches', brand: 'Rolex', model: '', reference: '', condition: 'Unworn', price_usd: '', price_eur: '', notes: '' }
+const EMPTY_FORM = { category: 'Watches', brand: 'Rolex', model: '', reference: '', condition: 'Unworn', price_eur: '', notes: '' }
 
 export default function AgentListings() {
   const { profile } = useAuth()
   const navigate = useNavigate()
+  const { rate } = useExchangeRate()
   const [tab, setTab] = useState('listings')
   const [watches, setWatches] = useState([])
   const [loading, setLoading] = useState(true)
@@ -32,7 +34,7 @@ export default function AgentListings() {
   const [posting, setPosting] = useState(false)
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
-  const [currency, setCurrency] = useState('USD')
+  const [currency, setCurrency] = useState('EUR')
 
   const fetchMyWatches = useCallback(async () => {
     const q = profile?.role === 'admin'
@@ -53,21 +55,26 @@ export default function AgentListings() {
     setPreviews(files.map(f => URL.createObjectURL(f)))
   }
 
+  const usdPreview = form.price_eur && rate
+    ? '$' + Math.round(Number(form.price_eur) * rate).toLocaleString()
+    : null
+
   async function handlePost(e) {
     e.preventDefault()
     setError('')
     if (!form.model) { setError('Model name is required.'); return }
-    if (!form.price_usd && !form.price_eur) { setError('At least one price (USD or EUR) is required.'); return }
+    if (!form.price_eur) { setError('Price in EUR is required.'); return }
     setPosting(true)
     try {
+      const priceUsd = rate ? Math.round(Number(form.price_eur) * rate) : null
       const { data: watch, error: wErr } = await supabase.from('watches').insert({
         category: form.category,
         brand: form.brand,
         model: form.model,
         reference: form.reference || null,
         condition: form.condition,
-        price_usd: form.price_usd ? Number(form.price_usd) : null,
-        price_eur: form.price_eur ? Number(form.price_eur) : null,
+        price_eur: Number(form.price_eur),
+        price_usd: priceUsd,
         notes: form.notes || null,
         posted_by: profile.id,
         status: 'available'
@@ -198,15 +205,20 @@ export default function AgentListings() {
               <input value={form.reference} onChange={e => handleField('reference', e.target.value)} placeholder="e.g. 116500LN" />
             </div>
 
-            <div className="form-2col">
-              <div className="form-row">
-                <label>Price USD ($)</label>
-                <input type="number" value={form.price_usd} onChange={e => handleField('price_usd', e.target.value)} placeholder="e.g. 38500" />
-              </div>
-              <div className="form-row">
-                <label>Price EUR (€)</label>
-                <input type="number" value={form.price_eur} onChange={e => handleField('price_eur', e.target.value)} placeholder="e.g. 35000" />
-              </div>
+            <div className="form-row">
+              <label>Price (€ EUR)</label>
+              <input
+                type="number"
+                value={form.price_eur}
+                onChange={e => handleField('price_eur', e.target.value)}
+                placeholder="e.g. 35000"
+                required
+              />
+              {usdPreview && (
+                <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
+                  ≈ {usdPreview} USD <span style={{ color: '#bbb' }}>(live rate)</span>
+                </div>
+              )}
             </div>
 
             <div className="form-row">

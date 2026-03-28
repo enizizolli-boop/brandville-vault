@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { useExchangeRate } from '../hooks/useExchangeRate'
 import Topbar from '../components/Topbar'
 
 const WHATSAPP_NUMBER = process.env.REACT_APP_WHATSAPP_NUMBER || ''
@@ -13,10 +14,11 @@ export default function WatchDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { profile } = useAuth()
+  const { rate } = useExchangeRate()
   const [watch, setWatch] = useState(null)
   const [images, setImages] = useState([])
   const [loading, setLoading] = useState(true)
-  const [currency, setCurrency] = useState('USD')
+  const [currency, setCurrency] = useState('EUR')
   const [reserving, setReserving] = useState(false)
   const [msg, setMsg] = useState('')
   const [lightbox, setLightbox] = useState(null)
@@ -76,7 +78,7 @@ export default function WatchDetail() {
     const { error } = await supabase.from('watches').update({
       category: editForm.category || "Watches", brand: editForm.brand, model: editForm.model,
       reference: editForm.reference || null, condition: editForm.condition,
-      price_usd: editForm.price_usd ? Number(editForm.price_usd) : null,
+      price_usd: editForm.price_eur && rate ? Math.round(Number(editForm.price_eur) * rate) : editForm.price_usd ? Number(editForm.price_usd) : null,
       price_eur: editForm.price_eur ? Number(editForm.price_eur) : null,
       notes: editForm.notes || null,
     }).eq('id', id)
@@ -234,7 +236,7 @@ export default function WatchDetail() {
             <div className="form-row"><label>Model</label><input value={editForm.model} onChange={e => setEditForm(f => ({ ...f, model: e.target.value }))} /></div>
             <div className="form-row"><label>Reference</label><input value={editForm.reference} onChange={e => setEditForm(f => ({ ...f, reference: e.target.value }))} /></div>
             <div className="form-2col">
-              <div className="form-row"><label>Price USD</label><input type="number" value={editForm.price_usd} onChange={e => setEditForm(f => ({ ...f, price_usd: e.target.value }))} /></div>
+              <div className="form-row"><label>Price USD</label><input type="number" value={editForm.price_usd} onChange={e => setEditForm(f => ({ ...f, price_usd: e.target.value }))} placeholder="Auto-calculated from EUR" /></div>
               <div className="form-row"><label>Price EUR</label><input type="number" value={editForm.price_eur} onChange={e => setEditForm(f => ({ ...f, price_eur: e.target.value }))} /></div>
             </div>
             <div className="form-row"><label>Notes</label><textarea rows={2} value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} /></div>

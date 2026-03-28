@@ -25,7 +25,7 @@ function fmtPrice(watch, currency) {
 export default function DealerCatalog() {
   const [watches, setWatches] = useState([])
   const [loading, setLoading] = useState(true)
-  const [currency, setCurrency] = useState('USD')
+  const [currency, setCurrency] = useState('EUR')
   const [filterBrand, setFilterBrand] = useState('')
   const [filterCond, setFilterCond] = useState('')
   const [filterStatus, setFilterStatus] = useState('available')
