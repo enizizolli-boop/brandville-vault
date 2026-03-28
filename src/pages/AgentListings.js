@@ -4,9 +4,21 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import Topbar from '../components/Topbar'
 
-const BRANDS = ['Rolex', 'Patek Philippe', 'Audemars Piguet', 'Richard Mille', 'Omega', 'Cartier', 'IWC', 'Jaeger-LeCoultre', 'Vacheron Constantin', 'A. Lange & Söhne']
+const CATEGORIES = ['Watches', 'Jewellery', 'Bags']
 
-const EMPTY_FORM = { brand: 'Rolex', model: '', reference: '', condition: 'Unworn', price_usd: '', price_eur: '', notes: '' }
+const BRANDS = [
+  'Rolex', 'Patek Philippe', 'Audemars Piguet', 'Richard Mille', 'Omega',
+  'Cartier', 'IWC', 'Jaeger-LeCoultre', 'Vacheron Constantin', 'A. Lange & Söhne',
+  'Breitling', 'TAG Heuer', 'Panerai', 'Hublot', 'Blancpain', 'Breguet',
+  'Chopard', 'Girard-Perregaux', 'Ulysse Nardin', 'Zenith', 'Tudor', 'Grand Seiko',
+  'Bulgari', 'Van Cleef & Arpels', 'Graff', 'Harry Winston', 'Tiffany & Co',
+  'Piaget', 'De Beers', 'Mikimoto',
+  'Hermès', 'Chanel', 'Louis Vuitton', 'Gucci', 'Prada', 'Dior',
+  'Bottega Veneta', 'Celine', 'Balenciaga', 'Saint Laurent', 'Fendi', 'Loewe',
+  'Other'
+]
+
+const EMPTY_FORM = { category: 'Watches', brand: 'Rolex', model: '', reference: '', condition: 'Unworn', price_usd: '', price_eur: '', notes: '' }
 
 export default function AgentListings() {
   const { profile } = useAuth()
@@ -49,6 +61,7 @@ export default function AgentListings() {
     setPosting(true)
     try {
       const { data: watch, error: wErr } = await supabase.from('watches').insert({
+        category: form.category,
         brand: form.brand,
         model: form.model,
         reference: form.reference || null,
@@ -74,7 +87,7 @@ export default function AgentListings() {
       setForm(EMPTY_FORM)
       setImages([])
       setPreviews([])
-      setMsg('Watch posted — now live in the dealer catalog.')
+      setMsg('Item posted — now live in the dealer catalog.')
       setTab('listings')
       fetchMyWatches()
     } catch (err) {
@@ -89,7 +102,7 @@ export default function AgentListings() {
   }
 
   async function deleteWatch(id) {
-    if (!window.confirm('Delete this watch?')) return
+    if (!window.confirm('Delete this item?')) return
     await supabase.from('watches').delete().eq('id', id)
     fetchMyWatches()
   }
@@ -110,14 +123,14 @@ export default function AgentListings() {
       <Topbar currency={currency} onCurrencyChange={setCurrency} />
       <div className="tabs">
         <div className={`tab ${tab === 'listings' ? 'active' : ''}`} onClick={() => setTab('listings')}>My listings</div>
-        <div className={`tab ${tab === 'post' ? 'active' : ''}`} onClick={() => setTab('post')}>Post new watch</div>
+        <div className={`tab ${tab === 'post' ? 'active' : ''}`} onClick={() => setTab('post')}>Post new item</div>
       </div>
 
       {tab === 'listings' && (
         <div style={{ padding: 16 }}>
           {msg && <div className="success-msg" style={{ marginBottom: 12 }}>{msg}</div>}
           {loading ? <div className="loading-page" style={{ minHeight: 200 }}><div className="spinner" /></div>
-            : watches.length === 0 ? <div className="empty-state">No watches posted yet</div>
+            : watches.length === 0 ? <div className="empty-state">No items posted yet</div>
             : watches.map(w => (
               <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid #e8e5e0', borderRadius: 10, marginBottom: 8, background: '#fff' }}>
                 <div onClick={() => navigate(`/catalog/${w.id}`)} style={{ width: 50, height: 50, borderRadius: 8, background: '#f7f6f3', border: '1px solid #e8e5e0', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}>
@@ -125,7 +138,7 @@ export default function AgentListings() {
                 </div>
                 <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => navigate(`/catalog/${w.id}`)}>
                   <div style={{ fontSize: 13, fontWeight: 500 }}>{w.brand} {w.model}</div>
-                  <div style={{ fontSize: 11, color: '#aaa' }}>{fmtPrice(w)} · {w.condition}{w.reference ? ` · ${w.reference}` : ''}</div>
+                  <div style={{ fontSize: 11, color: '#aaa' }}>{fmtPrice(w)} · {w.condition}{w.reference ? ` · ${w.reference}` : ''}{w.category ? ` · ${w.category}` : ''}</div>
                 </div>
                 <span className={`badge badge-${w.status}`}>{w.status}</span>
                 <button className="btn btn-sm" onClick={() => navigate(`/catalog/${w.id}`)}>Edit</button>
@@ -153,6 +166,13 @@ export default function AgentListings() {
               <input id="img-upload" type="file" accept="image/*" multiple onChange={handleImages} />
             </label>
 
+            <div className="form-row">
+              <label>Category</label>
+              <select value={form.category} onChange={e => handleField('category', e.target.value)}>
+                {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+              </select>
+            </div>
+
             <div className="form-2col">
               <div className="form-row">
                 <label>Brand</label>
@@ -170,11 +190,11 @@ export default function AgentListings() {
 
             <div className="form-row">
               <label>Model name</label>
-              <input value={form.model} onChange={e => handleField('model', e.target.value)} placeholder="e.g. Daytona, Nautilus, Royal Oak" required />
+              <input value={form.model} onChange={e => handleField('model', e.target.value)} placeholder="e.g. Daytona, Birkin, Love Bracelet" required />
             </div>
 
             <div className="form-row">
-              <label>Reference number</label>
+              <label>Reference / Serial</label>
               <input value={form.reference} onChange={e => handleField('reference', e.target.value)} placeholder="e.g. 116500LN" />
             </div>
 

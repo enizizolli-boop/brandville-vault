@@ -5,7 +5,9 @@ import { useAuth } from '../context/AuthContext'
 import Topbar from '../components/Topbar'
 
 const WHATSAPP_NUMBER = process.env.REACT_APP_WHATSAPP_NUMBER || ''
-const BRANDS = ['Rolex', 'Patek Philippe', 'Audemars Piguet', 'Richard Mille', 'Omega', 'Cartier', 'IWC', 'Jaeger-LeCoultre', 'Vacheron Constantin', 'A. Lange & Söhne']
+const CATEGORIES = ['Watches', 'Jewellery', 'Bags']
+
+const BRANDS = ['Rolex', 'Patek Philippe', 'Audemars Piguet', 'Richard Mille', 'Omega', 'Cartier', 'IWC', 'Jaeger-LeCoultre', 'Vacheron Constantin', 'A. Lange & Söhne', 'Breitling', 'TAG Heuer', 'Panerai', 'Hublot', 'Blancpain', 'Breguet', 'Chopard', 'Girard-Perregaux', 'Ulysse Nardin', 'Zenith', 'Tudor', 'Grand Seiko', 'Bulgari', 'Van Cleef & Arpels', 'Graff', 'Harry Winston', 'Tiffany & Co', 'Piaget', 'De Beers', 'Mikimoto', 'Hermès', 'Chanel', 'Louis Vuitton', 'Gucci', 'Prada', 'Dior', 'Bottega Veneta', 'Celine', 'Balenciaga', 'Saint Laurent', 'Fendi', 'Loewe', 'Other']
 
 export default function WatchDetail() {
   const { id } = useParams()
@@ -72,7 +74,7 @@ export default function WatchDetail() {
   async function handleSaveEdit() {
     setSaving(true)
     const { error } = await supabase.from('watches').update({
-      brand: editForm.brand, model: editForm.model,
+      category: editForm.category || "Watches", brand: editForm.brand, model: editForm.model,
       reference: editForm.reference || null, condition: editForm.condition,
       price_usd: editForm.price_usd ? Number(editForm.price_usd) : null,
       price_eur: editForm.price_eur ? Number(editForm.price_eur) : null,
@@ -192,7 +194,12 @@ export default function WatchDetail() {
         {/* Edit form */}
         {editing ? (
           <div style={{ background: '#f7f6f3', borderRadius: 12, padding: 16, marginBottom: 20 }}>
-            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 12 }}>Edit watch details</div>
+            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 12 }}>Edit details</div>
+            <div className="form-row"><label>Category</label>
+              <select value={editForm.category || 'Watches'} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}>
+                {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+              </select>
+            </div>
             <div className="form-2col">
               <div className="form-row"><label>Brand</label>
                 <select value={editForm.brand} onChange={e => setEditForm(f => ({ ...f, brand: e.target.value }))}>
@@ -218,6 +225,7 @@ export default function WatchDetail() {
           <>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
               <div>
+                <div style={{fontSize:10,color:'#aaa',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:2}}>{watch.category || 'Watches'}</div>
                 <div className="detail-brand">{watch.brand}</div>
                 <div className="detail-model">{watch.model}</div>
                 <div className="detail-ref">{watch.reference || '—'}</div>

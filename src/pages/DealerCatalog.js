@@ -19,6 +19,7 @@ export default function DealerCatalog() {
   const [filterBrand, setFilterBrand] = useState('')
   const [filterCond, setFilterCond] = useState('')
   const [filterStatus, setFilterStatus] = useState('available')
+  const [filterCategory, setFilterCategory] = useState('')
   const [search, setSearch] = useState('')
   const navigate = useNavigate()
 
@@ -27,10 +28,11 @@ export default function DealerCatalog() {
     if (filterBrand) q = q.eq('brand', filterBrand)
     if (filterCond) q = q.eq('condition', filterCond)
     if (filterStatus) q = q.eq('status', filterStatus)
+    if (filterCategory) q = q.eq('category', filterCategory)
     const { data } = await q
     setWatches(data || [])
     setLoading(false)
-  }, [filterBrand, filterCond, filterStatus])
+  }, [filterBrand, filterCond, filterStatus, filterCategory])
 
   useEffect(() => { fetchWatches() }, [fetchWatches])
 
@@ -61,6 +63,10 @@ export default function DealerCatalog() {
         <div className="stat-card"><div className="stat-val">{watches.length}</div><div className="stat-lbl">Total in stock</div></div>
       </div>
       <div className="filters">
+        <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+          <option value=''>All categories</option>
+          <option>Watches</option><option>Jewellery</option><option>Bags</option>
+        </select>
         <select value={filterBrand} onChange={e => setFilterBrand(e.target.value)}>
           <option value="">All brands</option>
           {BRANDS.map(b => <option key={b}>{b}</option>)}
@@ -91,7 +97,7 @@ export default function DealerCatalog() {
                 {getThumb(w) ? <img src={getThumb(w)} alt={w.model} /> : <span>{BRAND_EMOJI[w.brand] || '⌚'}</span>}
               </div>
               <div className="watch-card-body">
-                <div className="watch-card-brand">{w.brand}</div>
+                <div className="watch-card-brand">{w.category ? w.category + ' · ' : ''}{w.brand}</div>
                 <div className="watch-card-model">{w.model}</div>
                 <div className="watch-card-ref">{w.reference || '—'}</div>
                 <div className="watch-card-foot">
