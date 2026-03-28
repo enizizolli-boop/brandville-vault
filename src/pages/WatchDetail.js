@@ -110,19 +110,21 @@ export default function WatchDetail() {
   }
 
   function handleWhatsApp() {
-    const price = currency === 'EUR' && watch.price_eur ? `€${Number(watch.price_eur).toLocaleString()}` : `$${Number(watch.price_usd).toLocaleString()}`
-    const text = encodeURIComponent(`Hi, I'm interested in:\n*${watch.brand} ${watch.model}*\nRef: ${watch.reference || '—'}\nCondition: ${watch.condition}\nPrice: ${price}\n\nPlease confirm availability.`)
+    const price = currency === 'EUR' && watch.price_eur ? `€${Number(watch.price_eur).toLocaleString()}` : `${Number(watch.price_usd).toLocaleString()}`
+    const link = `https://project-20gho.vercel.app/catalog/${id}`
+    const text = encodeURIComponent(`*${watch.brand} ${watch.model}*\nRef: ${watch.reference || '—'}\nCondition: ${watch.condition}\nPrice: ${price}${watch.notes ? '\n' + watch.notes : ''}\n\n${link}`)
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank')
   }
 
   function handleShare() {
-    const price = currency === 'EUR' && watch.price_eur ? `€${Number(watch.price_eur).toLocaleString()}` : `$${Number(watch.price_usd).toLocaleString()}`
-    const text = `${watch.brand} ${watch.model}\nRef: ${watch.reference || '—'}\nCondition: ${watch.condition}\nPrice: ${price}\n${watch.notes ? `Notes: ${watch.notes}` : ''}`
+    const price = currency === 'EUR' && watch.price_eur ? `€${Number(watch.price_eur).toLocaleString()}` : `${Number(watch.price_usd).toLocaleString()}`
+    const link = `https://project-20gho.vercel.app/catalog/${id}`
+    const text = `${watch.brand} ${watch.model}\nRef: ${watch.reference || '—'}\nCondition: ${watch.condition}\nPrice: ${price}${watch.notes ? '\nNotes: ' + watch.notes : ''}\n\n${link}`
     if (navigator.share) {
-      navigator.share({ title: `${watch.brand} ${watch.model}`, text })
+      navigator.share({ title: `${watch.brand} ${watch.model}`, text, url: link })
     } else {
       navigator.clipboard.writeText(text)
-      setMsg('Watch details copied to clipboard.')
+      setMsg('Link and details copied to clipboard.')
     }
   }
 
