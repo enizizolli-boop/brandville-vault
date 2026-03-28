@@ -3,7 +3,17 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Topbar from '../components/Topbar'
 
-const BRANDS = ['Rolex', 'Patek Philippe', 'Audemars Piguet', 'Richard Mille', 'Omega', 'Cartier', 'IWC', 'Jaeger-LeCoultre', 'Vacheron Constantin', 'A. Lange & Söhne']
+const BRANDS = [
+  'Rolex', 'Patek Philippe', 'Audemars Piguet', 'Richard Mille', 'Omega',
+  'Cartier', 'IWC', 'Jaeger-LeCoultre', 'Vacheron Constantin', 'A. Lange & Söhne',
+  'Breitling', 'TAG Heuer', 'Panerai', 'Hublot', 'Blancpain', 'Breguet',
+  'Chopard', 'Girard-Perregaux', 'Ulysse Nardin', 'Zenith', 'Tudor', 'Grand Seiko',
+  'Bulgari', 'Van Cleef & Arpels', 'Graff', 'Harry Winston', 'Tiffany & Co',
+  'Piaget', 'De Beers', 'Mikimoto',
+  'Hermès', 'Chanel', 'Louis Vuitton', 'Gucci', 'Prada', 'Dior',
+  'Bottega Veneta', 'Celine', 'Balenciaga', 'Saint Laurent', 'Fendi', 'Loewe',
+  'Other'
+]
 const BRAND_EMOJI = { 'Rolex': '⌚', 'Patek Philippe': '🕰', 'Audemars Piguet': '⌚', 'Richard Mille': '⌚', 'Omega': '⌚', 'Cartier': '⌚', 'IWC': '⌚', 'Jaeger-LeCoultre': '⌚', 'Vacheron Constantin': '⌚', 'A. Lange & Söhne': '⌚' }
 
 function fmtPrice(watch, currency) {
