@@ -53,7 +53,7 @@ const BRANDS = [
   'Zenith'
 ]
 
-const EMPTY_FORM = { category: 'Watches', brand: 'Rolex', model: '', reference: '', condition: 'Unworn', price_eur: '', notes: '' }
+const EMPTY_FORM = { category: 'Watches', brand: 'Rolex', model: '', reference: '', condition: 'Unworn', price_eur: '', notes: '', metal_type: '', item_size: '' }
 
 export default function AgentListings() {
   const { profile } = useAuth()
@@ -110,6 +110,8 @@ export default function AgentListings() {
         price_eur: Number(form.price_eur),
         price_usd: priceUsd,
         notes: form.notes || null,
+        metal_type: form.category === 'Jewellery' && form.metal_type ? form.metal_type : null,
+        item_size: form.category === 'Jewellery' && form.item_size ? form.item_size : null,
         posted_by: profile.id,
         status: 'available'
       }).select().single()
@@ -234,6 +236,43 @@ export default function AgentListings() {
               <input value={form.model} onChange={e => handleField('model', e.target.value)} placeholder="e.g. Daytona, Birkin, Love Bracelet" required />
             </div>
 
+            {form.category === 'Jewellery' && (
+              <div className="form-row">
+                <label>Metal type</label>
+                <select value={form.metal_type} onChange={e => handleField('metal_type', e.target.value)}>
+                  <option value="">Select metal</option>
+                  <option>Yellow Gold</option>
+                  <option>Pink Gold</option>
+                  <option>White Gold</option>
+                  <option>Platinum</option>
+                </select>
+              </div>
+            )}
+            {form.category === 'Jewellery' && (
+              <div className="form-row">
+                <label>Size</label>
+                <select value={form.item_size} onChange={e => handleField('item_size', e.target.value)}>
+                  <option value="">Select size</option>
+                  <option>14</option>
+                  <option>15</option>
+                  <option>16</option>
+                  <option>17</option>
+                  <option>18</option>
+                  <option>19</option>
+                  <option>20</option>
+                  <option>21</option>
+                  <option>22</option>
+                  <option>23</option>
+                  <option>XS</option>
+                  <option>S</option>
+                  <option>M</option>
+                  <option>L</option>
+                  <option>XL</option>
+                  <option>XXL</option>
+                  <option>3XL</option>
+                </select>
+              </div>
+            )}
             <div className="form-row">
               <label>Reference / Serial</label>
               <input value={form.reference} onChange={e => handleField('reference', e.target.value)} placeholder="e.g. 116500LN" />

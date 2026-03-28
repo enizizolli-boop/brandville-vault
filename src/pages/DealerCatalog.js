@@ -64,6 +64,8 @@ export default function DealerCatalog() {
   const [filterCond, setFilterCond] = useState('')
   const [filterStatus, setFilterStatus] = useState('available')
   const [filterCategory, setFilterCategory] = useState('')
+  const [filterMetal, setFilterMetal] = useState('')
+  const [filterSize, setFilterSize] = useState('')
   const [search, setSearch] = useState('')
   const navigate = useNavigate()
 
@@ -73,10 +75,12 @@ export default function DealerCatalog() {
     if (filterCond) q = q.eq('condition', filterCond)
     if (filterStatus) q = q.eq('status', filterStatus)
     if (filterCategory) q = q.eq('category', filterCategory)
+    if (filterMetal) q = q.eq('metal_type', filterMetal)
+    if (filterSize) q = q.eq('item_size', filterSize)
     const { data } = await q
     setWatches(data || [])
     setLoading(false)
-  }, [filterBrand, filterCond, filterStatus, filterCategory])
+  }, [filterBrand, filterCond, filterStatus, filterCategory, filterMetal, filterSize])
 
   useEffect(() => { fetchWatches() }, [fetchWatches])
 
@@ -107,7 +111,7 @@ export default function DealerCatalog() {
         <div className="stat-card"><div className="stat-val">{watches.length}</div><div className="stat-lbl">Total in stock</div></div>
       </div>
       <div className="filters">
-        <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+        <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setFilterMetal(''); setFilterSize('') }}>
           <option value=''>All categories</option>
           <option>Watches</option><option>Jewellery</option><option>Bags</option>
         </select>
@@ -127,6 +131,38 @@ export default function DealerCatalog() {
           <option value="reserved">Reserved</option>
         </select>
         <input placeholder="Search model or ref..." value={search} onChange={e => setSearch(e.target.value)} style={{ width: 180 }} />
+        {filterCategory === 'Jewellery' && (
+          <select value={filterMetal} onChange={e => setFilterMetal(e.target.value)}>
+            <option value="">All metals</option>
+            <option>Yellow Gold</option>
+            <option>Pink Gold</option>
+            <option>White Gold</option>
+            <option>Platinum</option>
+          </select>
+        )}
+
+        {filterCategory === 'Jewellery' && (
+          <select value={filterSize} onChange={e => setFilterSize(e.target.value)}>
+            <option value="">All sizes</option>
+            <option>14</option>
+            <option>15</option>
+            <option>16</option>
+            <option>17</option>
+            <option>18</option>
+            <option>19</option>
+            <option>20</option>
+            <option>21</option>
+            <option>22</option>
+            <option>23</option>
+            <option>XS</option>
+            <option>S</option>
+            <option>M</option>
+            <option>L</option>
+            <option>XL</option>
+            <option>XXL</option>
+            <option>3XL</option>
+          </select>
+        )}
         <span className="filter-count">{filtered.length} watches</span>
       </div>
       {loading ? (

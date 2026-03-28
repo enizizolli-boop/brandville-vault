@@ -125,6 +125,8 @@ export default function WatchDetail() {
       price_usd: editForm.price_eur && rate ? Math.round(Number(editForm.price_eur) * rate) : editForm.price_usd ? Number(editForm.price_usd) : null,
       price_eur: editForm.price_eur ? Number(editForm.price_eur) : null,
       notes: editForm.notes || null,
+      metal_type: editForm.category === 'Jewellery' && editForm.metal_type ? editForm.metal_type : null,
+      item_size: editForm.category === 'Jewellery' && editForm.item_size ? editForm.item_size : null,
     }).eq('id', id)
     if (!error) { await fetchWatch(); setEditing(false); setMsg('Watch updated successfully.') }
     setSaving(false)
@@ -277,6 +279,41 @@ export default function WatchDetail() {
                 </select>
               </div>
             </div>
+            {editForm.category === 'Jewellery' && (
+              <div className="form-row"><label>Metal type</label>
+                <select value={editForm.metal_type || ''} onChange={e => setEditForm(f => ({ ...f, metal_type: e.target.value }))}>
+                  <option value="">Select metal</option>
+                  <option>Yellow Gold</option>
+                  <option>Pink Gold</option>
+                  <option>White Gold</option>
+                  <option>Platinum</option>
+                </select>
+              </div>
+            )}
+            {editForm.category === 'Jewellery' && (
+              <div className="form-row"><label>Size</label>
+                <select value={editForm.item_size || ''} onChange={e => setEditForm(f => ({ ...f, item_size: e.target.value }))}>
+                  <option value="">Select size</option>
+                  <option>14</option>
+                  <option>15</option>
+                  <option>16</option>
+                  <option>17</option>
+                  <option>18</option>
+                  <option>19</option>
+                  <option>20</option>
+                  <option>21</option>
+                  <option>22</option>
+                  <option>23</option>
+                  <option>XS</option>
+                  <option>S</option>
+                  <option>M</option>
+                  <option>L</option>
+                  <option>XL</option>
+                  <option>XXL</option>
+                  <option>3XL</option>
+                </select>
+              </div>
+            )}
             <div className="form-row"><label>Model</label><input value={editForm.model} onChange={e => setEditForm(f => ({ ...f, model: e.target.value }))} /></div>
             <div className="form-row"><label>Reference</label><input value={editForm.reference} onChange={e => setEditForm(f => ({ ...f, reference: e.target.value }))} /></div>
             <div className="form-2col">
@@ -303,6 +340,8 @@ export default function WatchDetail() {
 
             <div className="detail-meta">
               <div className="detail-meta-row"><span>Condition</span><span>{watch.condition}</span></div>
+              {watch.metal_type && <div className="detail-meta-row"><span>Metal</span><span>{watch.metal_type}</span></div>}
+              {watch.item_size && <div className="detail-meta-row"><span>Size</span><span>{watch.item_size}</span></div>}
               {watch.notes && <div className="detail-meta-row"><span>Notes</span><span>{watch.notes}</span></div>}
               <div className="detail-meta-row"><span>Agent</span><span>{watch.profiles?.full_name || '—'}</span></div>
               <div className="detail-meta-row"><span>Posted</span><span>{new Date(watch.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>
