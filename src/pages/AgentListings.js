@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import Topbar from '../components/Topbar'
@@ -9,6 +10,7 @@ const EMPTY_FORM = { brand: 'Rolex', model: '', reference: '', condition: 'Unwor
 
 export default function AgentListings() {
   const { profile } = useAuth()
+  const navigate = useNavigate()
   const [tab, setTab] = useState('listings')
   const [watches, setWatches] = useState([])
   const [loading, setLoading] = useState(true)
@@ -118,14 +120,15 @@ export default function AgentListings() {
             : watches.length === 0 ? <div className="empty-state">No watches posted yet</div>
             : watches.map(w => (
               <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid #e8e5e0', borderRadius: 10, marginBottom: 8, background: '#fff' }}>
-                <div style={{ width: 50, height: 50, borderRadius: 8, background: '#f7f6f3', border: '1px solid #e8e5e0', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div onClick={() => navigate(`/catalog/${w.id}`)} style={{ width: 50, height: 50, borderRadius: 8, background: '#f7f6f3', border: '1px solid #e8e5e0', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}>
                   {getThumb(w) ? <img src={getThumb(w)} alt={w.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20 }}>⌚</span>}
                 </div>
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => navigate(`/catalog/${w.id}`)}>
                   <div style={{ fontSize: 13, fontWeight: 500 }}>{w.brand} {w.model}</div>
                   <div style={{ fontSize: 11, color: '#aaa' }}>{fmtPrice(w)} · {w.condition}{w.reference ? ` · ${w.reference}` : ''}</div>
                 </div>
                 <span className={`badge badge-${w.status}`}>{w.status}</span>
+                <button className="btn btn-sm" onClick={() => navigate(`/catalog/${w.id}`)}>Edit</button>
                 {w.status !== 'sold' && (
                   <button className="btn btn-sm" onClick={() => markSold(w.id)}>Mark sold</button>
                 )}
