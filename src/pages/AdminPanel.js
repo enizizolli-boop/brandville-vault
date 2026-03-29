@@ -11,6 +11,7 @@ export default function AdminPanel() {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteName, setInviteName] = useState('')
   const [inviteRole, setInviteRole] = useState('dealer')
   const [inviting, setInviting] = useState(false)
   const [msg, setMsg] = useState('')
@@ -42,16 +43,28 @@ export default function AdminPanel() {
     setError(''); setMsg('')
     if (!inviteEmail) return
     setInviting(true)
-    const { error: invErr } = await supabase.auth.admin?.inviteUserByEmail
-      ? supabase.auth.admin.inviteUserByEmail(inviteEmail, { data: { role: inviteRole } })
-      : { error: null }
-
-    const { error: dbErr } = await supabase.from('invites').insert({ email: inviteEmail, role: inviteRole })
-    if (dbErr && dbErr.code !== '23505') {
-      setError('Could not record invite. User may already be invited.')
-    } else {
-      setMsg(`Invite sent to ${inviteEmail} as ${inviteRole}. They'll receive an email to set their password.`)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/send-invite`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          email: inviteEmail,
+          role: inviteRole,
+          full_name: inviteName || inviteEmail.split('@')[0]
+        })
+      })
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error || 'Invite failed')
+      setMsg(`Invite sent to ${inviteEmail} — they'll receive an email to set their password and access the catalog.`)
       setInviteEmail('')
+      setInviteName('')
+      fetchUsers()
+    } catch (err) {
+      setError(err.message || 'Something went wrong. Please try again.')
     }
     setInviting(false)
   }
@@ -68,7 +81,7 @@ export default function AdminPanel() {
     <div className="page">
       <Topbar />
       <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
-        <div className="stat-card"><div className="stat-val">{stats.total}</div><div className="stat-lbl">Total watches</div></div>
+        <div className="stat-card"><div className="stat-val">{stats.total}</div><div className="stat-lbl">Total items</div></div>
         <div className="stat-card"><div className="stat-val">{stats.available}</div><div className="stat-lbl">Available</div></div>
         <div className="stat-card"><div className="stat-val">{stats.reserved}</div><div className="stat-lbl">Reserved</div></div>
         <div className="stat-card"><div className="stat-val">{stats.sold}</div><div className="stat-lbl">Sold</div></div>
@@ -84,29 +97,39 @@ export default function AdminPanel() {
         <div className="admin-section" style={{ maxWidth: 500 }}>
           {msg && <div className="success-msg">{msg}</div>}
           {error && <div className="error-msg">{error}</div>}
-          <p style={{ fontSize: 13, color: '#888', marginBottom: 16 }}>
-            Enter the email address and role. They'll receive an email invitation to set their password and access the catalog.
-          </p>
           <form onSubmit={handleInvite}>
             <div className="form-row">
+              <label>Full name</label>
+              <input
+                type="text"
+                value={inviteName}
+                onChange={e => setInviteName(e.target.value)}
+                placeholder="Jean Michel"
+              />
+            </div>
+            <div className="form-row">
               <label>Email address</label>
-              <input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="dealer@company.com" required />
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={e => setInviteEmail(e.target.value)}
+                placeholder="dealer@company.com"
+                required
+              />
             </div>
             <div className="form-row">
               <label>Role</label>
               <select value={inviteRole} onChange={e => setInviteRole(e.target.value)}>
-                <option value="dealer">Dealer — can browse catalog, reserve watches</option>
-                <option value="agent">Agent — can post new watches</option>
+                <option value="dealer">Dealer — can browse catalog, reserve items</option>
+                <option value="agent">Agent — can post new items</option>
               </select>
             </div>
             <button type="submit" className="btn btn-dark btn-full" disabled={inviting}>
               {inviting ? <span className="spinner" style={{ width: 16, height: 16 }} /> : 'Send invitation'}
             </button>
           </form>
-
-          <div style={{ marginTop: 24, padding: 16, background: '#f7f6f3', borderRadius: 10, fontSize: 12, color: '#888', lineHeight: 1.6 }}>
-            <strong style={{ color: '#555', display: 'block', marginBottom: 4 }}>How invitations work</strong>
-            This records the invitation in the database. To send the actual email, go to your Supabase dashboard → Authentication → Users → Invite user and enter the email there. This creates the account and sends them a setup email automatically.
+          <div style={{ marginTop: 16, padding: 14, background: '#f7f6f3', borderRadius: 10, fontSize: 12, color: '#888', lineHeight: 1.6 }}>
+            They will receive an email with a link to set their password and access Brandville Vault immediately.
           </div>
         </div>
       )}
@@ -115,7 +138,7 @@ export default function AdminPanel() {
         <div className="admin-section">
           {loading ? <div className="spinner" /> : (
             (tab === 'dealers' ? dealers : agents).length === 0
-              ? <div className="empty-state">No {tab} yet</div>
+              ? <div className="empty-state">No {tab} yet — invite one from the Invite tab</div>
               : (tab === 'dealers' ? dealers : agents).map(u => (
                 <div key={u.id} className="user-row">
                   <div className={`avatar ${avatarColor(u.full_name)}`}>{initials(u.full_name)}</div>
