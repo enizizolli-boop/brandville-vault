@@ -7,6 +7,15 @@ import Topbar from '../components/Topbar'
 
 const CATEGORIES = ['Watches', 'Jewellery', 'Bags']
 
+const CONDITIONS = [
+  'pre-owned conditions with MINOR signs of usage',
+  'pre-owned conditions with MAJOR signs of usage',
+  'Fair',
+  'Needs Repair',
+  'Repaired',
+  'Repaired Albania',
+]
+
 const BRANDS = [
   'A. Lange & Söhne','Audemars Piguet','Balenciaga','Blancpain','Bottega Veneta',
   'Breguet','Breitling','Bulgari','Cartier','Celine','Chanel','Chopard','De Beers',
@@ -17,7 +26,18 @@ const BRANDS = [
   'Van Cleef & Arpels','Zenith'
 ]
 
-const EMPTY_FORM = { category: 'Watches', brand: 'Rolex', model: '', reference: '', condition: 'Unworn', price_eur: '', notes: '', metal_type: '', item_size: '', jewellery_type: '' }
+const EMPTY_FORM = {
+  category: 'Watches',
+  brand: 'Rolex',
+  model: '',
+  reference: '',
+  condition: 'pre-owned conditions with MINOR signs of usage',
+  price_eur: '',
+  notes: '',
+  metal_type: '',
+  item_size: '',
+  jewellery_type: ''
+}
 
 async function notifyDealers(watch) {
   try {
@@ -93,6 +113,7 @@ export default function AgentListings() {
         jewellery_type: form.category === 'Jewellery' && form.jewellery_type ? form.jewellery_type : null,
         item_size: form.category === 'Jewellery' && form.item_size && form.jewellery_type !== 'Necklaces' ? form.item_size : null,
         posted_by: profile.id,
+        source: 'manual',
         status: 'available'
       }).select().single()
       if (wErr) throw wErr
@@ -107,7 +128,6 @@ export default function AgentListings() {
         await supabase.from('watch_images').insert({ watch_id: watch.id, url: publicUrl, position: i })
       }
 
-      // Notify dealers by email
       notifyDealers(watch)
 
       setForm(EMPTY_FORM)
@@ -209,7 +229,7 @@ export default function AgentListings() {
               <div className="form-row">
                 <label>Condition</label>
                 <select value={form.condition} onChange={e => handleField('condition', e.target.value)}>
-                  <option>Unworn</option><option>Excellent</option><option>Good</option>
+                  {CONDITIONS.map(c => <option key={c}>{c}</option>)}
                 </select>
               </div>
             </div>

@@ -4,50 +4,24 @@ import { supabase } from '../lib/supabase'
 import Topbar from '../components/Topbar'
 
 const BRANDS = [
-  'A. Lange & Söhne',
-  'Audemars Piguet',
-  'Balenciaga',
-  'Blancpain',
-  'Bottega Veneta',
-  'Breguet',
-  'Breitling',
-  'Bulgari',
-  'Cartier',
-  'Celine',
-  'Chanel',
-  'Chopard',
-  'De Beers',
-  'Dior',
-  'Fendi',
-  'Girard-Perregaux',
-  'Graff',
-  'Grand Seiko',
-  'Gucci',
-  'Harry Winston',
-  'Hermès',
-  'Hublot',
-  'IWC',
-  'Jaeger-LeCoultre',
-  'Loewe',
-  'Louis Vuitton',
-  'Mikimoto',
-  'Omega',
-  'Other',
-  'Panerai',
-  'Patek Philippe',
-  'Piaget',
-  'Prada',
-  'Richard Mille',
-  'Rolex',
-  'Saint Laurent',
-  'TAG Heuer',
-  'Tiffany & Co',
-  'Tudor',
-  'Ulysse Nardin',
-  'Vacheron Constantin',
-  'Van Cleef & Arpels',
-  'Zenith'
+  'A. Lange & Söhne','Audemars Piguet','Balenciaga','Blancpain','Bottega Veneta',
+  'Breguet','Breitling','Bulgari','Cartier','Celine','Chanel','Chopard','De Beers',
+  'Dior','Fendi','Girard-Perregaux','Graff','Grand Seiko','Gucci','Harry Winston',
+  'Hermès','Hublot','IWC','Jaeger-LeCoultre','Loewe','Louis Vuitton','Mikimoto',
+  'Omega','Other','Panerai','Patek Philippe','Piaget','Prada','Richard Mille','Rolex',
+  'Saint Laurent','TAG Heuer','Tiffany & Co','Tudor','Ulysse Nardin','Vacheron Constantin',
+  'Van Cleef & Arpels','Zenith'
 ]
+
+const CONDITIONS = [
+  'pre-owned conditions with MINOR signs of usage',
+  'pre-owned conditions with MAJOR signs of usage',
+  'Fair',
+  'Needs Repair',
+  'Repaired',
+  'Repaired Albania',
+]
+
 const BRAND_EMOJI = { 'Rolex': '⌚', 'Patek Philippe': '🕰', 'Audemars Piguet': '⌚', 'Richard Mille': '⌚', 'Omega': '⌚', 'Cartier': '⌚', 'IWC': '⌚', 'Jaeger-LeCoultre': '⌚', 'Vacheron Constantin': '⌚', 'A. Lange & Söhne': '⌚' }
 
 function fmtPrice(watch, currency) {
@@ -123,9 +97,7 @@ export default function DealerCatalog() {
         </select>
         <select value={filterCond} onChange={e => setFilterCond(e.target.value)}>
           <option value="">All conditions</option>
-          <option>Unworn</option>
-          <option>Excellent</option>
-          <option>Good</option>
+          {CONDITIONS.map(c => <option key={c}>{c}</option>)}
         </select>
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
           <option value="">All status</option>
@@ -142,7 +114,6 @@ export default function DealerCatalog() {
             <option>Platinum</option>
           </select>
         )}
-
         {filterCategory === 'Jewellery' && (
           <select value={filterJewelleryType} onChange={e => { setFilterJewelleryType(e.target.value); setFilterSize('') }}>
             <option value="">All types</option>
@@ -154,52 +125,21 @@ export default function DealerCatalog() {
         {filterCategory === 'Jewellery' && filterJewelleryType === 'Rings' && (
           <select value={filterSize} onChange={e => setFilterSize(e.target.value)}>
             <option value="">All sizes</option>
-            <option>50</option>
-            <option>51</option>
-            <option>52</option>
-            <option>53</option>
-            <option>54</option>
-            <option>55</option>
-            <option>56</option>
-            <option>57</option>
-            <option>58</option>
-            <option>59</option>
-            <option>60</option>
-            <option>61</option>
-            <option>62</option>
-            <option>63</option>
-            <option>64</option>
-            <option>65</option>
+            {['50','51','52','53','54','55','56','57','58','59','60','61','62','63','64','65'].map(s => <option key={s}>{s}</option>)}
           </select>
         )}
         {filterCategory === 'Jewellery' && filterJewelleryType === 'Bracelets' && (
           <select value={filterSize} onChange={e => setFilterSize(e.target.value)}>
             <option value="">All sizes</option>
-            <option>14</option>
-            <option>15</option>
-            <option>16</option>
-            <option>17</option>
-            <option>18</option>
-            <option>19</option>
-            <option>20</option>
-            <option>21</option>
-            <option>22</option>
-            <option>23</option>
-            <option>XS</option>
-            <option>S</option>
-            <option>M</option>
-            <option>L</option>
-            <option>XL</option>
-            <option>XXL</option>
-            <option>3XL</option>
+            {['14','15','16','17','18','19','20','21','22','23','XS','S','M','L','XL','XXL','3XL'].map(s => <option key={s}>{s}</option>)}
           </select>
         )}
-        <span className="filter-count">{filtered.length} watches</span>
+        <span className="filter-count">{filtered.length} items</span>
       </div>
       {loading ? (
         <div className="loading-page"><div className="spinner" /></div>
       ) : filtered.length === 0 ? (
-        <div className="empty-state">No watches match your filters</div>
+        <div className="empty-state">No items match your filters</div>
       ) : (
         <div className="watch-grid">
           {filtered.map(w => (

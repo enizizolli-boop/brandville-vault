@@ -17,6 +17,9 @@ export default function AdminPanel() {
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
   const [stats, setStats] = useState({ total: 0, available: 0, reserved: 0, sold: 0 })
+  const [syncing, setSyncing] = useState(false)
+  const [syncResult, setSyncResult] = useState(null)
+  const [syncError, setSyncError] = useState('')
 
   const fetchUsers = useCallback(async () => {
     const { data } = await supabase.from('profiles').select('*').order('created_at')
@@ -44,7 +47,6 @@ export default function AdminPanel() {
     if (!inviteEmail) return
     setInviting(true)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
       const body = JSON.stringify({
         email: inviteEmail,
         role: inviteRole,
@@ -70,6 +72,22 @@ export default function AdminPanel() {
     setInviting(false)
   }
 
+  async function handleSync() {
+    setSyncing(true)
+    setSyncResult(null)
+    setSyncError('')
+    try {
+      const res = await fetch('/api/zoho-sync', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Sync failed')
+      setSyncResult(data)
+      fetchStats()
+    } catch (err) {
+      setSyncError(err.message || 'Sync failed. Please try again.')
+    }
+    setSyncing(false)
+  }
+
   async function changeRole(userId, newRole) {
     await supabase.from('profiles').update({ role: newRole }).eq('id', userId)
     fetchUsers()
@@ -92,7 +110,53 @@ export default function AdminPanel() {
         <div className={`tab ${tab === 'dealers' ? 'active' : ''}`} onClick={() => setTab('dealers')}>Dealers ({dealers.length})</div>
         <div className={`tab ${tab === 'agents' ? 'active' : ''}`} onClick={() => setTab('agents')}>Agents ({agents.length})</div>
         <div className={`tab ${tab === 'invite' ? 'active' : ''}`} onClick={() => setTab('invite')}>Invite user</div>
+        <div className={`tab ${tab === 'sync' ? 'active' : ''}`} onClick={() => setTab('sync')}>Zoho Sync</div>
       </div>
+
+      {tab === 'sync' && (
+        <div className="admin-section" style={{ maxWidth: 500 }}>
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Sync from Zoho Commerce</div>
+            <div style={{ fontSize: 13, color: '#888', lineHeight: 1.6 }}>
+              Pulls all items currently listed on your Zoho Commerce store into Vault.
+              Items removed from your store will be removed from Vault automatically.
+              Manually added items in Vault are never affected.
+            </div>
+          </div>
+
+          {syncResult && (
+            <div className="success-msg" style={{ marginBottom: 12 }}>
+              ✓ Sync complete — {syncResult.added} added, {syncResult.updated} updated, {syncResult.removed} removed ({syncResult.total} total from Zoho)
+              {syncResult.errors && syncResult.errors.length > 0 && (
+                <div style={{ marginTop: 6, fontSize: 11, color: '#c00' }}>
+                  {syncResult.errors.length} item(s) had errors — check console for details.
+                </div>
+              )}
+            </div>
+          )}
+
+          {syncError && (
+            <div className="error-msg" style={{ marginBottom: 12 }}>{syncError}</div>
+          )}
+
+          <button
+            className="btn btn-dark btn-full"
+            onClick={handleSync}
+            disabled={syncing}
+          >
+            {syncing ? (
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <span className="spinner" style={{ width: 16, height: 16 }} />
+                Syncing from Zoho...
+              </span>
+            ) : '↻ Sync now'}
+          </button>
+
+          <div style={{ marginTop: 16, padding: 14, background: '#f7f6f3', borderRadius: 10, fontSize: 12, color: '#888', lineHeight: 1.6 }}>
+            Only items linked to Zoho Commerce are synced. Items in your inventory that are not listed on your store are excluded.
+          </div>
+        </div>
+      )}
 
       {tab === 'invite' && (
         <div className="admin-section" style={{ maxWidth: 500 }}>
