@@ -21,13 +21,13 @@ async function getAccessToken() {
   return data.access_token;
 }
 
-async function fetchZohoCommerceItems(accessToken) {
+async function fetchAllItems(accessToken) {
   let items = [];
   let page = 1;
   const perPage = 200;
 
   while (true) {
-    const url = `https://www.zohoapis.eu/inventory/v1/items?organization_id=${process.env.ZOHO_ORG_ID}&per_page=${perPage}&page=${page}&channel_name=zohocommerce`;
+    const url = `https://www.zohoapis.eu/inventory/v1/items?organization_id=${process.env.ZOHO_ORG_ID}&per_page=${perPage}&page=${page}&status=active`;
     const res = await fetch(url, {
       headers: { Authorization: `Zoho-oauthtoken ${accessToken}` },
     });
@@ -38,17 +38,6 @@ async function fetchZohoCommerceItems(accessToken) {
     page++;
   }
   return items;
-}
-
-function getCustomField(item, ...keywords) {
-  if (!item.custom_fields || !Array.isArray(item.custom_fields)) return null;
-  for (const field of item.custom_fields) {
-    const label = (field.label || '').toLowerCase();
-    if (keywords.some(k => label.includes(k))) {
-      return field.value || null;
-    }
-  }
-  return null;
 }
 
 const ALLOWED_CONDITIONS = [
@@ -62,17 +51,26 @@ const ALLOWED_CONDITIONS = [
 
 const ALLOWED_SCOPES = ['Watch Only', 'With Card', 'With Box', 'Card & Box'];
 
+function mapCondition(raw) {
+  if (!raw) return 'Fair';
+  if (ALLOWED_CONDITIONS.includes(raw)) return raw;
+  const lower = raw.toLowerCase();
+  if (lower.includes('minor')) return 'pre-owned conditions with MINOR signs of usage';
+  if (lower.includes('major')) return 'pre-owned conditions with MAJOR signs of usage';
+  if (lower.includes('albania')) return 'Repaired Albania';
+  if (lower.includes('repaired')) return 'Repaired';
+  if (lower.includes('repair')) return 'Needs Repair';
+  return 'Fair';
+}
+
 function mapZohoItem(item) {
-  const brand = item.brand || getCustomField(item, 'brand') || 'Unknown';
-  const model = item.cf_model || getCustomField(item, 'model') || item.name || 'Unknown';
+  const brand = (item.cf_brand || item.brand || 'Unknown').trim();
+  const model = (item.cf_model || item.name || 'Unknown').trim();
   const reference = item.sku || null;
   const priceEur = item.rate || null;
-
-  let condition = item.cf_conditions || getCustomField(item, 'condition') || 'Fair';
-  if (!ALLOWED_CONDITIONS.includes(condition)) condition = 'Fair';
-
-  let scopeOfDelivery = item.cf_scope_of_delivery || getCustomField(item, 'scope', 'delivery') || null;
-  if (!ALLOWED_SCOPES.includes(scopeOfDelivery)) scopeOfDelivery = null;
+  const condition = mapCondition(item.cf_conditions);
+  const scopeRaw = item.cf_scope_of_delivery || null;
+  const scopeOfDelivery = ALLOWED_SCOPES.includes(scopeRaw) ? scopeRaw : null;
 
   return {
     zoho_item_id: String(item.item_id),
@@ -96,7 +94,10 @@ export default async function handler(req, res) {
 
   try {
     const accessToken = await getAccessToken();
-    const zohoItems = await fetchZohoCommerceItems(accessToken);
+    const allItems = await fetchAllItems(accessToken);
+
+    // Only items listed on Zoho Commerce storefront
+    const zohoItems = allItems.filter(item => item.show_in_storefront === true);
     const zohoIds = zohoItems.map(i => String(i.item_id));
 
     const { data: existingItems } = await supabase
@@ -136,6 +137,7 @@ export default async function handler(req, res) {
       updated,
       removed: toDelete.length,
       total: zohoItems.length,
+      total_in_inventory: allItems.length,
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (err) {
