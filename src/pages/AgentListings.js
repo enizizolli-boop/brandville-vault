@@ -8,52 +8,31 @@ import Topbar from '../components/Topbar'
 const CATEGORIES = ['Watches', 'Jewellery', 'Bags']
 
 const BRANDS = [
-  'A. Lange & Söhne',
-  'Audemars Piguet',
-  'Balenciaga',
-  'Blancpain',
-  'Bottega Veneta',
-  'Breguet',
-  'Breitling',
-  'Bulgari',
-  'Cartier',
-  'Celine',
-  'Chanel',
-  'Chopard',
-  'De Beers',
-  'Dior',
-  'Fendi',
-  'Girard-Perregaux',
-  'Graff',
-  'Grand Seiko',
-  'Gucci',
-  'Harry Winston',
-  'Hermès',
-  'Hublot',
-  'IWC',
-  'Jaeger-LeCoultre',
-  'Loewe',
-  'Louis Vuitton',
-  'Mikimoto',
-  'Omega',
-  'Other',
-  'Panerai',
-  'Patek Philippe',
-  'Piaget',
-  'Prada',
-  'Richard Mille',
-  'Rolex',
-  'Saint Laurent',
-  'TAG Heuer',
-  'Tiffany & Co',
-  'Tudor',
-  'Ulysse Nardin',
-  'Vacheron Constantin',
-  'Van Cleef & Arpels',
-  'Zenith'
+  'A. Lange & Söhne','Audemars Piguet','Balenciaga','Blancpain','Bottega Veneta',
+  'Breguet','Breitling','Bulgari','Cartier','Celine','Chanel','Chopard','De Beers',
+  'Dior','Fendi','Girard-Perregaux','Graff','Grand Seiko','Gucci','Harry Winston',
+  'Hermès','Hublot','IWC','Jaeger-LeCoultre','Loewe','Louis Vuitton','Mikimoto',
+  'Omega','Other','Panerai','Patek Philippe','Piaget','Prada','Richard Mille','Rolex',
+  'Saint Laurent','TAG Heuer','Tiffany & Co','Tudor','Ulysse Nardin','Vacheron Constantin',
+  'Van Cleef & Arpels','Zenith'
 ]
 
 const EMPTY_FORM = { category: 'Watches', brand: 'Rolex', model: '', reference: '', condition: 'Unworn', price_eur: '', notes: '', metal_type: '', item_size: '', jewellery_type: '' }
+
+async function notifyDealers(watch) {
+  try {
+    await fetch('https://tulqgebsvpxgwocptnmy.supabase.co/functions/v1/notify-dealers', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1bHFnZWJzdnB4Z3dvY3B0bm15Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MjYzOTEsImV4cCI6MjA5MDIwMjM5MX0.H12dPM59cIxlvpR7jbuDjpX11qNdohvi-nhiMxNheJA'
+      },
+      body: JSON.stringify({ record: watch })
+    })
+  } catch (err) {
+    console.log('Notify error:', err)
+  }
+}
 
 export default function AgentListings() {
   const { profile } = useAuth()
@@ -127,6 +106,9 @@ export default function AgentListings() {
         const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path)
         await supabase.from('watch_images').insert({ watch_id: watch.id, url: publicUrl, position: i })
       }
+
+      // Notify dealers by email
+      notifyDealers(watch)
 
       setForm(EMPTY_FORM)
       setImages([])
@@ -263,22 +245,7 @@ export default function AgentListings() {
                     <label>Ring size</label>
                     <select value={form.item_size} onChange={e => handleField('item_size', e.target.value)}>
                       <option value="">Select size</option>
-                      <option>50</option>
-                      <option>51</option>
-                      <option>52</option>
-                      <option>53</option>
-                      <option>54</option>
-                      <option>55</option>
-                      <option>56</option>
-                      <option>57</option>
-                      <option>58</option>
-                      <option>59</option>
-                      <option>60</option>
-                      <option>61</option>
-                      <option>62</option>
-                      <option>63</option>
-                      <option>64</option>
-                      <option>65</option>
+                      {['50','51','52','53','54','55','56','57','58','59','60','61','62','63','64','65'].map(s => <option key={s}>{s}</option>)}
                     </select>
                   </div>
                 )}
@@ -287,28 +254,13 @@ export default function AgentListings() {
                     <label>Bracelet size</label>
                     <select value={form.item_size} onChange={e => handleField('item_size', e.target.value)}>
                       <option value="">Select size</option>
-                      <option>14</option>
-                      <option>15</option>
-                      <option>16</option>
-                      <option>17</option>
-                      <option>18</option>
-                      <option>19</option>
-                      <option>20</option>
-                      <option>21</option>
-                      <option>22</option>
-                      <option>23</option>
-                      <option>XS</option>
-                      <option>S</option>
-                      <option>M</option>
-                      <option>L</option>
-                      <option>XL</option>
-                      <option>XXL</option>
-                      <option>3XL</option>
+                      {['14','15','16','17','18','19','20','21','22','23','XS','S','M','L','XL','XXL','3XL'].map(s => <option key={s}>{s}</option>)}
                     </select>
                   </div>
                 )}
               </>
             )}
+
             <div className="form-row">
               <label>Reference / Serial</label>
               <input value={form.reference} onChange={e => handleField('reference', e.target.value)} placeholder="e.g. 116500LN" />
@@ -316,17 +268,9 @@ export default function AgentListings() {
 
             <div className="form-row">
               <label>Price (€ EUR)</label>
-              <input
-                type="number"
-                value={form.price_eur}
-                onChange={e => handleField('price_eur', e.target.value)}
-                placeholder="e.g. 35000"
-                required
-              />
+              <input type="number" value={form.price_eur} onChange={e => handleField('price_eur', e.target.value)} placeholder="e.g. 35000" required />
               {usdPreview && (
-                <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
-                  ≈ {usdPreview} USD <span style={{ color: '#bbb' }}>(live rate)</span>
-                </div>
+                <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>≈ {usdPreview} USD <span style={{ color: '#bbb' }}>(live rate)</span></div>
               )}
             </div>
 
