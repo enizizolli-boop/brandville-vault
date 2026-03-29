@@ -82,9 +82,17 @@ export default function WatchDetail() {
       setWatch(data)
       setImages([...(data.watch_images || [])].sort((a, b) => a.position - b.position))
       setEditForm({
-        brand: data.brand, model: data.model, reference: data.reference || '',
-        condition: data.condition, price_usd: data.price_usd || '',
-        price_eur: data.price_eur || '', notes: data.notes || ''
+        category: data.category || 'Watches',
+        brand: data.brand || '',
+        model: data.model || '',
+        reference: data.reference || '',
+        condition: data.condition || 'Unworn',
+        price_usd: data.price_usd || '',
+        price_eur: data.price_eur || '',
+        notes: data.notes || '',
+        metal_type: data.metal_type || '',
+        jewellery_type: data.jewellery_type || '',
+        item_size: data.item_size || ''
       })
     }
     setLoading(false)
