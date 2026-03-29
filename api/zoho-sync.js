@@ -37,39 +37,44 @@ async function fetchAllItems(accessToken) {
   return items;
 }
 
-async function fetchItemImages(accessToken, itemId) {
+async function downloadAndUploadImage(accessToken, zohoItemId, watchId) {
   try {
-    const url = `https://www.zohoapis.eu/inventory/v1/items/${itemId}?organization_id=${process.env.ZOHO_ORG_ID}`;
-    const res = await fetch(url, { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } });
-    const data = await res.json();
-    const item = data.item;
-    if (!item) return [];
+    // Fetch image from Zoho
+    const imageRes = await fetch(
+      `https://www.zohoapis.eu/inventory/v1/items/${zohoItemId}/image?organization_id=${process.env.ZOHO_ORG_ID}`,
+      { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+    );
 
-    const images = [];
+    if (!imageRes.ok) return null;
 
-    // Primary image
-    if (item.image_document_id) {
-      images.push({
-        url: `https://www.zohoapis.eu/inventory/v1/items/${itemId}/image?organization_id=${process.env.ZOHO_ORG_ID}&authtoken=${accessToken}`,
-        position: 0
-      });
+    const contentType = imageRes.headers.get('content-type') || 'image/jpeg';
+    const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
+    const arrayBuffer = await imageRes.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Upload to Supabase storage
+    const path = `${watchId}/zoho_primary.${ext}`;
+
+    // Remove existing image first
+    await supabase.storage.from('watch-images').remove([path]);
+
+    const { error: uploadError } = await supabase.storage
+      .from('watch-images')
+      .upload(path, buffer, { contentType, upsert: true });
+
+    if (uploadError) {
+      console.error('Upload error:', uploadError);
+      return null;
     }
 
-    // Additional images from documents
-    if (item.documents && Array.isArray(item.documents)) {
-      item.documents.forEach((doc, i) => {
-        if (doc.file_type && ['jpeg','jpg','png','webp'].includes(doc.file_type.toLowerCase())) {
-          images.push({
-            url: `https://www.zohoapis.eu/inventory/v1/items/${itemId}/documents/${doc.document_id}?organization_id=${process.env.ZOHO_ORG_ID}`,
-            position: i + 1
-          });
-        }
-      });
-    }
+    const { data: { publicUrl } } = supabase.storage
+      .from('watch-images')
+      .getPublicUrl(path);
 
-    return images;
-  } catch {
-    return [];
+    return publicUrl;
+  } catch (err) {
+    console.error('Image download/upload error:', err);
+    return null;
   }
 }
 
@@ -104,7 +109,6 @@ function mapZohoItem(item) {
   const condition = mapCondition(item.cf_conditions);
   const scopeRaw = item.cf_scope_of_delivery || null;
   const scopeOfDelivery = ALLOWED_SCOPES.includes(scopeRaw) ? scopeRaw : null;
-  // Only use description if it's non-empty and not just whitespace
   const notes = item.description && item.description.trim() ? item.description.trim() : null;
 
   return {
@@ -127,12 +131,21 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const testMode = req.body?.test_mode === true;
+
   try {
     const accessToken = await getAccessToken();
     const allItems = await fetchAllItems(accessToken);
 
     // Only items listed on Zoho Commerce storefront
-    const zohoItems = allItems.filter(item => item.show_in_storefront === true);
+    let zohoItems = allItems.filter(item => item.show_in_storefront === true);
+
+    // Test mode: only process 1 item that has an image
+    if (testMode) {
+      const withImage = zohoItems.find(i => i.image_document_id);
+      zohoItems = withImage ? [withImage] : [zohoItems[0]];
+    }
+
     const zohoIds = zohoItems.map(i => String(i.item_id));
 
     const { data: existingItems } = await supabase
@@ -144,14 +157,19 @@ export default async function handler(req, res) {
     const existingMap = {};
     (existingItems || []).forEach(i => { existingMap[i.zoho_item_id] = i.id; });
 
-    // Remove items no longer on storefront
-    const toDelete = existingZohoIds.filter(id => !zohoIds.includes(id));
-    if (toDelete.length > 0) {
-      await supabase.from('watches').delete().in('zoho_item_id', toDelete);
+    // Only delete if NOT in test mode
+    let removed = 0;
+    if (!testMode) {
+      const toDelete = existingZohoIds.filter(id => !zohoIds.includes(id));
+      if (toDelete.length > 0) {
+        await supabase.from('watches').delete().in('zoho_item_id', toDelete);
+        removed = toDelete.length;
+      }
     }
 
     let added = 0;
     let updated = 0;
+    let imagesUploaded = 0;
     const errors = [];
 
     for (const zohoItem of zohoItems) {
@@ -171,18 +189,20 @@ export default async function handler(req, res) {
 
       const watchId = upserted?.id || existingMap[mapped.zoho_item_id];
 
-      // Sync images only for new items (skip re-fetching for updated to save API calls)
-      if (!isExisting && watchId && zohoItem.image_document_id) {
-        // Delete old images first
-        await supabase.from('watch_images').delete().eq('watch_id', watchId);
-
-        // Primary image URL - direct Zoho image endpoint
-        const imageUrl = `https://www.zohoapis.eu/inventory/v1/items/${zohoItem.item_id}/image?organization_id=${process.env.ZOHO_ORG_ID}&authtoken=${accessToken}`;
-        await supabase.from('watch_images').insert({
-          watch_id: watchId,
-          url: imageUrl,
-          position: 0
-        });
+      // Download and upload image if item has one
+      if (watchId && zohoItem.image_document_id) {
+        const publicUrl = await downloadAndUploadImage(accessToken, zohoItem.item_id, watchId);
+        if (publicUrl) {
+          // Delete old image records for this watch
+          await supabase.from('watch_images').delete().eq('watch_id', watchId);
+          // Insert new image record
+          await supabase.from('watch_images').insert({
+            watch_id: watchId,
+            url: publicUrl,
+            position: 0
+          });
+          imagesUploaded++;
+        }
       }
 
       isExisting ? updated++ : added++;
@@ -190,11 +210,13 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
+      test_mode: testMode,
       added,
       updated,
-      removed: toDelete.length,
-      total: zohoItems.length,
-      total_in_inventory: allItems.length,
+      removed,
+      images_uploaded: imagesUploaded,
+      total_synced: zohoItems.length,
+      total_on_store: allItems.filter(i => i.show_in_storefront === true).length,
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (err) {

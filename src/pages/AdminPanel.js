@@ -72,12 +72,16 @@ export default function AdminPanel() {
     setInviting(false)
   }
 
-  async function handleSync() {
+  async function handleSync(testMode = false) {
     setSyncing(true)
     setSyncResult(null)
     setSyncError('')
     try {
-      const res = await fetch('/api/zoho-sync', { method: 'POST' })
+      const res = await fetch('/api/zoho-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ test_mode: testMode })
+      })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Sync failed')
       setSyncResult(data)
@@ -126,10 +130,11 @@ export default function AdminPanel() {
 
           {syncResult && (
             <div className="success-msg" style={{ marginBottom: 12 }}>
-              ✓ Sync complete — {syncResult.added} added, {syncResult.updated} updated, {syncResult.removed} removed ({syncResult.total} total from Zoho)
+              ✓ {syncResult.test_mode ? 'Test sync' : 'Sync'} complete — {syncResult.added} added, {syncResult.updated} updated, {syncResult.removed} removed, {syncResult.images_uploaded} images uploaded
+              {syncResult.test_mode && <div style={{ marginTop: 4, fontSize: 12 }}>Test passed — run full sync when ready.</div>}
               {syncResult.errors && syncResult.errors.length > 0 && (
                 <div style={{ marginTop: 6, fontSize: 11, color: '#c00' }}>
-                  {syncResult.errors.length} item(s) had errors — check console for details.
+                  {syncResult.errors.length} item(s) had errors.
                 </div>
               )}
             </div>
@@ -139,18 +144,29 @@ export default function AdminPanel() {
             <div className="error-msg" style={{ marginBottom: 12 }}>{syncError}</div>
           )}
 
-          <button
-            className="btn btn-dark btn-full"
-            onClick={handleSync}
-            disabled={syncing}
-          >
-            {syncing ? (
-              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                <span className="spinner" style={{ width: 16, height: 16 }} />
-                Syncing from Zoho...
-              </span>
-            ) : '↻ Sync now'}
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="btn btn-dark"
+              style={{ flex: 1 }}
+              onClick={() => handleSync(true)}
+              disabled={syncing}
+            >
+              {syncing ? <span className="spinner" style={{ width: 16, height: 16 }} /> : '🧪 Test (1 item)'}
+            </button>
+            <button
+              className="btn btn-dark"
+              style={{ flex: 2 }}
+              onClick={() => handleSync(false)}
+              disabled={syncing}
+            >
+              {syncing ? (
+                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <span className="spinner" style={{ width: 16, height: 16 }} />
+                  Syncing...
+                </span>
+              ) : '↻ Full sync'}
+            </button>
+          </div>
 
           <div style={{ marginTop: 16, padding: 14, background: '#f7f6f3', borderRadius: 10, fontSize: 12, color: '#888', lineHeight: 1.6 }}>
             Only items linked to Zoho Commerce are synced. Items in your inventory that are not listed on your store are excluded.
