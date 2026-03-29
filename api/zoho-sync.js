@@ -25,12 +25,9 @@ async function fetchAllItems(accessToken) {
   let items = [];
   let page = 1;
   const perPage = 200;
-
   while (true) {
     const url = `https://www.zohoapis.eu/inventory/v1/items?organization_id=${process.env.ZOHO_ORG_ID}&per_page=${perPage}&page=${page}&status=active`;
-    const res = await fetch(url, {
-      headers: { Authorization: `Zoho-oauthtoken ${accessToken}` },
-    });
+    const res = await fetch(url, { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } });
     const data = await res.json();
     if (!data.items || data.items.length === 0) break;
     items = items.concat(data.items);
@@ -38,6 +35,42 @@ async function fetchAllItems(accessToken) {
     page++;
   }
   return items;
+}
+
+async function fetchItemImages(accessToken, itemId) {
+  try {
+    const url = `https://www.zohoapis.eu/inventory/v1/items/${itemId}?organization_id=${process.env.ZOHO_ORG_ID}`;
+    const res = await fetch(url, { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } });
+    const data = await res.json();
+    const item = data.item;
+    if (!item) return [];
+
+    const images = [];
+
+    // Primary image
+    if (item.image_document_id) {
+      images.push({
+        url: `https://www.zohoapis.eu/inventory/v1/items/${itemId}/image?organization_id=${process.env.ZOHO_ORG_ID}&authtoken=${accessToken}`,
+        position: 0
+      });
+    }
+
+    // Additional images from documents
+    if (item.documents && Array.isArray(item.documents)) {
+      item.documents.forEach((doc, i) => {
+        if (doc.file_type && ['jpeg','jpg','png','webp'].includes(doc.file_type.toLowerCase())) {
+          images.push({
+            url: `https://www.zohoapis.eu/inventory/v1/items/${itemId}/documents/${doc.document_id}?organization_id=${process.env.ZOHO_ORG_ID}`,
+            position: i + 1
+          });
+        }
+      });
+    }
+
+    return images;
+  } catch {
+    return [];
+  }
 }
 
 const ALLOWED_CONDITIONS = [
@@ -71,6 +104,8 @@ function mapZohoItem(item) {
   const condition = mapCondition(item.cf_conditions);
   const scopeRaw = item.cf_scope_of_delivery || null;
   const scopeOfDelivery = ALLOWED_SCOPES.includes(scopeRaw) ? scopeRaw : null;
+  // Only use description if it's non-empty and not just whitespace
+  const notes = item.description && item.description.trim() ? item.description.trim() : null;
 
   return {
     zoho_item_id: String(item.item_id),
@@ -83,7 +118,7 @@ function mapZohoItem(item) {
     scope_of_delivery: scopeOfDelivery,
     status: 'available',
     category: 'Watches',
-    notes: item.description || null,
+    notes,
   };
 }
 
@@ -106,7 +141,10 @@ export default async function handler(req, res) {
       .eq('source', 'zoho');
 
     const existingZohoIds = (existingItems || []).map(i => i.zoho_item_id);
+    const existingMap = {};
+    (existingItems || []).forEach(i => { existingMap[i.zoho_item_id] = i.id; });
 
+    // Remove items no longer on storefront
     const toDelete = existingZohoIds.filter(id => !zohoIds.includes(id));
     if (toDelete.length > 0) {
       await supabase.from('watches').delete().in('zoho_item_id', toDelete);
@@ -120,15 +158,34 @@ export default async function handler(req, res) {
       const mapped = mapZohoItem(zohoItem);
       const isExisting = existingZohoIds.includes(mapped.zoho_item_id);
 
-      const { error } = await supabase
+      const { data: upserted, error } = await supabase
         .from('watches')
-        .upsert(mapped, { onConflict: 'zoho_item_id' });
+        .upsert(mapped, { onConflict: 'zoho_item_id' })
+        .select('id')
+        .single();
 
       if (error) {
         errors.push({ item: mapped.zoho_item_id, error: error.message });
-      } else {
-        isExisting ? updated++ : added++;
+        continue;
       }
+
+      const watchId = upserted?.id || existingMap[mapped.zoho_item_id];
+
+      // Sync images only for new items (skip re-fetching for updated to save API calls)
+      if (!isExisting && watchId && zohoItem.image_document_id) {
+        // Delete old images first
+        await supabase.from('watch_images').delete().eq('watch_id', watchId);
+
+        // Primary image URL - direct Zoho image endpoint
+        const imageUrl = `https://www.zohoapis.eu/inventory/v1/items/${zohoItem.item_id}/image?organization_id=${process.env.ZOHO_ORG_ID}&authtoken=${accessToken}`;
+        await supabase.from('watch_images').insert({
+          watch_id: watchId,
+          url: imageUrl,
+          position: 0
+        });
+      }
+
+      isExisting ? updated++ : added++;
     }
 
     return res.status(200).json({

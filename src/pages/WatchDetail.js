@@ -8,50 +8,23 @@ import Topbar from '../components/Topbar'
 const WHATSAPP_NUMBER = process.env.REACT_APP_WHATSAPP_NUMBER || ''
 const CATEGORIES = ['Watches', 'Jewellery', 'Bags']
 
+const CONDITIONS = [
+  'pre-owned conditions with MINOR signs of usage',
+  'pre-owned conditions with MAJOR signs of usage',
+  'Fair',
+  'Needs Repair',
+  'Repaired',
+  'Repaired Albania',
+]
+
 const BRANDS = [
-  'A. Lange & Söhne',
-  'Audemars Piguet',
-  'Balenciaga',
-  'Blancpain',
-  'Bottega Veneta',
-  'Breguet',
-  'Breitling',
-  'Bulgari',
-  'Cartier',
-  'Celine',
-  'Chanel',
-  'Chopard',
-  'De Beers',
-  'Dior',
-  'Fendi',
-  'Girard-Perregaux',
-  'Graff',
-  'Grand Seiko',
-  'Gucci',
-  'Harry Winston',
-  'Hermès',
-  'Hublot',
-  'IWC',
-  'Jaeger-LeCoultre',
-  'Loewe',
-  'Louis Vuitton',
-  'Mikimoto',
-  'Omega',
-  'Other',
-  'Panerai',
-  'Patek Philippe',
-  'Piaget',
-  'Prada',
-  'Richard Mille',
-  'Rolex',
-  'Saint Laurent',
-  'TAG Heuer',
-  'Tiffany & Co',
-  'Tudor',
-  'Ulysse Nardin',
-  'Vacheron Constantin',
-  'Van Cleef & Arpels',
-  'Zenith'
+  'A. Lange & Söhne','Audemars Piguet','Balenciaga','Blancpain','Bottega Veneta',
+  'Breguet','Breitling','Bulgari','Cartier','Celine','Chanel','Chopard','De Beers',
+  'Dior','Fendi','Girard-Perregaux','Graff','Grand Seiko','Gucci','Harry Winston',
+  'Hermès','Hublot','IWC','Jaeger-LeCoultre','Loewe','Louis Vuitton','Mikimoto',
+  'Omega','Other','Panerai','Patek Philippe','Piaget','Prada','Richard Mille','Rolex',
+  'Saint Laurent','TAG Heuer','Tiffany & Co','Tudor','Ulysse Nardin','Vacheron Constantin',
+  'Van Cleef & Arpels','Zenith'
 ]
 
 export default function WatchDetail() {
@@ -86,13 +59,14 @@ export default function WatchDetail() {
         brand: data.brand || '',
         model: data.model || '',
         reference: data.reference || '',
-        condition: data.condition || 'Unworn',
+        condition: data.condition || 'pre-owned conditions with MINOR signs of usage',
         price_usd: data.price_usd || '',
         price_eur: data.price_eur || '',
         notes: data.notes || '',
         metal_type: data.metal_type || '',
         jewellery_type: data.jewellery_type || '',
-        item_size: data.item_size || ''
+        item_size: data.item_size || '',
+        scope_of_delivery: data.scope_of_delivery || '',
       })
     }
     setLoading(false)
@@ -128,11 +102,15 @@ export default function WatchDetail() {
   async function handleSaveEdit() {
     setSaving(true)
     const { error } = await supabase.from('watches').update({
-      category: editForm.category || "Watches", brand: editForm.brand, model: editForm.model,
-      reference: editForm.reference || null, condition: editForm.condition,
+      category: editForm.category || 'Watches',
+      brand: editForm.brand,
+      model: editForm.model,
+      reference: editForm.reference || null,
+      condition: editForm.condition,
       price_usd: editForm.price_eur && rate ? Math.round(Number(editForm.price_eur) * rate) : editForm.price_usd ? Number(editForm.price_usd) : null,
       price_eur: editForm.price_eur ? Number(editForm.price_eur) : null,
       notes: editForm.notes || null,
+      scope_of_delivery: editForm.scope_of_delivery || null,
       metal_type: editForm.category === 'Jewellery' && editForm.metal_type ? editForm.metal_type : null,
       jewellery_type: editForm.category === 'Jewellery' && editForm.jewellery_type ? editForm.jewellery_type : null,
       item_size: editForm.category === 'Jewellery' && editForm.item_size && editForm.jewellery_type !== 'Necklaces' ? editForm.item_size : null,
@@ -162,268 +140,240 @@ export default function WatchDetail() {
       const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path)
       await supabase.from('watch_images').insert({ watch_id: id, url: publicUrl, position: images.length + i })
     }
-    await fetchWatch()
     setUploadingImg(false)
-  }
-
-  function fmtSharePrice(w) {
-    if (currency === 'EUR' && w.price_eur) return '€' + Number(w.price_eur).toLocaleString() + ' EUR'
-    if (w.price_usd) return '$' + Number(w.price_usd).toLocaleString() + ' USD'
-    return ''
-  }
-
-  function buildMsg(watch, price, link) {
-    const modelLine = watch.model.toLowerCase().startsWith(watch.brand.toLowerCase())
-      ? watch.model
-      : watch.brand + ' ' + watch.model
-    return '*' + modelLine + '*' +
-      '\nRef: ' + (watch.reference || '—') +
-      '\nCondition: ' + watch.condition +
-      '\nPrice: ' + price +
-      (watch.notes ? '\nNotes: ' + watch.notes : '') +
-      '\n\n' + link
-  }
-
-  function handleWhatsApp() {
-    const price = fmtSharePrice(watch)
-    const link = 'https://project-20gho.vercel.app/catalog/' + id
-    window.open('https://wa.me/' + WHATSAPP_NUMBER + '?text=' + encodeURIComponent(buildMsg(watch, price, link)), '_blank')
+    await fetchWatch()
   }
 
   function handleShare() {
-    const price = fmtSharePrice(watch)
-    const link = 'https://project-20gho.vercel.app/catalog/' + id
-    const text = buildMsg(watch, price, link)
+    const url = window.location.href
     if (navigator.share) {
-      navigator.share({ title: watch.model, text: text, url: link })
+      navigator.share({ title: `${watch.brand} ${watch.model}`, url })
     } else {
-      navigator.clipboard.writeText(text)
-      setMsg('Link and details copied to clipboard.')
+      navigator.clipboard.writeText(url)
+      setMsg('Link copied to clipboard.')
     }
   }
 
-  if (loading) return <div className="loading-page"><div className="spinner" /></div>
-  if (!watch) return <div className="loading-page">Watch not found.</div>
+  function handleWhatsApp() {
+    const price = currency === 'EUR' && watch.price_eur
+      ? `€${Number(watch.price_eur).toLocaleString()}`
+      : watch.price_usd ? `$${Number(watch.price_usd).toLocaleString()}` : ''
+    const text = `Hi, I'm interested in this item from Brandville Vault:\n\n${watch.brand} ${watch.model}${watch.reference ? ` (${watch.reference})` : ''}\n${price}\n\n${window.location.href}`
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`, '_blank')
+  }
 
-  const priceMain = currency === 'EUR' && watch.price_eur ? `€${Number(watch.price_eur).toLocaleString()}` : watch.price_usd ? `$${Number(watch.price_usd).toLocaleString()}` : '—'
-  const priceSecondary = currency === 'EUR' && watch.price_usd ? `$${Number(watch.price_usd).toLocaleString()} USD` : currency === 'USD' && watch.price_eur ? `€${Number(watch.price_eur).toLocaleString()} EUR` : null
+  if (loading) return <div className="loading-page"><div className="spinner" /></div>
+  if (!watch) return <div className="page"><div className="empty-state">Item not found</div></div>
+
+  const priceMain = currency === 'EUR' && watch.price_eur
+    ? `€${Number(watch.price_eur).toLocaleString()}`
+    : watch.price_usd ? `$${Number(watch.price_usd).toLocaleString()}` : '—'
+
+  const priceSecondary = currency === 'EUR' && watch.price_eur && rate
+    ? `$${Math.round(Number(watch.price_eur) * rate).toLocaleString()} USD`
+    : null
+
   const canEdit = profile?.role === 'admin' || profile?.role === 'agent'
 
   return (
     <div className="page">
       <Topbar currency={currency} onCurrencyChange={setCurrency} />
-      <div className="detail-page">
+      <div style={{ maxWidth: 680, margin: '0 auto', padding: '0 0 40px' }}>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <div className="back-btn" style={{ margin: 0 }} onClick={() => navigate(-1)}>← Back</div>
-          {canEdit && !editing && (
-            <button className="btn btn-sm" onClick={() => setEditing(true)}>Edit</button>
-          )}
-          {editing && (
-            <button className="btn btn-sm" onClick={() => setEditing(false)}>Cancel</button>
+        {/* Back + Edit */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px' }}>
+          <button className="btn btn-sm" onClick={() => navigate(-1)}>← Back</button>
+          {canEdit && !editing && <button className="btn btn-sm" onClick={() => setEditing(true)}>Edit</button>}
+          {editing && <button className="btn btn-sm" onClick={() => setEditing(false)}>Cancel</button>}
+        </div>
+
+        {msg && <div className="success-msg" style={{ margin: '0 16px 12px' }}>{msg}</div>}
+
+        {/* Image gallery */}
+        <div style={{ position: 'relative', background: '#f7f6f3', borderRadius: 16, margin: '0 16px', overflow: 'hidden', aspectRatio: '4/3', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {images.length > 0 ? (
+            <>
+              <img
+                src={images[activeImg]?.url}
+                alt={watch.model}
+                style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: 'zoom-in' }}
+                onClick={() => setLightbox(activeImg)}
+              />
+              {images.length > 1 && (
+                <div style={{ position: 'absolute', bottom: 10, display: 'flex', gap: 6 }}>
+                  {images.map((_, i) => (
+                    <div key={i} onClick={() => setActiveImg(i)} style={{ width: 7, height: 7, borderRadius: '50%', background: i === activeImg ? '#222' : 'rgba(0,0,0,0.2)', cursor: 'pointer' }} />
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <span style={{ fontSize: 48 }}>⌚</span>
           )}
         </div>
 
-        {msg && <div className="success-msg">{msg}</div>}
-
-        {/* Images */}
-        {images.length > 0 ? (
-          <div style={{ marginBottom: 20 }}>
-            <div
-              style={{ width: '100%', height: 340, borderRadius: 12, overflow: 'hidden', border: '1px solid #e8e5e0', cursor: editing ? 'default' : 'zoom-in', marginBottom: 8, background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}
-              onClick={() => !editing && setLightbox(activeImg)}
-            >
-              <img src={images[activeImg]?.url} alt={watch.model} style={{ maxWidth: '100%', maxHeight: '340px', objectFit: 'contain' }} />
-              {editing && (
-                <button
-                  onClick={() => handleDeleteImage(images[activeImg])}
-                  style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(180,0,0,0.8)', border: 'none', color: '#fff', borderRadius: 6, padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}
-                >Remove photo</button>
-              )}
-            </div>
-            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
-              {images.map((img, i) => (
-                <div key={i} onClick={() => setActiveImg(i)} style={{ width: 64, height: 64, flexShrink: 0, borderRadius: 8, overflow: 'hidden', border: `2px solid ${i === activeImg ? '#1a1a1a' : '#e8e5e0'}`, cursor: 'pointer' }}>
-                  <img src={img.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                </div>
-              ))}
-              {editing && (
-                <label style={{ width: 64, height: 64, flexShrink: 0, borderRadius: 8, border: '2px dashed #d0cdc8', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 24, color: '#aaa' }}>
-                  {uploadingImg ? <span className="spinner" style={{ width: 16, height: 16 }} /> : '+'}
-                  <input type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleAddImages} />
-                </label>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div style={{ width: '100%', height: 280, borderRadius: 12, border: '1px solid #e8e5e0', background: '#f7f6f3', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 80, marginBottom: 20, flexDirection: 'column', gap: 12 }}>
-            <span>⌚</span>
+        {/* Thumbnail row */}
+        {images.length > 1 && (
+          <div style={{ display: 'flex', gap: 8, padding: '10px 16px', overflowX: 'auto' }}>
+            {images.map((img, i) => (
+              <div key={i} style={{ position: 'relative', flexShrink: 0 }}>
+                <img
+                  src={img.url}
+                  alt=""
+                  onClick={() => setActiveImg(i)}
+                  style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: i === activeImg ? '2px solid #222' : '2px solid transparent', cursor: 'pointer' }}
+                />
+                {editing && (
+                  <button onClick={() => handleDeleteImage(img)} style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', background: '#e00', color: '#fff', border: 'none', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                )}
+              </div>
+            ))}
             {editing && (
-              <label style={{ fontSize: 13, color: '#888', border: '1px solid #e0ddd8', borderRadius: 8, padding: '6px 14px', cursor: 'pointer' }}>
-                Add photos
-                <input type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleAddImages} />
+              <label style={{ width: 56, height: 56, borderRadius: 8, border: '2px dashed #ccc', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, fontSize: 22, color: '#bbb' }}>
+                {uploadingImg ? <span className="spinner" style={{ width: 16, height: 16 }} /> : '+'}
+                <input type="file" accept="image/*" multiple onChange={handleAddImages} style={{ display: 'none' }} />
               </label>
             )}
           </div>
         )}
-
-        {/* Edit form */}
-        {editing ? (
-          <div style={{ background: '#f7f6f3', borderRadius: 12, padding: 16, marginBottom: 20 }}>
-            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 12 }}>Edit details</div>
-            <div className="form-row"><label>Category</label>
-              <select value={editForm.category || 'Watches'} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}>
-                {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-              </select>
-            </div>
-            <div className="form-2col">
-              <div className="form-row"><label>Brand</label>
-                <select value={editForm.brand} onChange={e => setEditForm(f => ({ ...f, brand: e.target.value }))}>
-                  {BRANDS.map(b => <option key={b}>{b}</option>)}
-                </select>
-              </div>
-              <div className="form-row"><label>Condition</label>
-                <select value={editForm.condition} onChange={e => setEditForm(f => ({ ...f, condition: e.target.value }))}>
-                  <option>Unworn</option><option>Excellent</option><option>Good</option>
-                </select>
-              </div>
-            </div>
-            {editForm.category === 'Jewellery' && (
-              <>
-                <div className="form-row"><label>Jewellery type</label>
-                  <select value={editForm.jewellery_type || ''} onChange={e => setEditForm(f => ({ ...f, jewellery_type: e.target.value, item_size: '' }))}>
-                    <option value="">Select type</option>
-                    <option>Rings</option>
-                    <option>Bracelets</option>
-                    <option>Necklaces</option>
-                  </select>
-                </div>
-                <div className="form-row"><label>Metal type</label>
-                  <select value={editForm.metal_type || ''} onChange={e => setEditForm(f => ({ ...f, metal_type: e.target.value }))}>
-                    <option value="">Select metal</option>
-                    <option>Yellow Gold</option>
-                    <option>Pink Gold</option>
-                    <option>White Gold</option>
-                    <option>Platinum</option>
-                  </select>
-                </div>
-                {editForm.jewellery_type === 'Rings' && (
-                  <div className="form-row"><label>Ring size</label>
-                    <select value={editForm.item_size || ''} onChange={e => setEditForm(f => ({ ...f, item_size: e.target.value }))}>
-                      <option value="">Select size</option>
-                      <option>50</option>
-                      <option>51</option>
-                      <option>52</option>
-                      <option>53</option>
-                      <option>54</option>
-                      <option>55</option>
-                      <option>56</option>
-                      <option>57</option>
-                      <option>58</option>
-                      <option>59</option>
-                      <option>60</option>
-                      <option>61</option>
-                      <option>62</option>
-                      <option>63</option>
-                      <option>64</option>
-                      <option>65</option>
-                    </select>
-                  </div>
-                )}
-                {editForm.jewellery_type === 'Bracelets' && (
-                  <div className="form-row"><label>Bracelet size</label>
-                    <select value={editForm.item_size || ''} onChange={e => setEditForm(f => ({ ...f, item_size: e.target.value }))}>
-                      <option value="">Select size</option>
-                      <option>14</option>
-                      <option>15</option>
-                      <option>16</option>
-                      <option>17</option>
-                      <option>18</option>
-                      <option>19</option>
-                      <option>20</option>
-                      <option>21</option>
-                      <option>22</option>
-                      <option>23</option>
-                      <option>XS</option>
-                      <option>S</option>
-                      <option>M</option>
-                      <option>L</option>
-                      <option>XL</option>
-                      <option>XXL</option>
-                      <option>3XL</option>
-                    </select>
-                  </div>
-                )}
-              </>
-            )}
-            <div className="form-row"><label>Model</label><input value={editForm.model} onChange={e => setEditForm(f => ({ ...f, model: e.target.value }))} /></div>
-            <div className="form-row"><label>Reference</label><input value={editForm.reference} onChange={e => setEditForm(f => ({ ...f, reference: e.target.value }))} /></div>
-            <div className="form-2col">
-              <div className="form-row"><label>Price USD</label><input type="number" value={editForm.price_usd} onChange={e => setEditForm(f => ({ ...f, price_usd: e.target.value }))} placeholder="Auto-calculated from EUR" /></div>
-              <div className="form-row"><label>Price EUR</label><input type="number" value={editForm.price_eur} onChange={e => setEditForm(f => ({ ...f, price_eur: e.target.value }))} /></div>
-            </div>
-            <div className="form-row"><label>Notes</label><textarea rows={2} value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} /></div>
-            <button className="btn btn-dark btn-full" onClick={handleSaveEdit} disabled={saving}>{saving ? '...' : 'Save changes'}</button>
-          </div>
-        ) : (
-          <>
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div>
-                <div style={{fontSize:10,color:'#aaa',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:2}}>{watch.category || 'Watches'}</div>
-                <div className="detail-brand">{watch.brand}</div>
-                <div className="detail-model">{watch.model}</div>
-                <div className="detail-ref">{watch.reference || '—'}</div>
-              </div>
-              <span className={`badge badge-${watch.status}`} style={{ fontSize: 13, padding: '4px 10px' }}>{watch.status}</span>
-            </div>
-
-            <div className="detail-price">{priceMain}</div>
-            {priceSecondary && <div className="detail-price-secondary">≈ {priceSecondary}</div>}
-
-            <div className="detail-meta">
-              <div className="detail-meta-row"><span>Condition</span><span>{watch.condition}</span></div>
-              {watch.jewellery_type && <div className="detail-meta-row"><span>Type</span><span>{watch.jewellery_type}</span></div>}
-              {watch.metal_type && <div className="detail-meta-row"><span>Metal</span><span>{watch.metal_type}</span></div>}
-              {watch.item_size && <div className="detail-meta-row"><span>Size</span><span>{watch.item_size}</span></div>}
-              {watch.notes && <div className="detail-meta-row"><span>Notes</span><span>{watch.notes}</span></div>}
-              <div className="detail-meta-row"><span>Agent</span><span>{watch.profiles?.full_name || '—'}</span></div>
-              <div className="detail-meta-row"><span>Posted</span><span>{new Date(watch.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>
-            </div>
-
-            <div className="detail-actions" style={{ marginTop: 20 }}>
-              <button className="btn btn-green" onClick={handleWhatsApp} style={{ flex: 1 }}>WhatsApp</button>
-              {watch.status === 'available'
-                ? <button className="btn btn-warning" onClick={handleReserve} disabled={reserving} style={{ flex: 1 }}>{reserving ? '...' : 'Reserve'}</button>
-                : (watch.reserved_by === profile?.id || profile?.role === 'admin')
-                  ? <button className="btn" onClick={handleUnreserve} disabled={reserving} style={{ flex: 1 }}>{reserving ? '...' : 'Unreserve'}</button>
-                  : null
-              }
-              <button className="btn" onClick={handleShare} style={{ flex: 1 }}>Share</button>
-            </div>
-          </>
+        {editing && images.length === 0 && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', cursor: 'pointer', color: '#888', fontSize: 13 }}>
+            {uploadingImg ? <span className="spinner" style={{ width: 16, height: 16 }} /> : '+ Add photos'}
+            <input type="file" accept="image/*" multiple onChange={handleAddImages} style={{ display: 'none' }} />
+          </label>
         )}
-      </div>
 
-      {/* Lightbox */}
-      {lightbox !== null && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.93)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setLightbox(null)}>
-          <button onClick={() => setLightbox(null)} style={{ position: 'absolute', top: 20, right: 24, background: 'none', border: 'none', color: '#fff', fontSize: 36, cursor: 'pointer', lineHeight: 1 }}>×</button>
-          {images.length > 1 && lightbox > 0 && (
-            <button onClick={e => { e.stopPropagation(); setLightbox(i => i - 1) }} style={{ position: 'absolute', left: 16, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', fontSize: 28, width: 48, height: 48, borderRadius: '50%', cursor: 'pointer' }}>‹</button>
-          )}
-          <img src={images[lightbox].url} alt={watch.model} style={{ maxWidth: '92vw', maxHeight: '92vh', objectFit: 'contain', borderRadius: 8 }} onClick={e => e.stopPropagation()} />
-          {images.length > 1 && lightbox < images.length - 1 && (
-            <button onClick={e => { e.stopPropagation(); setLightbox(i => i + 1) }} style={{ position: 'absolute', right: 16, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', fontSize: 28, width: 48, height: 48, borderRadius: '50%', cursor: 'pointer' }}>›</button>
-          )}
-          {images.length > 1 && (
-            <div style={{ position: 'absolute', bottom: 20, display: 'flex', gap: 6 }}>
-              {images.map((_, i) => (
-                <div key={i} onClick={e => { e.stopPropagation(); setLightbox(i) }} style={{ width: 8, height: 8, borderRadius: '50%', background: i === lightbox ? '#fff' : 'rgba(255,255,255,0.35)', cursor: 'pointer' }} />
-              ))}
+        <div style={{ padding: '16px 16px 0' }}>
+
+          {/* Edit form */}
+          {editing ? (
+            <div style={{ background: '#f7f6f3', borderRadius: 12, padding: 16, marginBottom: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 12 }}>Edit details</div>
+              <div className="form-row"><label>Category</label>
+                <select value={editForm.category || 'Watches'} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}>
+                  {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="form-2col">
+                <div className="form-row"><label>Brand</label>
+                  <select value={editForm.brand} onChange={e => setEditForm(f => ({ ...f, brand: e.target.value }))}>
+                    {BRANDS.map(b => <option key={b}>{b}</option>)}
+                  </select>
+                </div>
+                <div className="form-row"><label>Condition</label>
+                  <select value={editForm.condition} onChange={e => setEditForm(f => ({ ...f, condition: e.target.value }))}>
+                    {CONDITIONS.map(c => <option key={c}>{c}</option>)}
+                  </select>
+                </div>
+              </div>
+              {editForm.category === 'Jewellery' && (
+                <>
+                  <div className="form-row"><label>Jewellery type</label>
+                    <select value={editForm.jewellery_type || ''} onChange={e => setEditForm(f => ({ ...f, jewellery_type: e.target.value, item_size: '' }))}>
+                      <option value="">Select type</option>
+                      <option>Rings</option><option>Bracelets</option><option>Necklaces</option>
+                    </select>
+                  </div>
+                  <div className="form-row"><label>Metal type</label>
+                    <select value={editForm.metal_type || ''} onChange={e => setEditForm(f => ({ ...f, metal_type: e.target.value }))}>
+                      <option value="">Select metal</option>
+                      <option>Yellow Gold</option><option>Pink Gold</option><option>White Gold</option><option>Platinum</option>
+                    </select>
+                  </div>
+                  {editForm.jewellery_type === 'Rings' && (
+                    <div className="form-row"><label>Ring size</label>
+                      <select value={editForm.item_size || ''} onChange={e => setEditForm(f => ({ ...f, item_size: e.target.value }))}>
+                        <option value="">Select size</option>
+                        {['50','51','52','53','54','55','56','57','58','59','60','61','62','63','64','65'].map(s => <option key={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  {editForm.jewellery_type === 'Bracelets' && (
+                    <div className="form-row"><label>Bracelet size</label>
+                      <select value={editForm.item_size || ''} onChange={e => setEditForm(f => ({ ...f, item_size: e.target.value }))}>
+                        <option value="">Select size</option>
+                        {['14','15','16','17','18','19','20','21','22','23','XS','S','M','L','XL','XXL','3XL'].map(s => <option key={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  )}
+                </>
+              )}
+              <div className="form-row"><label>Model</label><input value={editForm.model} onChange={e => setEditForm(f => ({ ...f, model: e.target.value }))} /></div>
+              <div className="form-row"><label>Reference</label><input value={editForm.reference} onChange={e => setEditForm(f => ({ ...f, reference: e.target.value }))} /></div>
+              <div className="form-row"><label>Scope of Delivery</label>
+                <select value={editForm.scope_of_delivery || ''} onChange={e => setEditForm(f => ({ ...f, scope_of_delivery: e.target.value }))}>
+                  <option value="">—</option>
+                  <option>Watch Only</option><option>With Card</option><option>With Box</option><option>Card & Box</option>
+                </select>
+              </div>
+              <div className="form-2col">
+                <div className="form-row"><label>Price USD</label><input type="number" value={editForm.price_usd} onChange={e => setEditForm(f => ({ ...f, price_usd: e.target.value }))} placeholder="Auto-calculated from EUR" /></div>
+                <div className="form-row"><label>Price EUR</label><input type="number" value={editForm.price_eur} onChange={e => setEditForm(f => ({ ...f, price_eur: e.target.value }))} /></div>
+              </div>
+              <div className="form-row"><label>Notes</label><textarea rows={2} value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} /></div>
+              <button className="btn btn-dark btn-full" onClick={handleSaveEdit} disabled={saving}>{saving ? '...' : 'Save changes'}</button>
             </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
+                <div>
+                  <div style={{ fontSize: 10, color: '#aaa', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 2 }}>{watch.category || 'Watches'}</div>
+                  <div className="detail-brand">{watch.brand}</div>
+                  <div className="detail-model">{watch.model}</div>
+                  <div className="detail-ref">{watch.reference || '—'}</div>
+                </div>
+                <span className={`badge badge-${watch.status}`} style={{ fontSize: 13, padding: '4px 10px' }}>{watch.status}</span>
+              </div>
+
+              <div className="detail-price">{priceMain}</div>
+              {priceSecondary && <div className="detail-price-secondary">≈ {priceSecondary}</div>}
+
+              <div className="detail-meta">
+                <div className="detail-meta-row"><span>Condition</span><span>{watch.condition}</span></div>
+                {watch.scope_of_delivery && <div className="detail-meta-row"><span>Scope of delivery</span><span>{watch.scope_of_delivery}</span></div>}
+                {watch.jewellery_type && <div className="detail-meta-row"><span>Type</span><span>{watch.jewellery_type}</span></div>}
+                {watch.metal_type && <div className="detail-meta-row"><span>Metal</span><span>{watch.metal_type}</span></div>}
+                {watch.item_size && <div className="detail-meta-row"><span>Size</span><span>{watch.item_size}</span></div>}
+                {watch.notes && <div className="detail-meta-row"><span>Notes</span><span>{watch.notes}</span></div>}
+                <div className="detail-meta-row"><span>Agent</span><span>{watch.profiles?.full_name || '—'}</span></div>
+                <div className="detail-meta-row"><span>Posted</span><span>{new Date(watch.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>
+              </div>
+
+              <div className="detail-actions" style={{ marginTop: 20 }}>
+                <button className="btn btn-green" onClick={handleWhatsApp} style={{ flex: 1 }}>WhatsApp</button>
+                {watch.status === 'available'
+                  ? <button className="btn btn-warning" onClick={handleReserve} disabled={reserving} style={{ flex: 1 }}>{reserving ? '...' : 'Reserve'}</button>
+                  : (watch.reserved_by === profile?.id || profile?.role === 'admin')
+                    ? <button className="btn" onClick={handleUnreserve} disabled={reserving} style={{ flex: 1 }}>{reserving ? '...' : 'Unreserve'}</button>
+                    : null
+                }
+                <button className="btn" onClick={handleShare} style={{ flex: 1 }}>Share</button>
+              </div>
+            </>
           )}
         </div>
-      )}
+
+        {/* Lightbox */}
+        {lightbox !== null && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.93)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setLightbox(null)}>
+            <button onClick={() => setLightbox(null)} style={{ position: 'absolute', top: 20, right: 24, background: 'none', border: 'none', color: '#fff', fontSize: 36, cursor: 'pointer', lineHeight: 1 }}>×</button>
+            {images.length > 1 && lightbox > 0 && (
+              <button onClick={e => { e.stopPropagation(); setLightbox(i => i - 1) }} style={{ position: 'absolute', left: 16, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', fontSize: 28, width: 48, height: 48, borderRadius: '50%', cursor: 'pointer' }}>‹</button>
+            )}
+            <img src={images[lightbox].url} alt={watch.model} style={{ maxWidth: '92vw', maxHeight: '92vh', objectFit: 'contain', borderRadius: 8 }} onClick={e => e.stopPropagation()} />
+            {images.length > 1 && lightbox < images.length - 1 && (
+              <button onClick={e => { e.stopPropagation(); setLightbox(i => i + 1) }} style={{ position: 'absolute', right: 16, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', fontSize: 28, width: 48, height: 48, borderRadius: '50%', cursor: 'pointer' }}>›</button>
+            )}
+            {images.length > 1 && (
+              <div style={{ position: 'absolute', bottom: 20, display: 'flex', gap: 6 }}>
+                {images.map((_, i) => (
+                  <div key={i} onClick={e => { e.stopPropagation(); setLightbox(i) }} style={{ width: 8, height: 8, borderRadius: '50%', background: i === lightbox ? '#fff' : 'rgba(255,255,255,0.35)', cursor: 'pointer' }} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
