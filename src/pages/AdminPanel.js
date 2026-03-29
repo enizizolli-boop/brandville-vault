@@ -50,12 +50,11 @@ export default function AdminPanel() {
         role: inviteRole,
         full_name: inviteName || inviteEmail.split('@')[0]
       })
-      const res = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/send-invite`, {
+      const res = await fetch('https://tulqgebsvpxgwocptnmy.supabase.co/functions/v1/send-invite', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': process.env.REACT_APP_SUPABASE_ANON_KEY
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1bHFnZWJzdnB4Z3dvY3B0bm15Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MjYzOTEsImV4cCI6MjA5MDIwMjM5MX0.H12dPM59cIxlvpR7jbuDjpX11qNdohvi-nhiMxNheJA'
         },
         body
       })
