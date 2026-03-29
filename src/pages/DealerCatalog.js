@@ -66,6 +66,7 @@ export default function DealerCatalog() {
   const [filterCategory, setFilterCategory] = useState('')
   const [filterMetal, setFilterMetal] = useState('')
   const [filterSize, setFilterSize] = useState('')
+  const [filterJewelleryType, setFilterJewelleryType] = useState('')
   const [search, setSearch] = useState('')
   const navigate = useNavigate()
 
@@ -77,10 +78,11 @@ export default function DealerCatalog() {
     if (filterCategory) q = q.eq('category', filterCategory)
     if (filterMetal) q = q.eq('metal_type', filterMetal)
     if (filterSize) q = q.eq('item_size', filterSize)
+    if (filterJewelleryType) q = q.eq('jewellery_type', filterJewelleryType)
     const { data } = await q
     setWatches(data || [])
     setLoading(false)
-  }, [filterBrand, filterCond, filterStatus, filterCategory, filterMetal, filterSize])
+  }, [filterBrand, filterCond, filterStatus, filterCategory, filterMetal, filterSize, filterJewelleryType])
 
   useEffect(() => { fetchWatches() }, [fetchWatches])
 
@@ -111,7 +113,7 @@ export default function DealerCatalog() {
         <div className="stat-card"><div className="stat-val">{watches.length}</div><div className="stat-lbl">Total in stock</div></div>
       </div>
       <div className="filters">
-        <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setFilterMetal(''); setFilterSize('') }}>
+        <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setFilterMetal(''); setFilterSize(''); setFilterJewelleryType('') }}>
           <option value=''>All categories</option>
           <option>Watches</option><option>Jewellery</option><option>Bags</option>
         </select>
@@ -142,6 +144,35 @@ export default function DealerCatalog() {
         )}
 
         {filterCategory === 'Jewellery' && (
+          <select value={filterJewelleryType} onChange={e => { setFilterJewelleryType(e.target.value); setFilterSize('') }}>
+            <option value="">All types</option>
+            <option>Rings</option>
+            <option>Bracelets</option>
+            <option>Necklaces</option>
+          </select>
+        )}
+        {filterCategory === 'Jewellery' && filterJewelleryType === 'Rings' && (
+          <select value={filterSize} onChange={e => setFilterSize(e.target.value)}>
+            <option value="">All sizes</option>
+            <option>50</option>
+            <option>51</option>
+            <option>52</option>
+            <option>53</option>
+            <option>54</option>
+            <option>55</option>
+            <option>56</option>
+            <option>57</option>
+            <option>58</option>
+            <option>59</option>
+            <option>60</option>
+            <option>61</option>
+            <option>62</option>
+            <option>63</option>
+            <option>64</option>
+            <option>65</option>
+          </select>
+        )}
+        {filterCategory === 'Jewellery' && filterJewelleryType === 'Bracelets' && (
           <select value={filterSize} onChange={e => setFilterSize(e.target.value)}>
             <option value="">All sizes</option>
             <option>14</option>

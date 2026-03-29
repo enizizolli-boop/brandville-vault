@@ -126,7 +126,8 @@ export default function WatchDetail() {
       price_eur: editForm.price_eur ? Number(editForm.price_eur) : null,
       notes: editForm.notes || null,
       metal_type: editForm.category === 'Jewellery' && editForm.metal_type ? editForm.metal_type : null,
-      item_size: editForm.category === 'Jewellery' && editForm.item_size ? editForm.item_size : null,
+      jewellery_type: editForm.category === 'Jewellery' && editForm.jewellery_type ? editForm.jewellery_type : null,
+      item_size: editForm.category === 'Jewellery' && editForm.item_size && editForm.jewellery_type !== 'Necklaces' ? editForm.item_size : null,
     }).eq('id', id)
     if (!error) { await fetchWatch(); setEditing(false); setMsg('Watch updated successfully.') }
     setSaving(false)
@@ -280,39 +281,72 @@ export default function WatchDetail() {
               </div>
             </div>
             {editForm.category === 'Jewellery' && (
-              <div className="form-row"><label>Metal type</label>
-                <select value={editForm.metal_type || ''} onChange={e => setEditForm(f => ({ ...f, metal_type: e.target.value }))}>
-                  <option value="">Select metal</option>
-                  <option>Yellow Gold</option>
-                  <option>Pink Gold</option>
-                  <option>White Gold</option>
-                  <option>Platinum</option>
-                </select>
-              </div>
-            )}
-            {editForm.category === 'Jewellery' && (
-              <div className="form-row"><label>Size</label>
-                <select value={editForm.item_size || ''} onChange={e => setEditForm(f => ({ ...f, item_size: e.target.value }))}>
-                  <option value="">Select size</option>
-                  <option>14</option>
-                  <option>15</option>
-                  <option>16</option>
-                  <option>17</option>
-                  <option>18</option>
-                  <option>19</option>
-                  <option>20</option>
-                  <option>21</option>
-                  <option>22</option>
-                  <option>23</option>
-                  <option>XS</option>
-                  <option>S</option>
-                  <option>M</option>
-                  <option>L</option>
-                  <option>XL</option>
-                  <option>XXL</option>
-                  <option>3XL</option>
-                </select>
-              </div>
+              <>
+                <div className="form-row"><label>Jewellery type</label>
+                  <select value={editForm.jewellery_type || ''} onChange={e => setEditForm(f => ({ ...f, jewellery_type: e.target.value, item_size: '' }))}>
+                    <option value="">Select type</option>
+                    <option>Rings</option>
+                    <option>Bracelets</option>
+                    <option>Necklaces</option>
+                  </select>
+                </div>
+                <div className="form-row"><label>Metal type</label>
+                  <select value={editForm.metal_type || ''} onChange={e => setEditForm(f => ({ ...f, metal_type: e.target.value }))}>
+                    <option value="">Select metal</option>
+                    <option>Yellow Gold</option>
+                    <option>Pink Gold</option>
+                    <option>White Gold</option>
+                    <option>Platinum</option>
+                  </select>
+                </div>
+                {editForm.jewellery_type === 'Rings' && (
+                  <div className="form-row"><label>Ring size</label>
+                    <select value={editForm.item_size || ''} onChange={e => setEditForm(f => ({ ...f, item_size: e.target.value }))}>
+                      <option value="">Select size</option>
+                      <option>50</option>
+                      <option>51</option>
+                      <option>52</option>
+                      <option>53</option>
+                      <option>54</option>
+                      <option>55</option>
+                      <option>56</option>
+                      <option>57</option>
+                      <option>58</option>
+                      <option>59</option>
+                      <option>60</option>
+                      <option>61</option>
+                      <option>62</option>
+                      <option>63</option>
+                      <option>64</option>
+                      <option>65</option>
+                    </select>
+                  </div>
+                )}
+                {editForm.jewellery_type === 'Bracelets' && (
+                  <div className="form-row"><label>Bracelet size</label>
+                    <select value={editForm.item_size || ''} onChange={e => setEditForm(f => ({ ...f, item_size: e.target.value }))}>
+                      <option value="">Select size</option>
+                      <option>14</option>
+                      <option>15</option>
+                      <option>16</option>
+                      <option>17</option>
+                      <option>18</option>
+                      <option>19</option>
+                      <option>20</option>
+                      <option>21</option>
+                      <option>22</option>
+                      <option>23</option>
+                      <option>XS</option>
+                      <option>S</option>
+                      <option>M</option>
+                      <option>L</option>
+                      <option>XL</option>
+                      <option>XXL</option>
+                      <option>3XL</option>
+                    </select>
+                  </div>
+                )}
+              </>
             )}
             <div className="form-row"><label>Model</label><input value={editForm.model} onChange={e => setEditForm(f => ({ ...f, model: e.target.value }))} /></div>
             <div className="form-row"><label>Reference</label><input value={editForm.reference} onChange={e => setEditForm(f => ({ ...f, reference: e.target.value }))} /></div>
@@ -340,6 +374,7 @@ export default function WatchDetail() {
 
             <div className="detail-meta">
               <div className="detail-meta-row"><span>Condition</span><span>{watch.condition}</span></div>
+              {watch.jewellery_type && <div className="detail-meta-row"><span>Type</span><span>{watch.jewellery_type}</span></div>}
               {watch.metal_type && <div className="detail-meta-row"><span>Metal</span><span>{watch.metal_type}</span></div>}
               {watch.item_size && <div className="detail-meta-row"><span>Size</span><span>{watch.item_size}</span></div>}
               {watch.notes && <div className="detail-meta-row"><span>Notes</span><span>{watch.notes}</span></div>}
