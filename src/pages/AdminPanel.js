@@ -45,17 +45,19 @@ export default function AdminPanel() {
     setInviting(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
+      const body = JSON.stringify({
+        email: inviteEmail,
+        role: inviteRole,
+        full_name: inviteName || inviteEmail.split('@')[0]
+      })
       const res = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/send-invite`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': process.env.REACT_APP_SUPABASE_ANON_KEY
         },
-        body: JSON.stringify({
-          email: inviteEmail,
-          role: inviteRole,
-          full_name: inviteName || inviteEmail.split('@')[0]
-        })
+        body
       })
       const result = await res.json()
       if (!res.ok) throw new Error(result.error || 'Invite failed')
