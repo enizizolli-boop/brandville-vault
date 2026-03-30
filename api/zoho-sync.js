@@ -111,7 +111,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { test_mode = false, batch_size = 20, offset = 0 } = req.body || {};
+  const { test_mode = false, batch_size = 5, offset = 0 } = req.body || {};
 
   try {
     const accessToken = await getAccessToken();

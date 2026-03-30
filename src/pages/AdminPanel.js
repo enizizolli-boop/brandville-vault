@@ -80,7 +80,7 @@ export default function AdminPanel() {
     setSyncResult(null)
     setSyncError('')
 
-    const BATCH_SIZE = 20
+    const BATCH_SIZE = 5
     const MAX_RETRIES = 3
     let offset = 0
     let totalAdded = 0
