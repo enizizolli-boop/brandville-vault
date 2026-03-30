@@ -75,19 +75,49 @@ export default function AdminPanel() {
     setInviting(false)
   }
 
-  async function handleSync(testMode = false) {
+  async function handleSync() {
     setSyncing(true)
     setSyncResult(null)
     setSyncError('')
+
+    const BATCH_SIZE = 20
+    let offset = 0
+    let totalAdded = 0
+    let totalUpdated = 0
+    let totalRemoved = 0
+    let totalImages = 0
+    let grandTotal = 0
+
     try {
-      const res = await fetch('/api/zoho-sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ test_mode: testMode })
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Sync failed')
-      setSyncResult(data)
+      while (true) {
+        const res = await fetch('/api/zoho-sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ batch_size: BATCH_SIZE, offset })
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Sync failed')
+
+        totalAdded += data.added || 0
+        totalUpdated += data.updated || 0
+        totalRemoved += data.removed || 0
+        totalImages += data.images_added || 0
+        grandTotal = data.total || grandTotal
+
+        setSyncResult({
+          inProgress: !data.done,
+          added: totalAdded,
+          updated: totalUpdated,
+          removed: totalRemoved,
+          images_added: totalImages,
+          processed: offset + (data.processed || 0),
+          total: grandTotal,
+        })
+
+        if (data.done || !data.next_offset) break
+        offset = data.next_offset
+      }
+
       fetchStats()
     } catch (err) {
       setSyncError(err.message || 'Sync failed. Please try again.')
@@ -167,13 +197,10 @@ export default function AdminPanel() {
 
           {syncResult && (
             <div className="success-msg" style={{ marginBottom: 12 }}>
-              ✓ {syncResult.test_mode ? 'Test sync' : 'Sync'} complete — {syncResult.added} added, {syncResult.updated} updated, {syncResult.removed} removed, {syncResult.images_uploaded} images uploaded
-              {syncResult.test_mode && <div style={{ marginTop: 4, fontSize: 12 }}>Test passed — run full sync when ready.</div>}
-              {syncResult.errors && syncResult.errors.length > 0 && (
-                <div style={{ marginTop: 6, fontSize: 11, color: '#c00' }}>
-                  {syncResult.errors.length} item(s) had errors.
-                </div>
-              )}
+              {syncResult.inProgress
+                ? `⏳ Syncing... ${syncResult.processed}/${syncResult.total} items`
+                : `✓ Sync complete — ${syncResult.added} added, ${syncResult.updated} updated, ${syncResult.removed} removed, ${syncResult.images_added} images`
+              }
             </div>
           )}
 
@@ -181,61 +208,21 @@ export default function AdminPanel() {
             <div className="error-msg" style={{ marginBottom: 12 }}>{syncError}</div>
           )}
 
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              className="btn btn-dark"
-              style={{ flex: 1 }}
-              onClick={() => handleSync(true)}
-              disabled={syncing}
-            >
-              {syncing ? <span className="spinner" style={{ width: 16, height: 16 }} /> : '🧪 Test (1 item)'}
-            </button>
-            <button
-              className="btn btn-dark"
-              style={{ flex: 2 }}
-              onClick={() => handleSync(false)}
-              disabled={syncing}
-            >
-              {syncing ? (
-                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                  <span className="spinner" style={{ width: 16, height: 16 }} />
-                  Syncing...
-                </span>
-              ) : '↻ Full sync'}
-            </button>
-          </div>
+          <button
+            className="btn btn-dark btn-full"
+            onClick={handleSync}
+            disabled={syncing}
+          >
+            {syncing ? (
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <span className="spinner" style={{ width: 16, height: 16 }} />
+                Syncing...
+              </span>
+            ) : '↻ Sync now'}
+          </button>
 
-          <div style={{ marginTop: 24, borderTop: '1px solid #e8e5e0', paddingTop: 20 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Sync images from store</div>
-            <div style={{ fontSize: 13, color: '#888', lineHeight: 1.6, marginBottom: 12 }}>
-              Fetches all product images from your Zoho Commerce store for each item. Runs in batches — safe to run anytime.
-            </div>
-
-            {imageProgress && (
-              <div className="success-msg" style={{ marginBottom: 12 }}>
-                {imageSyncing
-                  ? `⏳ Syncing images... ${imageProgress.processed}/${imageProgress.total} items (${imageProgress.images} images so far)`
-                  : `✓ Done — ${imageProgress.processed} items processed, ${imageProgress.images} images synced`
-                }
-              </div>
-            )}
-
-            {imageSyncError && (
-              <div className="error-msg" style={{ marginBottom: 12 }}>{imageSyncError}</div>
-            )}
-
-            <button
-              className="btn btn-dark btn-full"
-              onClick={handleImageSync}
-              disabled={imageSyncing || syncing}
-            >
-              {imageSyncing ? (
-                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                  <span className="spinner" style={{ width: 16, height: 16 }} />
-                  Syncing images...
-                </span>
-              ) : '🖼 Sync all images'}
-            </button>
+          <div style={{ marginTop: 16, padding: 14, background: '#f7f6f3', borderRadius: 10, fontSize: 12, color: '#888', lineHeight: 1.6 }}>
+            Only items listed on Zoho Commerce are synced. Items in your inventory not listed on your store are excluded. Images are synced automatically with each item.
           </div>
         </div>
       )}

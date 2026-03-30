@@ -5,6 +5,9 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+const STORE_DOMAIN = 'thewatchstore.zohocommerce.eu';
+const STORE_ID = 'e332ab1967';
+
 async function getAccessToken() {
   const res = await fetch('https://accounts.zoho.eu/oauth/v2/token', {
     method: 'POST',
@@ -37,56 +40,38 @@ async function fetchAllItems(accessToken) {
   return items;
 }
 
-async function downloadAndUploadImage(accessToken, zohoItemId, watchId) {
+async function fetchImagesFromStorePage(zohoItemId) {
   try {
-    // Fetch image from Zoho
-    const imageRes = await fetch(
-      `https://www.zohoapis.eu/inventory/v1/items/${zohoItemId}/image?organization_id=${process.env.ZOHO_ORG_ID}`,
-      { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
-    );
+    const url = `https://${STORE_DOMAIN}/products/${STORE_ID}/${zohoItemId}`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    if (!res.ok) return [];
+    const html = await res.text();
 
-    if (!imageRes.ok) return null;
+    const regex = /https:\/\/cdn3\.zohoecommerce\.com\/product-images\/[^"'\s]+/g;
+    const allMatches = [...new Set(html.match(regex) || [])];
 
-    const contentType = imageRes.headers.get('content-type') || 'image/jpeg';
-    const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
-    const arrayBuffer = await imageRes.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    // Upload to Supabase storage
-    const path = `${watchId}/zoho_primary.${ext}`;
-
-    // Remove existing image first
-    await supabase.storage.from('watch-images').remove([path]);
-
-    const { error: uploadError } = await supabase.storage
-      .from('watch-images')
-      .upload(path, buffer, { contentType, upsert: true });
-
-    if (uploadError) {
-      console.error('Upload error:', uploadError);
-      return null;
+    const imageMap = {};
+    for (const imgUrl of allMatches) {
+      const filenameMatch = imgUrl.match(/product-images\/([^/]+)\//);
+      if (!filenameMatch) continue;
+      const filename = filenameMatch[1];
+      const is600 = imgUrl.includes('600x600');
+      if (!imageMap[filename] || is600) {
+        imageMap[filename] = imgUrl.replace('300x300', '600x600');
+      }
     }
 
-    const { data: { publicUrl } } = supabase.storage
-      .from('watch-images')
-      .getPublicUrl(path);
-
-    return publicUrl;
-  } catch (err) {
-    console.error('Image download/upload error:', err);
-    return null;
+    return Object.values(imageMap);
+  } catch {
+    return [];
   }
 }
 
 const ALLOWED_CONDITIONS = [
   'pre-owned conditions with MINOR signs of usage',
   'pre-owned conditions with MAJOR signs of usage',
-  'Fair',
-  'Needs Repair',
-  'Repaired',
-  'Repaired Albania',
+  'Fair', 'Needs Repair', 'Repaired', 'Repaired Albania',
 ];
-
 const ALLOWED_SCOPES = ['Watch Only', 'With Card', 'With Box', 'Card & Box'];
 
 function mapCondition(raw) {
@@ -104,22 +89,17 @@ function mapCondition(raw) {
 function mapZohoItem(item) {
   const brand = (item.cf_brand || item.brand || 'Unknown').trim();
   const model = (item.cf_model || item.name || 'Unknown').trim();
-  const reference = item.sku || null;
-  const priceEur = item.rate || null;
-  const condition = mapCondition(item.cf_conditions);
   const scopeRaw = item.cf_scope_of_delivery || null;
-  const scopeOfDelivery = ALLOWED_SCOPES.includes(scopeRaw) ? scopeRaw : null;
   const notes = item.description && item.description.trim() ? item.description.trim() : null;
-
   return {
     zoho_item_id: String(item.item_id),
     source: 'zoho',
     brand,
     model,
-    reference,
-    price_eur: priceEur,
-    condition,
-    scope_of_delivery: scopeOfDelivery,
+    reference: item.sku || null,
+    price_eur: item.rate || null,
+    condition: mapCondition(item.cf_conditions),
+    scope_of_delivery: ALLOWED_SCOPES.includes(scopeRaw) ? scopeRaw : null,
     status: 'available',
     category: 'Watches',
     notes,
@@ -131,19 +111,19 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const testMode = req.body?.test_mode === true;
+  const { test_mode = false, batch_size = 20, offset = 0 } = req.body || {};
 
   try {
     const accessToken = await getAccessToken();
     const allItems = await fetchAllItems(accessToken);
-
-    // Only items listed on Zoho Commerce storefront
     let zohoItems = allItems.filter(item => item.show_in_storefront === true);
+    const totalOnStore = zohoItems.length;
 
-    // Test mode: only process 1 item that has an image
-    if (testMode) {
+    if (test_mode) {
       const withImage = zohoItems.find(i => i.image_document_id);
       zohoItems = withImage ? [withImage] : [zohoItems[0]];
+    } else {
+      zohoItems = zohoItems.slice(offset, offset + batch_size);
     }
 
     const zohoIds = zohoItems.map(i => String(i.item_id));
@@ -151,16 +131,21 @@ export default async function handler(req, res) {
     const { data: existingItems } = await supabase
       .from('watches')
       .select('id, zoho_item_id')
-      .eq('source', 'zoho');
+      .eq('source', 'zoho')
+      .in('zoho_item_id', zohoIds);
 
     const existingZohoIds = (existingItems || []).map(i => i.zoho_item_id);
     const existingMap = {};
     (existingItems || []).forEach(i => { existingMap[i.zoho_item_id] = i.id; });
 
-    // Only delete if NOT in test mode
+    // Remove stale items on first batch only
     let removed = 0;
-    if (!testMode) {
-      const toDelete = existingZohoIds.filter(id => !zohoIds.includes(id));
+    if (!test_mode && offset === 0) {
+      const { data: allExisting } = await supabase
+        .from('watches').select('zoho_item_id').eq('source', 'zoho');
+      const allExistingIds = (allExisting || []).map(i => i.zoho_item_id);
+      const allZohoIds = allItems.filter(i => i.show_in_storefront === true).map(i => String(i.item_id));
+      const toDelete = allExistingIds.filter(id => !allZohoIds.includes(id));
       if (toDelete.length > 0) {
         await supabase.from('watches').delete().in('zoho_item_id', toDelete);
         removed = toDelete.length;
@@ -169,7 +154,7 @@ export default async function handler(req, res) {
 
     let added = 0;
     let updated = 0;
-    let imagesUploaded = 0;
+    let imagesAdded = 0;
     const errors = [];
 
     for (const zohoItem of zohoItems) {
@@ -188,35 +173,35 @@ export default async function handler(req, res) {
       }
 
       const watchId = upserted?.id || existingMap[mapped.zoho_item_id];
+      isExisting ? updated++ : added++;
 
-      // Download and upload image if item has one
-      if (watchId && zohoItem.image_document_id) {
-        const publicUrl = await downloadAndUploadImage(accessToken, zohoItem.item_id, watchId);
-        if (publicUrl) {
-          // Delete old image records for this watch
+      // Fetch all images from Commerce store page
+      if (watchId) {
+        const images = await fetchImagesFromStorePage(zohoItem.item_id);
+        if (images.length > 0) {
           await supabase.from('watch_images').delete().eq('watch_id', watchId);
-          // Insert new image record
-          await supabase.from('watch_images').insert({
-            watch_id: watchId,
-            url: publicUrl,
-            position: 0
-          });
-          imagesUploaded++;
+          const imageRows = images.map((url, i) => ({ watch_id: watchId, url, position: i }));
+          await supabase.from('watch_images').insert(imageRows);
+          imagesAdded += images.length;
         }
       }
-
-      isExisting ? updated++ : added++;
     }
+
+    const nextOffset = offset + batch_size;
+    const done = test_mode || nextOffset >= totalOnStore;
 
     return res.status(200).json({
       success: true,
-      test_mode: testMode,
+      test_mode,
       added,
       updated,
       removed,
-      images_uploaded: imagesUploaded,
-      total_synced: zohoItems.length,
-      total_on_store: allItems.filter(i => i.show_in_storefront === true).length,
+      images_added: imagesAdded,
+      processed: zohoItems.length,
+      offset,
+      next_offset: done ? null : nextOffset,
+      total: totalOnStore,
+      done,
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (err) {
