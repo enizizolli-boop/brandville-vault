@@ -10,200 +10,80 @@ const ODOO_DB = process.env.ODOO_DB;
 const ODOO_USER_ID = parseInt(process.env.ODOO_USER_ID);
 const ODOO_API_KEY = process.env.ODOO_API_KEY;
 
-async function odooCall(model, method, args, kwargs = {}) {
-  const body = `<?xml version="1.0"?>
-<methodCall>
-  <methodName>execute_kw</methodName>
-  <params>
-    <param><value><string>${ODOO_DB}</string></value></param>
-    <param><value><int>${ODOO_USER_ID}</int></value></param>
-    <param><value><string>${ODOO_API_KEY}</string></value></param>
-    <param><value><string>${model}</string></value></param>
-    <param><value><string>${method}</string></value></param>
-    <param><value><array><data>${args}</data></array></value></param>
-    <param><value><struct>${kwargs}</struct></value></param>
-  </params>
-</methodCall>`;
-
-  const res = await fetch(`${ODOO_URL}/xmlrpc/2/object`, {
+async function odooRPC(model, method, args, kwargs = {}) {
+  const res = await fetch(`${ODOO_URL}/web/dataset/call_kw`, {
     method: 'POST',
-    headers: { 'Content-Type': 'text/xml' },
-    body
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'call',
+      id: 1,
+      params: {
+        model,
+        method,
+        args,
+        kwargs: {
+          context: { lang: 'en_US' },
+          ...kwargs,
+        },
+      },
+    }),
   });
-  const text = await res.text();
-  return text;
+
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.data?.message || data.error.message || 'Odoo RPC error');
+  return data.result;
 }
 
-function parseXmlValue(xml) {
-  // Parse a simple XML-RPC response into JS objects
-  const extractValue = (str) => {
-    // int
-    let m = str.match(/<int>(\d+)<\/int>/);
-    if (m) return parseInt(m[1]);
-    // double
-    m = str.match(/<double>([^<]+)<\/double>/);
-    if (m) return parseFloat(m[1]);
-    // boolean
-    m = str.match(/<boolean>([01])<\/boolean>/);
-    if (m) return m[1] === '1';
-    // string
-    m = str.match(/<string>([^<]*)<\/string>/);
-    if (m) return m[1];
-    // nil
-    if (str.includes('<nil/>')) return null;
-    return null;
-  };
-
-  // Parse array of structs
-  const structs = [];
-  const structRegex = /<struct>([\s\S]*?)<\/struct>/g;
-  let structMatch;
-  while ((structMatch = structRegex.exec(xml)) !== null) {
-    const struct = {};
-    const memberRegex = /<member>\s*<name>([^<]+)<\/name>\s*<value>([\s\S]*?)<\/value>\s*<\/member>/g;
-    let memberMatch;
-    while ((memberMatch = memberRegex.exec(structMatch[1])) !== null) {
-      const key = memberMatch[1];
-      const valStr = memberMatch[2];
-      // Handle array values (like categ_id which is [id, name])
-      if (valStr.includes('<array>')) {
-        const arrayInts = [...valStr.matchAll(/<int>(\d+)<\/int>/g)].map(m => parseInt(m[1]));
-        const arrayStrs = [...valStr.matchAll(/<string>([^<]*)<\/string>/g)].map(m => m[1]);
-        if (arrayInts.length > 0 && arrayStrs.length > 0) {
-          struct[key] = [arrayInts[0], arrayStrs[0]];
-        } else if (arrayStrs.length > 0) {
-          struct[key] = arrayStrs[0];
-        } else {
-          struct[key] = arrayInts;
-        }
-      } else {
-        struct[key] = extractValue(valStr);
-      }
-    }
-    if (Object.keys(struct).length > 0) structs.push(struct);
-  }
-  return structs;
+async function authenticate() {
+  const res = await fetch(`${ODOO_URL}/web/session/authenticate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'call',
+      params: {
+        db: ODOO_DB,
+        login: process.env.ODOO_EMAIL,
+        password: ODOO_API_KEY,
+      },
+    }),
+  });
+  const data = await res.json();
+  if (!data.result?.uid) throw new Error('Odoo authentication failed');
+  // Extract session cookie
+  const cookie = res.headers.get('set-cookie');
+  return { uid: data.result.uid, cookie };
 }
 
-async function fetchOdooJewellery(offset = 0, limit = 5) {
-  // Filter: active=true, sale_ok=true, category contains "Jewel" or "jewel"
-  const args = `<value><array><data>
-    <value><array><data>
-      <value><array><data>
-        <value><string>sale_ok</string></value>
-        <value><string>=</string></value>
-        <value><boolean>1</boolean></value>
-      </data></array></value>
-      <value><array><data>
-        <value><string>active</string></value>
-        <value><string>=</string></value>
-        <value><boolean>1</boolean></value>
-      </data></array></value>
-      <value><array><data>
-        <value><string>categ_id.name</string></value>
-        <value><string>ilike</string></value>
-        <value><string>jewel</string></value>
-      </data></array></value>
-    </data></array></value>
-  </data></array></value>`;
+async function odooRPCWithSession(sessionCookie, model, method, args, kwargs = {}) {
+  const res = await fetch(`${ODOO_URL}/web/dataset/call_kw`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Cookie': sessionCookie,
+    },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'call',
+      id: 1,
+      params: {
+        model,
+        method,
+        args,
+        kwargs: {
+          context: { lang: 'en_US' },
+          ...kwargs,
+        },
+      },
+    }),
+  });
 
-  const kwargs = `
-    <member><name>fields</name><value><array><data>
-      <value><string>id</string></value>
-      <value><string>name</string></value>
-      <value><string>default_code</string></value>
-      <value><string>list_price</string></value>
-      <value><string>categ_id</string></value>
-      <value><string>description_sale</string></value>
-      <value><string>image_1920</string></value>
-    </data></array></value></member>
-    <member><name>limit</name><value><int>${limit}</int></value></member>
-    <member><name>offset</name><value><int>${offset}</int></value></member>
-  `;
-
-  const xml = await odooCall('product.template', 'search_read', args, kwargs);
-  return parseXmlValue(xml);
-}
-
-async function fetchOdooBrand(productId) {
-  // Fetch brand via separate call since it's a Many2one field
-  const args = `<value><array><data>
-    <value><array><data>
-      <value><array><data>
-        <value><string>id</string></value>
-        <value><string>=</string></value>
-        <value><int>${productId}</int></value>
-      </data></array></value>
-    </data></array></value>
-  </data></array></value>`;
-
-  const kwargs = `
-    <member><name>fields</name><value><array><data>
-      <value><string>id</string></value>
-      <value><string>name</string></value>
-      <value><string>x_brand</string></value>
-      <value><string>product_brand_id</string></value>
-    </data></array></value></member>
-    <member><name>limit</name><value><int>1</int></value></member>
-  `;
-
-  const xml = await odooCall('product.template', 'search_read', args, kwargs);
-  const results = parseXmlValue(xml);
-  if (results.length > 0) {
-    const item = results[0];
-    // Try different brand field names
-    if (item.product_brand_id && Array.isArray(item.product_brand_id)) return item.product_brand_id[1];
-    if (item.x_brand) return item.x_brand;
-  }
-  return null;
-}
-
-async function countOdooJewellery() {
-  const args = `<value><array><data>
-    <value><array><data>
-      <value><array><data>
-        <value><string>sale_ok</string></value>
-        <value><string>=</string></value>
-        <value><boolean>1</boolean></value>
-      </data></array></value>
-      <value><array><data>
-        <value><string>active</string></value>
-        <value><string>=</string></value>
-        <value><boolean>1</boolean></value>
-      </data></array></value>
-      <value><array><data>
-        <value><string>categ_id.name</string></value>
-        <value><string>ilike</string></value>
-        <value><string>jewel</string></value>
-      </data></array></value>
-    </data></array></value>
-  </data></array></value>`;
-
-  const xml = await odooCall('product.template', 'search_count', args, '');
-  const m = xml.match(/<int>(\d+)<\/int>/);
-  return m ? parseInt(m[1]) : 0;
-}
-
-function mapOdooItem(item) {
-  // Extract brand from name if not in separate field
-  // Name format: "Brand ModelName Reference"
-  const name = item.name || '';
-  const reference = item.default_code || null;
-  const priceEur = item.list_price || null;
-  const notes = item.description_sale && item.description_sale.trim() ? item.description_sale.trim() : null;
-
-  return {
-    odoo_product_id: String(item.id),
-    source: 'odoo',
-    brand: 'Unknown', // will be updated with brand fetch
-    model: name.trim(),
-    reference,
-    price_eur: priceEur,
-    condition: 'pre-owned conditions with MINOR signs of usage',
-    status: 'available',
-    category: 'Jewellery',
-    notes,
-  };
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.data?.message || data.error.message || 'Odoo RPC error');
+  return data.result;
 }
 
 export default async function handler(req, res) {
@@ -214,14 +94,30 @@ export default async function handler(req, res) {
   const { batch_size = 5, offset = 0 } = req.body || {};
 
   try {
-    const totalCount = await countOdooJewellery();
-    const items = await fetchOdooJewellery(offset, batch_size);
+    // Authenticate and get session
+    const { uid, cookie } = await authenticate();
+
+    // Count jewellery items
+    const domain = [
+      ['sale_ok', '=', true],
+      ['active', '=', true],
+      ['categ_id.name', 'ilike', 'jewel'],
+    ];
+
+    const totalCount = await odooRPCWithSession(cookie, 'product.template', 'search_count', [domain]);
+
+    // Fetch batch of items
+    const items = await odooRPCWithSession(cookie, 'product.template', 'search_read', [domain], {
+      fields: ['id', 'name', 'default_code', 'list_price', 'categ_id', 'description_sale', 'product_brand_id', 'image_1920'],
+      limit: batch_size,
+      offset: offset,
+    });
 
     if (!items || items.length === 0) {
       return res.status(200).json({ success: true, done: true, processed: 0, total: totalCount });
     }
 
-    // Get existing Odoo items
+    // Get existing Odoo items in Supabase
     const odooIds = items.map(i => String(i.id));
     const { data: existingItems } = await supabase
       .from('watches')
@@ -238,35 +134,26 @@ export default async function handler(req, res) {
     const errors = [];
 
     for (const item of items) {
-      const mapped = mapOdooItem(item);
-      const isExisting = !!existingMap[mapped.odoo_product_id];
-
-      // Try to get brand
-      const brandXml = await odooCall('product.template', 'search_read',
-        `<value><array><data>
-          <value><array><data>
-            <value><array><data>
-              <value><string>id</string></value>
-              <value><string>=</string></value>
-              <value><int>${item.id}</int></value>
-            </data></array></value>
-          </data></array></value>
-        </data></array></value>`,
-        `<member><name>fields</name><value><array><data>
-          <value><string>product_brand_id</string></value>
-          <value><string>x_brand</string></value>
-        </data></array></value></member>
-        <member><name>limit</name><value><int>1</int></value></member>`
-      );
-      const brandResults = parseXmlValue(brandXml);
-      if (brandResults.length > 0) {
-        const b = brandResults[0];
-        if (b.product_brand_id && Array.isArray(b.product_brand_id)) {
-          mapped.brand = b.product_brand_id[1];
-        } else if (b.x_brand) {
-          mapped.brand = b.x_brand;
-        }
+      // Extract brand
+      let brand = 'Unknown';
+      if (item.product_brand_id && Array.isArray(item.product_brand_id) && item.product_brand_id.length > 1) {
+        brand = item.product_brand_id[1];
       }
+
+      const mapped = {
+        odoo_product_id: String(item.id),
+        source: 'odoo',
+        brand,
+        model: (item.name || '').trim(),
+        reference: item.default_code || null,
+        price_eur: item.list_price || null,
+        condition: 'pre-owned conditions with MINOR signs of usage',
+        status: 'available',
+        category: 'Jewellery',
+        notes: item.description_sale && item.description_sale.trim() ? item.description_sale.trim() : null,
+      };
+
+      const isExisting = !!existingMap[mapped.odoo_product_id];
 
       const { data: upserted, error } = await supabase
         .from('watches')
@@ -285,8 +172,7 @@ export default async function handler(req, res) {
       // Handle image — stored as base64 in image_1920
       if (watchId && item.image_1920 && item.image_1920 !== false) {
         try {
-          const base64Data = item.image_1920;
-          const buffer = Buffer.from(base64Data, 'base64');
+          const buffer = Buffer.from(item.image_1920, 'base64');
           const path = `${watchId}/odoo_primary.jpg`;
           await supabase.storage.from('watch-images').remove([path]);
           const { error: uploadError } = await supabase.storage
