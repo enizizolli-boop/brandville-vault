@@ -23,6 +23,9 @@ export default function AdminPanel() {
   const [odooSyncing, setOdooSyncing] = useState(false)
   const [odooResult, setOdooResult] = useState(null)
   const [odooError, setOdooError] = useState('')
+  const [extractingJewellery, setExtractingJewellery] = useState(false)
+  const [extractResult, setExtractResult] = useState(null)
+  const [extractError, setExtractError] = useState('')
 
   const fetchUsers = useCallback(async () => {
     const { data } = await supabase.from('profiles').select('*').order('created_at')
@@ -204,6 +207,21 @@ export default function AdminPanel() {
     setOdooSyncing(false)
   }
 
+  async function handleExtractJewelleryTypes() {
+    setExtractingJewellery(true)
+    setExtractResult(null)
+    setExtractError('')
+    try {
+      const res = await fetch('/api/extract-jewellery-types', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Extraction failed')
+      setExtractResult(data)
+    } catch (err) {
+      setExtractError(err.message || 'Something went wrong')
+    }
+    setExtractingJewellery(false)
+  }
+
   async function changeRole(userId, newRole) {
     await supabase.from('profiles').update({ role: newRole }).eq('id', userId)
     fetchUsers()
@@ -301,6 +319,36 @@ export default function AdminPanel() {
                   Syncing Odoo...
                 </span>
               ) : '↻ Sync Jewellery from Odoo'}
+            </button>
+          </div>
+
+          <div style={{ marginTop: 24, borderTop: '1px solid #e8e5e0', paddingTop: 20 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Extract Jewellery Types</div>
+            <div style={{ fontSize: 13, color: '#888', lineHeight: 1.6, marginBottom: 12 }}>
+              Extracts jewellery type (Rings, Bracelets, Necklaces, Earrings) from product names for existing items.
+            </div>
+
+            {extractResult && (
+              <div className="success-msg" style={{ marginBottom: 12 }}>
+                ✓ Updated {extractResult.updated} items ({extractResult.skipped} had no type found)
+              </div>
+            )}
+
+            {extractError && (
+              <div className="error-msg" style={{ marginBottom: 12 }}>{extractError}</div>
+            )}
+
+            <button
+              className="btn btn-dark btn-full"
+              onClick={handleExtractJewelleryTypes}
+              disabled={extractingJewellery || syncing || odooSyncing}
+            >
+              {extractingJewellery ? (
+                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <span className="spinner" style={{ width: 16, height: 16 }} />
+                  Extracting...
+                </span>
+              ) : '✨ Extract Types'}
             </button>
           </div>
         </div>
