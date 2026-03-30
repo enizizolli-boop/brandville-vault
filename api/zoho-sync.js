@@ -86,11 +86,48 @@ function mapCondition(raw) {
   return 'Fair';
 }
 
+function extractConditionFromText(text) {
+  if (!text) return null;
+  const lower = text.toLowerCase();
+  // Check for exact matches first
+  for (const condition of ALLOWED_CONDITIONS) {
+    if (lower.includes(condition.toLowerCase())) return condition;
+  }
+  // Then check for partial matches
+  if (lower.includes('minor')) return 'pre-owned conditions with MINOR signs of usage';
+  if (lower.includes('major')) return 'pre-owned conditions with MAJOR signs of usage';
+  if (lower.includes('albania')) return 'Repaired Albania';
+  if (lower.includes('repaired')) return 'Repaired';
+  if (lower.includes('repair')) return 'Needs Repair';
+  if (lower.includes('fair')) return 'Fair';
+  return null;
+}
+
+function extractJewelleryTypeFromText(text) {
+  if (!text) return null;
+  const lower = text.toLowerCase();
+  if (lower.includes('earring')) return 'Earrings';
+  if (lower.includes('bracelet')) return 'Bracelets';
+  if (lower.includes('necklace')) return 'Necklaces';
+  if (lower.includes('ring')) return 'Rings';
+  return null;
+}
+
 function mapZohoItem(item) {
   const brand = (item.cf_brand || item.brand || 'Unknown').trim();
   const model = (item.cf_model || item.name || 'Unknown').trim();
   const scopeRaw = item.cf_scope_of_delivery || null;
   const notes = item.description && item.description.trim() ? item.description.trim() : null;
+  
+  // Extract condition from name first, then description, then custom field
+  let condition = extractConditionFromText(model);
+  if (!condition) condition = extractConditionFromText(notes);
+  if (!condition) condition = mapCondition(item.cf_conditions);
+  
+  // Extract jewellery type from name
+  let jewellery_type = extractJewelleryTypeFromText(model);
+  if (!jewellery_type) jewellery_type = extractJewelleryTypeFromText(notes);
+  
   return {
     zoho_item_id: String(item.item_id),
     source: 'zoho',
@@ -98,7 +135,8 @@ function mapZohoItem(item) {
     model,
     reference: item.sku || null,
     price_eur: item.rate || null,
-    condition: mapCondition(item.cf_conditions),
+    condition,
+    jewellery_type: jewellery_type || null,
     scope_of_delivery: ALLOWED_SCOPES.includes(scopeRaw) ? scopeRaw : null,
     status: 'available',
     category: 'Watches',
