@@ -117,7 +117,7 @@ export default async function handler(req, res) {
   const { batch_size = 5, offset = 0 } = req.body || {};
 
   try {
-    const domain = [['sale_ok', '=', true], ['active', '=', true], ['categ_id', '=', JEWELRY_CATEG_ID], ['qty_available', '>', 0]];
+    const domain = [['sale_ok', '=', true], ['active', '=', true], ['categ_id', '=', JEWELRY_CATEG_ID], ['virtual_available', '>', 0]];
     const totalCount = await odooCount(domain);
     const items = await odooRead(domain, ['id', 'name', 'default_code', 'list_price', 'description_sale', 'image_1920'], batch_size, offset);
 
@@ -134,12 +134,39 @@ export default async function handler(req, res) {
     for (const item of items) {
       let brand = 'Unknown';
       if (item.name) {
-        const brands = ['Van Cleef', 'Cartier', 'Bulgari', 'Chanel', 'Chopard',
-          'Hermes', 'Louis Vuitton', 'Gucci', 'Prada', 'Dior', 'Tiffany',
-          'Harry Winston', 'Graff', 'Piaget', 'De Beers', 'Mikimoto'];
-        for (const b of brands) {
-          if (item.name.toLowerCase().includes(b.toLowerCase())) {
-            brand = b === 'Van Cleef' ? 'Van Cleef & Arpels' : b;
+        const brandMap = {
+          'bvlgari': 'Bulgari', 'bulgari': 'Bulgari',
+          'van cleef': 'Van Cleef & Arpels',
+          'cartier': 'Cartier',
+          'chanel': 'Chanel',
+          'chopard': 'Chopard',
+          'hermes': 'Hermès', 'hermès': 'Hermès',
+          'louis vuitton': 'Louis Vuitton',
+          'gucci': 'Gucci',
+          'prada': 'Prada',
+          'dior': 'Dior',
+          'tiffany': 'Tiffany & Co',
+          'harry winston': 'Harry Winston',
+          'graff': 'Graff',
+          'piaget': 'Piaget',
+          'de beers': 'De Beers',
+          'mikimoto': 'Mikimoto',
+          'rolex': 'Rolex',
+          'omega': 'Omega',
+          'breitling': 'Breitling',
+          'patek': 'Patek Philippe',
+          'audemars': 'Audemars Piguet',
+          'richard mille': 'Richard Mille',
+          'iwc': 'IWC',
+          'jaeger': 'Jaeger-LeCoultre',
+          'vacheron': 'Vacheron Constantin',
+        };
+        const nameLower = item.name.toLowerCase();
+        // Also check reference for brand hints
+        const refLower = (item.default_code || '').toLowerCase();
+        for (const [key, val] of Object.entries(brandMap)) {
+          if (nameLower.includes(key) || refLower.includes(key)) {
+            brand = val;
             break;
           }
         }
@@ -152,7 +179,7 @@ export default async function handler(req, res) {
         model: (item.name || '').trim(),
         reference: item.default_code || null,
         price_eur: item.list_price || null,
-        condition: 'pre-owned conditions with MINOR signs of usage',
+        condition: 'Fair', // default for Odoo items
         status: 'available',
         category: 'Jewellery',
         notes: item.description_sale && item.description_sale.trim() ? item.description_sale.trim() : null,
