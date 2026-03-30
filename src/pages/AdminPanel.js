@@ -128,6 +128,8 @@ export default function AdminPanel() {
 
     setImageSyncing(false)
   }
+
+  async function changeRole(userId, newRole) {
     await supabase.from('profiles').update({ role: newRole }).eq('id', userId)
     fetchUsers()
   }
