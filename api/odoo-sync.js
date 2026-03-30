@@ -130,7 +130,7 @@ export default async function handler(req, res) {
     const domain = [
       ['sale_ok', '=', true],
       ['active', '=', true],
-      ['categ_id.name', 'ilike', 'jewel'],
+      ['categ_id.name', '=', 'Jewelry'],
     ];
 
     // Count items
