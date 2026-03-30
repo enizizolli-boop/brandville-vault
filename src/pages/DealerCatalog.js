@@ -13,6 +13,12 @@ const BRANDS = [
   'Van Cleef & Arpels','Zenith'
 ]
 
+const CONDITIONS = [
+  'pre-owned conditions with MINOR signs of usage',
+  'pre-owned conditions with MAJOR signs of usage',
+  'Fair','Needs Repair','Repaired','Repaired Albania',
+]
+
 const BRAND_EMOJI = { 'Rolex': '⌚', 'Patek Philippe': '🕰', 'Audemars Piguet': '⌚', 'Richard Mille': '⌚', 'Omega': '⌚', 'Cartier': '⌚', 'IWC': '⌚', 'Jaeger-LeCoultre': '⌚', 'Vacheron Constantin': '⌚', 'A. Lange & Söhne': '⌚' }
 
 function fmtPrice(watch, currency) {
@@ -30,6 +36,7 @@ export default function DealerCatalog() {
   const [loading, setLoading] = useState(true)
   const [currency, setCurrency] = useState('EUR')
   const [filterBrand, setFilterBrand] = useState('')
+  const [filterCond, setFilterCond] = useState('')
   const [filterStatus, setFilterStatus] = useState('available')
   const [filterCategory, setFilterCategory] = useState(urlCategory)
   const [filterMetal, setFilterMetal] = useState('')
@@ -40,6 +47,7 @@ export default function DealerCatalog() {
   const fetchWatches = useCallback(async () => {
     let q = supabase.from('watches').select('*, watch_images(url, position)').order('created_at', { ascending: false })
     if (filterBrand) q = q.eq('brand', filterBrand)
+    if (filterCond) q = q.eq('condition', filterCond)
     if (filterStatus) q = q.eq('status', filterStatus)
     if (filterCategory) q = q.eq('category', filterCategory)
     if (filterMetal) q = q.eq('metal_type', filterMetal)
@@ -48,7 +56,7 @@ export default function DealerCatalog() {
     const { data } = await q
     setWatches(data || [])
     setLoading(false)
-  }, [filterBrand, filterStatus, filterCategory, filterMetal, filterSize, filterJewelleryType])
+  }, [filterBrand, filterCond, filterStatus, filterCategory, filterMetal, filterSize, filterJewelleryType])
 
   useEffect(() => { fetchWatches() }, [fetchWatches])
 
@@ -69,6 +77,8 @@ export default function DealerCatalog() {
     return [...imgs].sort((a, b) => a.position - b.position)[0]?.url || null
   }
 
+  const isWatches = filterCategory === 'Watches' || filterCategory === ''
+
   return (
     <div className="page">
       <Topbar currency={currency} onCurrencyChange={setCurrency} />
@@ -84,7 +94,7 @@ export default function DealerCatalog() {
         <div className="stat-card"><div className="stat-val">{watches.length}</div><div className="stat-lbl">Total in stock</div></div>
       </div>
       <div className="filters">
-        <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setFilterMetal(''); setFilterSize(''); setFilterJewelleryType('') }}>
+        <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setFilterMetal(''); setFilterSize(''); setFilterJewelleryType(''); setFilterCond('') }}>
           <option value=''>All categories</option>
           <option>Watches</option><option>Jewellery</option><option>Bags</option>
         </select>
@@ -92,6 +102,12 @@ export default function DealerCatalog() {
           <option value="">All brands</option>
           {BRANDS.map(b => <option key={b}>{b}</option>)}
         </select>
+        {isWatches && (
+          <select value={filterCond} onChange={e => setFilterCond(e.target.value)}>
+            <option value="">All conditions</option>
+            {CONDITIONS.map(c => <option key={c}>{c}</option>)}
+          </select>
+        )}
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
           <option value="">All status</option>
           <option value="available">Available</option>
