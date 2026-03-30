@@ -143,7 +143,70 @@ export default function AdminPanel() {
     setSyncing(false)
   }
 
-  async function handleImageSync() {
+  const [odooSyncing, setOdooSyncing] = useState(false)
+  const [odooResult, setOdooResult] = useState(null)
+  const [odooError, setOdooError] = useState('')
+
+  async function handleOdooSync() {
+    setOdooSyncing(true)
+    setOdooResult(null)
+    setOdooError('')
+
+    const BATCH_SIZE = 5
+    let offset = 0
+    let totalAdded = 0
+    let totalUpdated = 0
+    let totalImages = 0
+    let grandTotal = 0
+    const MAX_RETRIES = 3
+
+    try {
+      while (true) {
+        let data = null
+        let lastError = null
+
+        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+          try {
+            const res = await fetch('/api/odoo-sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ batch_size: BATCH_SIZE, offset })
+            })
+            data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Odoo sync failed')
+            lastError = null
+            break
+          } catch (err) {
+            lastError = err
+            await new Promise(r => setTimeout(r, 2000))
+          }
+        }
+
+        if (lastError) throw lastError
+
+        totalAdded += data.added || 0
+        totalUpdated += data.updated || 0
+        totalImages += data.images_added || 0
+        grandTotal = data.total || grandTotal
+
+        setOdooResult({
+          inProgress: !data.done,
+          added: totalAdded,
+          updated: totalUpdated,
+          images_added: totalImages,
+          processed: offset + (data.processed || 0),
+          total: grandTotal,
+        })
+
+        if (data.done || !data.next_offset) break
+        offset = data.next_offset
+      }
+      fetchStats()
+    } catch (err) {
+      setOdooError(err.message || 'Odoo sync failed.')
+    }
+    setOdooSyncing(false)
+  }
     setImageSyncing(true)
     setImageProgress(null)
     setImageSyncError('')
@@ -244,8 +307,37 @@ export default function AdminPanel() {
             ) : '↻ Sync now'}
           </button>
 
-          <div style={{ marginTop: 16, padding: 14, background: '#f7f6f3', borderRadius: 10, fontSize: 12, color: '#888', lineHeight: 1.6 }}>
-            Only items listed on Zoho Commerce are synced. Items in your inventory not listed on your store are excluded. Images are synced automatically with each item.
+          <div style={{ marginTop: 24, borderTop: '1px solid #e8e5e0', paddingTop: 20 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Sync Jewellery from Odoo</div>
+            <div style={{ fontSize: 13, color: '#888', lineHeight: 1.6, marginBottom: 12 }}>
+              Pulls all jewellery items from Odoo into Vault.
+            </div>
+
+            {odooResult && (
+              <div className="success-msg" style={{ marginBottom: 12 }}>
+                {odooResult.inProgress
+                  ? `⏳ Syncing... ${odooResult.processed}/${odooResult.total} items`
+                  : `✓ Done — ${odooResult.added} added, ${odooResult.updated} updated, ${odooResult.images_added} images`
+                }
+              </div>
+            )}
+
+            {odooError && (
+              <div className="error-msg" style={{ marginBottom: 12 }}>{odooError}</div>
+            )}
+
+            <button
+              className="btn btn-dark btn-full"
+              onClick={handleOdooSync}
+              disabled={odooSyncing || syncing}
+            >
+              {odooSyncing ? (
+                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <span className="spinner" style={{ width: 16, height: 16 }} />
+                  Syncing Odoo...
+                </span>
+              ) : '↻ Sync Jewellery from Odoo'}
+            </button>
           </div>
         </div>
       )}
