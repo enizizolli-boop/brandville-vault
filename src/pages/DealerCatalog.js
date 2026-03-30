@@ -123,7 +123,7 @@ export default function DealerCatalog() {
         {filterCategory === 'Jewellery' && (
           <select value={filterJewelleryType} onChange={e => { setFilterJewelleryType(e.target.value); setFilterSize('') }}>
             <option value="">All types</option>
-            <option>Rings</option><option>Bracelets</option><option>Necklaces</option>
+            <option>Rings</option><option>Bracelets</option><option>Necklaces</option><option>Earrings</option>
           </select>
         )}
         {filterCategory === 'Jewellery' && filterJewelleryType === 'Rings' && (
