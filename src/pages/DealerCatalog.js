@@ -46,6 +46,7 @@ export default function DealerCatalog() {
   const [filterSize, setFilterSize] = useState('')
   const [filterJewelleryType, setFilterJewelleryType] = useState('')
   const [search, setSearch] = useState('')
+  const [brandCounts, setBrandCounts] = useState({})
 
   const fetchWatches = useCallback(async () => {
     let q = supabase.from('watches').select('*, watch_images(url, position)').order('created_at', { ascending: false })
@@ -63,10 +64,42 @@ export default function DealerCatalog() {
 
   useEffect(() => { fetchWatches() }, [fetchWatches])
 
+  const fetchBrandCounts = useCallback(async () => {
+    let q = supabase.from('watches').select('brand')
+    // Important: do NOT apply filterBrand here, so the dropdown reflects "what's in stock"
+    // within the current non-brand filters.
+    if (filterCond) q = q.eq('condition', filterCond)
+    if (filterStatus) q = q.eq('status', filterStatus)
+    if (filterCategory) q = q.eq('category', filterCategory)
+    if (filterMetal) q = q.eq('metal_type', filterMetal)
+    if (filterSize) q = q.eq('item_size', filterSize)
+    if (filterJewelleryType) q = q.eq('jewellery_type', filterJewelleryType)
+    const { data } = await q
+    const next = {}
+    for (const row of data || []) {
+      if (!row?.brand) continue
+      next[row.brand] = (next[row.brand] || 0) + 1
+    }
+    setBrandCounts(next)
+  }, [filterCond, filterStatus, filterCategory, filterMetal, filterSize, filterJewelleryType])
+
+  useEffect(() => { fetchBrandCounts() }, [fetchBrandCounts])
+
   useEffect(() => {
     const sub = supabase.channel('watches-catalog').on('postgres_changes', { event: '*', schema: 'public', table: 'watches' }, fetchWatches).subscribe()
     return () => supabase.removeChannel(sub)
   }, [fetchWatches])
+
+  useEffect(() => {
+    const sub = supabase.channel('watches-brand-counts').on('postgres_changes', { event: '*', schema: 'public', table: 'watches' }, fetchBrandCounts).subscribe()
+    return () => supabase.removeChannel(sub)
+  }, [fetchBrandCounts])
+
+  useEffect(() => {
+    if (!filterBrand) return
+    if ((brandCounts[filterBrand] || 0) > 0) return
+    setFilterBrand('')
+  }, [filterBrand, brandCounts])
 
   const filtered = watches.filter(w =>
     !search || w.model?.toLowerCase().includes(search.toLowerCase()) || w.reference?.toLowerCase().includes(search.toLowerCase())
@@ -102,7 +135,7 @@ export default function DealerCatalog() {
         </select>
         <select value={filterBrand} onChange={e => setFilterBrand(e.target.value)}>
           <option value="">All brands</option>
-          {BRANDS.map(b => <option key={b}>{b}</option>)}
+          {BRANDS.filter(b => (brandCounts[b] || 0) > 0).map(b => <option key={b}>{b}</option>)}
         </select>
         <select value={filterCond} onChange={e => setFilterCond(e.target.value)}>
           <option value="">All conditions</option>
