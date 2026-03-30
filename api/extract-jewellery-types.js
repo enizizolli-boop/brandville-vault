@@ -8,10 +8,10 @@ const supabase = createClient(
 function extractJewelleryTypeFromText(text) {
   if (!text) return null;
   const lower = text.toLowerCase();
-  if (lower.includes('earring')) return 'Earrings';
-  if (lower.includes('bracelet')) return 'Bracelets';
-  if (lower.includes('necklace')) return 'Necklaces';
-  if (lower.includes('ring')) return 'Rings';
+  if (/\bearrings?\b/.test(lower)) return 'Earrings';
+  if (/\bbracelets?\b/.test(lower)) return 'Bracelets';
+  if (/\bnecklaces?\b/.test(lower)) return 'Necklaces';
+  if (/\brings?\b/.test(lower)) return 'Rings';
   return null;
 }
 
@@ -21,17 +21,17 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Fetch all jewellery items that don't have a jewellery_type yet
+    // Fetch records that may need type extraction or recategorization
     const { data: items, error } = await supabase
       .from('watches')
       .select('id, model, notes, jewellery_type, category')
-      .eq('category', 'Jewellery')
-      .is('jewellery_type', null);
+      .in('category', ['Jewellery', 'Watches']);
 
     if (error) throw error;
 
     let updated = 0;
     let skipped = 0;
+    let recategorized = 0;
 
     for (const item of items || []) {
       // Extract from model first, then notes
@@ -41,11 +41,16 @@ export default async function handler(req, res) {
       }
 
       if (jewellery_type) {
+        const patch = {
+          jewellery_type,
+          category: 'Jewellery',
+        };
         await supabase
           .from('watches')
-          .update({ jewellery_type })
+          .update(patch)
           .eq('id', item.id);
         updated++;
+        if (item.category !== 'Jewellery') recategorized++;
       } else {
         skipped++;
       }
@@ -54,6 +59,7 @@ export default async function handler(req, res) {
     res.status(200).json({
       message: `Successfully extracted jewellery types`,
       updated,
+      recategorized,
       skipped,
       total: items?.length || 0,
     });

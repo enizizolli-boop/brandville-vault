@@ -106,10 +106,10 @@ function extractConditionFromText(text) {
 function extractJewelleryTypeFromText(text) {
   if (!text) return null;
   const lower = text.toLowerCase();
-  if (lower.includes('earring')) return 'Earrings';
-  if (lower.includes('bracelet')) return 'Bracelets';
-  if (lower.includes('necklace')) return 'Necklaces';
-  if (lower.includes('ring')) return 'Rings';
+  if (/\bearrings?\b/.test(lower)) return 'Earrings';
+  if (/\bbracelets?\b/.test(lower)) return 'Bracelets';
+  if (/\bnecklaces?\b/.test(lower)) return 'Necklaces';
+  if (/\brings?\b/.test(lower)) return 'Rings';
   return null;
 }
 
@@ -127,6 +127,7 @@ function mapZohoItem(item) {
   // Extract jewellery type from name
   let jewellery_type = extractJewelleryTypeFromText(model);
   if (!jewellery_type) jewellery_type = extractJewelleryTypeFromText(notes);
+  const category = jewellery_type ? 'Jewellery' : 'Watches';
   
   return {
     zoho_item_id: String(item.item_id),
@@ -139,7 +140,7 @@ function mapZohoItem(item) {
     jewellery_type: jewellery_type || null,
     scope_of_delivery: ALLOWED_SCOPES.includes(scopeRaw) ? scopeRaw : null,
     status: 'available',
-    category: 'Watches',
+    category,
     notes,
   };
 }
