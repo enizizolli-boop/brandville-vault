@@ -20,6 +20,9 @@ export default function AdminPanel() {
   const [syncing, setSyncing] = useState(false)
   const [syncResult, setSyncResult] = useState(null)
   const [syncError, setSyncError] = useState('')
+  const [imageSyncing, setImageSyncing] = useState(false)
+  const [imageProgress, setImageProgress] = useState(null)
+  const [imageSyncError, setImageSyncError] = useState('')
 
   const fetchUsers = useCallback(async () => {
     const { data } = await supabase.from('profiles').select('*').order('created_at')
@@ -92,7 +95,39 @@ export default function AdminPanel() {
     setSyncing(false)
   }
 
-  async function changeRole(userId, newRole) {
+  async function handleImageSync() {
+    setImageSyncing(true)
+    setImageProgress(null)
+    setImageSyncError('')
+
+    const BATCH_SIZE = 10
+    let offset = 0
+    let totalImages = 0
+    let totalProcessed = 0
+
+    try {
+      while (true) {
+        const res = await fetch('/api/zoho-images', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ batch_size: BATCH_SIZE, offset })
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Image sync failed')
+
+        totalProcessed += data.processed
+        totalImages += data.images_added
+        setImageProgress({ processed: totalProcessed, total: data.total, images: totalImages })
+
+        if (data.done || !data.next_offset) break
+        offset = data.next_offset
+      }
+    } catch (err) {
+      setImageSyncError(err.message || 'Image sync failed')
+    }
+
+    setImageSyncing(false)
+  }
     await supabase.from('profiles').update({ role: newRole }).eq('id', userId)
     fetchUsers()
   }
@@ -168,8 +203,37 @@ export default function AdminPanel() {
             </button>
           </div>
 
-          <div style={{ marginTop: 16, padding: 14, background: '#f7f6f3', borderRadius: 10, fontSize: 12, color: '#888', lineHeight: 1.6 }}>
-            Only items linked to Zoho Commerce are synced. Items in your inventory that are not listed on your store are excluded.
+          <div style={{ marginTop: 24, borderTop: '1px solid #e8e5e0', paddingTop: 20 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Sync images from store</div>
+            <div style={{ fontSize: 13, color: '#888', lineHeight: 1.6, marginBottom: 12 }}>
+              Fetches all product images from your Zoho Commerce store for each item. Runs in batches — safe to run anytime.
+            </div>
+
+            {imageProgress && (
+              <div className="success-msg" style={{ marginBottom: 12 }}>
+                {imageSyncing
+                  ? `⏳ Syncing images... ${imageProgress.processed}/${imageProgress.total} items (${imageProgress.images} images so far)`
+                  : `✓ Done — ${imageProgress.processed} items processed, ${imageProgress.images} images synced`
+                }
+              </div>
+            )}
+
+            {imageSyncError && (
+              <div className="error-msg" style={{ marginBottom: 12 }}>{imageSyncError}</div>
+            )}
+
+            <button
+              className="btn btn-dark btn-full"
+              onClick={handleImageSync}
+              disabled={imageSyncing || syncing}
+            >
+              {imageSyncing ? (
+                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <span className="spinner" style={{ width: 16, height: 16 }} />
+                  Syncing images...
+                </span>
+              ) : '🖼 Sync all images'}
+            </button>
           </div>
         </div>
       )}
