@@ -81,6 +81,7 @@ export default function AdminPanel() {
     setSyncError('')
 
     const BATCH_SIZE = 20
+    const MAX_RETRIES = 3
     let offset = 0
     let totalAdded = 0
     let totalUpdated = 0
@@ -90,13 +91,28 @@ export default function AdminPanel() {
 
     try {
       while (true) {
-        const res = await fetch('/api/zoho-sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ batch_size: BATCH_SIZE, offset })
-        })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error || 'Sync failed')
+        let data = null
+        let lastError = null
+
+        // Retry logic per batch
+        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+          try {
+            const res = await fetch('/api/zoho-sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ batch_size: BATCH_SIZE, offset })
+            })
+            data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Sync failed')
+            lastError = null
+            break
+          } catch (err) {
+            lastError = err
+            await new Promise(r => setTimeout(r, 2000)) // wait 2s before retry
+          }
+        }
+
+        if (lastError) throw lastError
 
         totalAdded += data.added || 0
         totalUpdated += data.updated || 0
@@ -120,7 +136,9 @@ export default function AdminPanel() {
 
       fetchStats()
     } catch (err) {
-      setSyncError(err.message || 'Sync failed. Please try again.')
+      setSyncError(`Failed at batch ${offset} — ${err.message}. You can click Sync now to resume.`)
+      // Save offset so user knows where it stopped
+      setSyncResult(prev => prev ? { ...prev, inProgress: false, stoppedAt: offset } : null)
     }
     setSyncing(false)
   }
@@ -201,6 +219,11 @@ export default function AdminPanel() {
                 ? `⏳ Syncing... ${syncResult.processed}/${syncResult.total} items`
                 : `✓ Sync complete — ${syncResult.added} added, ${syncResult.updated} updated, ${syncResult.removed} removed, ${syncResult.images_added} images`
               }
+              {syncResult.stoppedAt > 0 && (
+                <div style={{ marginTop: 4, fontSize: 12, color: '#c00' }}>
+                  Stopped at item {syncResult.stoppedAt} — click Sync now to resume from where it stopped.
+                </div>
+              )}
             </div>
           )}
 

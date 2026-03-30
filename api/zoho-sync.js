@@ -140,7 +140,7 @@ export default async function handler(req, res) {
 
     // Remove stale items on first batch only
     let removed = 0;
-    if (!test_mode && offset === 0) {
+    if (offset === 0) {
       const { data: allExisting } = await supabase
         .from('watches').select('zoho_item_id').eq('source', 'zoho');
       const allExistingIds = (allExisting || []).map(i => i.zoho_item_id);
