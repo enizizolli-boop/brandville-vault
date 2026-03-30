@@ -20,9 +20,9 @@ export default function AdminPanel() {
   const [syncing, setSyncing] = useState(false)
   const [syncResult, setSyncResult] = useState(null)
   const [syncError, setSyncError] = useState('')
-  const [imageSyncing, setImageSyncing] = useState(false)
-  const [imageProgress, setImageProgress] = useState(null)
-  const [imageSyncError, setImageSyncError] = useState('')
+  const [odooSyncing, setOdooSyncing] = useState(false)
+  const [odooResult, setOdooResult] = useState(null)
+  const [odooError, setOdooError] = useState('')
 
   const fetchUsers = useCallback(async () => {
     const { data } = await supabase.from('profiles').select('*').order('created_at')
@@ -206,38 +206,6 @@ export default function AdminPanel() {
       setOdooError(err.message || 'Odoo sync failed.')
     }
     setOdooSyncing(false)
-  }
-    setImageSyncing(true)
-    setImageProgress(null)
-    setImageSyncError('')
-
-    const BATCH_SIZE = 10
-    let offset = 0
-    let totalImages = 0
-    let totalProcessed = 0
-
-    try {
-      while (true) {
-        const res = await fetch('/api/zoho-images', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ batch_size: BATCH_SIZE, offset })
-        })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error || 'Image sync failed')
-
-        totalProcessed += data.processed
-        totalImages += data.images_added
-        setImageProgress({ processed: totalProcessed, total: data.total, images: totalImages })
-
-        if (data.done || !data.next_offset) break
-        offset = data.next_offset
-      }
-    } catch (err) {
-      setImageSyncError(err.message || 'Image sync failed')
-    }
-
-    setImageSyncing(false)
   }
 
   async function changeRole(userId, newRole) {
