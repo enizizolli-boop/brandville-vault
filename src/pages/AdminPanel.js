@@ -143,10 +143,6 @@ export default function AdminPanel() {
     setSyncing(false)
   }
 
-  const [odooSyncing, setOdooSyncing] = useState(false)
-  const [odooResult, setOdooResult] = useState(null)
-  const [odooError, setOdooError] = useState('')
-
   async function handleOdooSync() {
     setOdooSyncing(true)
     setOdooResult(null)
