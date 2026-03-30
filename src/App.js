@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Login from './pages/Login'
 import ResetPassword from './pages/ResetPassword'
+import Home from './pages/Home'
 import DealerCatalog from './pages/DealerCatalog'
 import WatchDetail from './pages/WatchDetail'
 import AgentListings from './pages/AgentListings'
@@ -20,8 +21,8 @@ function RoleRedirect() {
   if (loading) return <div className="loading-page"><div className="spinner" /></div>
   if (!profile) return <Navigate to="/login" replace />
   if (profile.role === 'admin') return <Navigate to="/admin" replace />
-  if (profile.role === 'agent') return <Navigate to="/agent" replace />
-  return <Navigate to="/catalog" replace />
+  if (profile.role === 'agent') return <Navigate to="/home" replace />
+  return <Navigate to="/home" replace />
 }
 
 export default function App() {
@@ -32,9 +33,10 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/" element={<PrivateRoute><RoleRedirect /></PrivateRoute>} />
-          <Route path="/catalog" element={<PrivateRoute allowedRoles={['dealer','admin']}><DealerCatalog /></PrivateRoute>} />
+          <Route path="/home" element={<PrivateRoute allowedRoles={['dealer', 'agent', 'admin']}><Home /></PrivateRoute>} />
+          <Route path="/catalog" element={<PrivateRoute allowedRoles={['dealer', 'admin', 'agent']}><DealerCatalog /></PrivateRoute>} />
           <Route path="/catalog/:id" element={<PrivateRoute><WatchDetail /></PrivateRoute>} />
-          <Route path="/agent" element={<PrivateRoute allowedRoles={['agent','admin']}><AgentListings /></PrivateRoute>} />
+          <Route path="/agent" element={<PrivateRoute allowedRoles={['agent', 'admin']}><AgentListings /></PrivateRoute>} />
           <Route path="/admin" element={<PrivateRoute allowedRoles={['admin']}><AdminPanel /></PrivateRoute>} />
         </Routes>
       </BrowserRouter>

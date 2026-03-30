@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Topbar from '../components/Topbar'
 
@@ -33,16 +33,19 @@ function fmtPrice(watch, currency) {
 export default function DealerCatalog() {
   const [watches, setWatches] = useState([])
   const [loading, setLoading] = useState(true)
+  const navigate = useNavigate()
+  const location = useLocation()
+  const urlCategory = new URLSearchParams(location.search).get('category') || ''
+
   const [currency, setCurrency] = useState('EUR')
   const [filterBrand, setFilterBrand] = useState('')
   const [filterCond, setFilterCond] = useState('')
   const [filterStatus, setFilterStatus] = useState('available')
-  const [filterCategory, setFilterCategory] = useState('')
+  const [filterCategory, setFilterCategory] = useState(urlCategory)
   const [filterMetal, setFilterMetal] = useState('')
   const [filterSize, setFilterSize] = useState('')
   const [filterJewelleryType, setFilterJewelleryType] = useState('')
   const [search, setSearch] = useState('')
-  const navigate = useNavigate()
 
   const fetchWatches = useCallback(async () => {
     let q = supabase.from('watches').select('*, watch_images(url, position)').order('created_at', { ascending: false })
@@ -81,6 +84,12 @@ export default function DealerCatalog() {
   return (
     <div className="page">
       <Topbar currency={currency} onCurrencyChange={setCurrency} />
+      {urlCategory && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px 0' }}>
+          <button className="btn btn-sm" onClick={() => navigate('/home')}>← Back</button>
+          <span style={{ fontSize: 14, fontWeight: 600 }}>{urlCategory}</span>
+        </div>
+      )}
       <div className="stat-grid">
         <div className="stat-card"><div className="stat-val">{avail}</div><div className="stat-lbl">Available</div></div>
         <div className="stat-card"><div className="stat-val">{reserved}</div><div className="stat-lbl">Reserved</div></div>
