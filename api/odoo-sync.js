@@ -7,83 +7,116 @@ const supabase = createClient(
 
 const ODOO_URL = process.env.ODOO_URL;
 const ODOO_DB = process.env.ODOO_DB;
-const ODOO_USER_ID = parseInt(process.env.ODOO_USER_ID);
+const ODOO_UID = parseInt(process.env.ODOO_USER_ID);
 const ODOO_API_KEY = process.env.ODOO_API_KEY;
 
-async function odooRPC(model, method, args, kwargs = {}) {
-  const res = await fetch(`${ODOO_URL}/web/dataset/call_kw`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      method: 'call',
-      id: 1,
-      params: {
-        model,
-        method,
-        args,
-        kwargs: {
-          context: { lang: 'en_US' },
-          ...kwargs,
-        },
-      },
-    }),
-  });
-
-  const data = await res.json();
-  if (data.error) throw new Error(data.error.data?.message || data.error.message || 'Odoo RPC error');
-  return data.result;
+// Build XML-RPC value
+function xmlVal(val) {
+  if (val === null || val === undefined) return '<value><nil/></value>';
+  if (typeof val === 'boolean') return `<value><boolean>${val ? 1 : 0}</boolean></value>`;
+  if (typeof val === 'number' && Number.isInteger(val)) return `<value><int>${val}</int></value>`;
+  if (typeof val === 'number') return `<value><double>${val}</double></value>`;
+  if (typeof val === 'string') return `<value><string>${val}</string></value>`;
+  if (Array.isArray(val)) return `<value><array><data>${val.map(xmlVal).join('')}</data></array></value>`;
+  if (typeof val === 'object') {
+    const members = Object.entries(val).map(([k, v]) => `<member><name>${k}</name>${xmlVal(v)}</member>`).join('');
+    return `<value><struct>${members}</struct></value>`;
+  }
+  return `<value><string>${String(val)}</string></value>`;
 }
 
-async function authenticate() {
-  const res = await fetch(`${ODOO_URL}/web/session/authenticate`, {
+async function xmlrpc(method, params) {
+  const body = `<?xml version="1.0"?>
+<methodCall>
+  <methodName>${method}</methodName>
+  <params>${params.map(p => `<param>${xmlVal(p)}</param>`).join('')}</params>
+</methodCall>`;
+
+  const res = await fetch(`${ODOO_URL}/xmlrpc/2/object`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      method: 'call',
-      params: {
-        db: ODOO_DB,
-        login: process.env.ODOO_EMAIL,
-        password: ODOO_API_KEY,
-      },
-    }),
+    headers: { 'Content-Type': 'text/xml' },
+    body
   });
-  const data = await res.json();
-  if (!data.result?.uid) throw new Error('Odoo authentication failed');
-  // Extract session cookie
-  const cookie = res.headers.get('set-cookie');
-  return { uid: data.result.uid, cookie };
+  const text = await res.text();
+  return parseXmlRpcResponse(text);
 }
 
-async function odooRPCWithSession(sessionCookie, model, method, args, kwargs = {}) {
-  const res = await fetch(`${ODOO_URL}/web/dataset/call_kw`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Cookie': sessionCookie,
-    },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      method: 'call',
-      id: 1,
-      params: {
-        model,
-        method,
-        args,
-        kwargs: {
-          context: { lang: 'en_US' },
-          ...kwargs,
-        },
-      },
-    }),
-  });
+function parseXmlRpcResponse(xml) {
+  // Check for fault
+  if (xml.includes('<fault>')) {
+    const msg = xml.match(/<name>faultString<\/name>\s*<value><string>([^<]*)<\/string>/)?.[1] || 'XML-RPC fault';
+    throw new Error(msg);
+  }
 
-  const data = await res.json();
-  if (data.error) throw new Error(data.error.data?.message || data.error.message || 'Odoo RPC error');
-  return data.result;
+  function parseValue(node) {
+    const intMatch = node.match(/^<int>(\d+)<\/int>$/) || node.match(/^<i4>(\d+)<\/i4>$/);
+    if (intMatch) return parseInt(intMatch[1]);
+
+    const doubleMatch = node.match(/^<double>([^<]+)<\/double>$/);
+    if (doubleMatch) return parseFloat(doubleMatch[1]);
+
+    const boolMatch = node.match(/^<boolean>([01])<\/boolean>$/);
+    if (boolMatch) return boolMatch[1] === '1';
+
+    const strMatch = node.match(/^<string>([\s\S]*)<\/string>$/);
+    if (strMatch) return strMatch[1];
+
+    if (node === '<nil/>') return null;
+
+    if (node.startsWith('<array>')) {
+      const dataContent = node.replace(/^<array><data>/, '').replace(/<\/data><\/array>$/, '');
+      return parseValueList(dataContent);
+    }
+
+    if (node.startsWith('<struct>')) {
+      const obj = {};
+      const memberRegex = /<member><name>([^<]+)<\/name><value>([\s\S]*?)<\/value><\/member>/g;
+      let m;
+      while ((m = memberRegex.exec(node)) !== null) {
+        obj[m[1]] = parseValue(m[2].trim());
+      }
+      return obj;
+    }
+
+    // Try to extract any string
+    const anyStr = node.match(/<string>([\s\S]*?)<\/string>/)?.[1];
+    if (anyStr !== undefined) return anyStr;
+    const anyInt = node.match(/<int>(\d+)<\/int>/)?.[1];
+    if (anyInt !== undefined) return parseInt(anyInt);
+
+    return node;
+  }
+
+  function parseValueList(content) {
+    const results = [];
+    const valueRegex = /<value>([\s\S]*?)<\/value>/g;
+    let m;
+    while ((m = valueRegex.exec(content)) !== null) {
+      results.push(parseValue(m[1].trim()));
+    }
+    return results;
+  }
+
+  // Normalize whitespace
+  const normalized = xml.replace(/>\s+</g, '><').trim();
+
+  // Extract the response value
+  const paramMatch = normalized.match(/<params><param><value>([\s\S]*?)<\/value><\/param><\/params>/);
+  if (!paramMatch) return null;
+
+  return parseValue(paramMatch[1].trim());
+}
+
+async function odooExecute(model, method, domain, kwargs = {}) {
+  return xmlrpc('execute_kw', [
+    ODOO_DB,
+    ODOO_UID,
+    ODOO_API_KEY,
+    model,
+    method,
+    [domain],
+    kwargs
+  ]);
 }
 
 export default async function handler(req, res) {
@@ -94,20 +127,17 @@ export default async function handler(req, res) {
   const { batch_size = 5, offset = 0 } = req.body || {};
 
   try {
-    // Authenticate and get session
-    const { uid, cookie } = await authenticate();
-
-    // Count jewellery items
     const domain = [
       ['sale_ok', '=', true],
       ['active', '=', true],
       ['categ_id.name', 'ilike', 'jewel'],
     ];
 
-    const totalCount = await odooRPCWithSession(cookie, 'product.template', 'search_count', [domain]);
+    // Count items
+    const totalCount = await odooExecute('product.template', 'search_count', domain);
 
-    // Fetch batch of items
-    const items = await odooRPCWithSession(cookie, 'product.template', 'search_read', [domain], {
+    // Fetch batch
+    const items = await odooExecute('product.template', 'search_read', domain, {
       fields: ['id', 'name', 'default_code', 'list_price', 'categ_id', 'description_sale', 'product_brand_id', 'image_1920'],
       limit: batch_size,
       offset: offset,
@@ -117,7 +147,6 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, done: true, processed: 0, total: totalCount });
     }
 
-    // Get existing Odoo items in Supabase
     const odooIds = items.map(i => String(i.id));
     const { data: existingItems } = await supabase
       .from('watches')
@@ -134,7 +163,6 @@ export default async function handler(req, res) {
     const errors = [];
 
     for (const item of items) {
-      // Extract brand
       let brand = 'Unknown';
       if (item.product_brand_id && Array.isArray(item.product_brand_id) && item.product_brand_id.length > 1) {
         brand = item.product_brand_id[1];
@@ -169,7 +197,7 @@ export default async function handler(req, res) {
       const watchId = upserted?.id || existingMap[mapped.odoo_product_id];
       isExisting ? updated++ : added++;
 
-      // Handle image — stored as base64 in image_1920
+      // Upload image
       if (watchId && item.image_1920 && item.image_1920 !== false) {
         try {
           const buffer = Buffer.from(item.image_1920, 'base64');
