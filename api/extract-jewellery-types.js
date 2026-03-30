@@ -16,24 +16,28 @@ function extractJewelleryTypeFromText(text) {
   return null;
 }
 
+function typeCandidates(type) {
+  if (type === 'Earrings') return ['Earrings', 'Earring'];
+  return [type];
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    // Fetch records that may need type extraction or recategorization
+    // Only process Jewellery rows. This endpoint must never modify Watches.
     const { data: items, error } = await supabase
       .from('watches')
       .select('id, model, notes, reference, jewellery_type, category')
-      .in('category', ['Jewellery', 'Watches']);
+      .eq('category', 'Jewellery');
 
     if (error) throw error;
 
     let updated = 0;
     let skipped = 0;
-    let recategorized = 0;
-    const forcedIds = new Set();
+    let constraint_skipped = 0;
 
     for (const item of items || []) {
       // Extract from model first, then notes
@@ -46,41 +50,45 @@ export default async function handler(req, res) {
       }
 
       if (jewellery_type) {
-        const patch = {
-          jewellery_type,
-          category: 'Jewellery',
-        };
-        await supabase
-          .from('watches')
-          .update(patch)
-          .eq('id', item.id);
-        updated++;
-        if (item.category !== 'Jewellery') recategorized++;
+        let rowUpdated = false;
+        let lastError = null;
+
+        for (const candidate of typeCandidates(jewellery_type)) {
+          const { error: updateErr } = await supabase
+            .from('watches')
+            .update({ jewellery_type: candidate })
+            .eq('id', item.id)
+            .eq('category', 'Jewellery');
+
+          if (!updateErr) {
+            rowUpdated = true;
+            break;
+          }
+
+          lastError = updateErr;
+          if (!String(updateErr.message || '').includes('watches_jewellery_type_check')) {
+            throw updateErr;
+          }
+        }
+
+        if (rowUpdated) {
+          updated++;
+        } else {
+          constraint_skipped++;
+          console.warn('Skipping row due to jewellery_type constraint', { id: item.id, attempted: jewellery_type, error: lastError?.message });
+        }
       } else {
         skipped++;
       }
     }
 
-    // Fallback pass: force-classify earring-like records in bulk.
-    const earringPatterns = ['%earring%', '%earings%', '%earing%', '%stud%', '%hoop%'];
-    for (const pattern of earringPatterns) {
-      const { data: forcedRows, error: forceErr } = await supabase
-        .from('watches')
-        .update({ jewellery_type: 'Earrings', category: 'Jewellery' })
-        .or(`model.ilike.${pattern},notes.ilike.${pattern},reference.ilike.${pattern}`)
-        .select('id');
-
-      if (forceErr) throw forceErr;
-      (forcedRows || []).forEach(row => forcedIds.add(row.id));
-    }
-
     res.status(200).json({
       message: `Successfully extracted jewellery types`,
       updated,
-      recategorized,
-      forced_earrings: forcedIds.size,
       skipped,
+      constraint_skipped,
       total: items?.length || 0,
+      scope: 'Jewellery only',
     });
   } catch (err) {
     console.error(err);
