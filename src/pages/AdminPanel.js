@@ -330,7 +330,7 @@ export default function AdminPanel() {
 
             {extractResult && (
               <div className="success-msg" style={{ marginBottom: 12 }}>
-                ✓ Updated {extractResult.updated} items ({extractResult.skipped} had no type found)
+                ✓ Updated {extractResult.updated} items, force-classified {extractResult.forced_earrings || 0} earrings ({extractResult.skipped} had no type found)
               </div>
             )}
 

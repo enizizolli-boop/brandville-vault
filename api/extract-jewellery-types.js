@@ -33,6 +33,7 @@ export default async function handler(req, res) {
     let updated = 0;
     let skipped = 0;
     let recategorized = 0;
+    const forcedIds = new Set();
 
     for (const item of items || []) {
       // Extract from model first, then notes
@@ -60,10 +61,24 @@ export default async function handler(req, res) {
       }
     }
 
+    // Fallback pass: force-classify earring-like records in bulk.
+    const earringPatterns = ['%earring%', '%earings%', '%earing%', '%stud%', '%hoop%'];
+    for (const pattern of earringPatterns) {
+      const { data: forcedRows, error: forceErr } = await supabase
+        .from('watches')
+        .update({ jewellery_type: 'Earrings', category: 'Jewellery' })
+        .or(`model.ilike.${pattern},notes.ilike.${pattern},reference.ilike.${pattern}`)
+        .select('id');
+
+      if (forceErr) throw forceErr;
+      (forcedRows || []).forEach(row => forcedIds.add(row.id));
+    }
+
     res.status(200).json({
       message: `Successfully extracted jewellery types`,
       updated,
       recategorized,
+      forced_earrings: forcedIds.size,
       skipped,
       total: items?.length || 0,
     });
