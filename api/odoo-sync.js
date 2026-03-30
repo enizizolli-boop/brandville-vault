@@ -112,6 +112,17 @@ function parseVal(raw) {
   return null;
 }
 
+function extractJewelleryTypeFromText(text) {
+  if (!text) return null;
+  const lower = String(text).toLowerCase();
+  if (/\b(?:earrings?|earings?|earing|ear-?rings?)\b/.test(lower)) return 'Earrings';
+  if (/\b(?:studs?|hoops?)\b/.test(lower)) return 'Earrings';
+  if (/\bbracelets?\b/.test(lower)) return 'Bracelets';
+  if (/\bnecklaces?\b/.test(lower)) return 'Necklaces';
+  if (/\brings?\b/.test(lower)) return 'Rings';
+  return null;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const { batch_size = 5, offset = 0 } = req.body || {};
@@ -173,6 +184,7 @@ export default async function handler(req, res) {
       }
 
       const mapped = {
+        jewellery_type: extractJewelleryTypeFromText(item.name) || extractJewelleryTypeFromText(item.description_sale) || extractJewelleryTypeFromText(item.default_code),
         odoo_product_id: String(item.id),
         source: 'odoo',
         brand,

@@ -8,7 +8,8 @@ const supabase = createClient(
 function extractJewelleryTypeFromText(text) {
   if (!text) return null;
   const lower = text.toLowerCase();
-  if (/\bearrings?\b/.test(lower)) return 'Earrings';
+  if (/\b(?:earrings?|earings?|earing|ear-?rings?)\b/.test(lower)) return 'Earrings';
+  if (/\b(?:studs?|hoops?)\b/.test(lower)) return 'Earrings';
   if (/\bbracelets?\b/.test(lower)) return 'Bracelets';
   if (/\bnecklaces?\b/.test(lower)) return 'Necklaces';
   if (/\brings?\b/.test(lower)) return 'Rings';
@@ -24,7 +25,7 @@ export default async function handler(req, res) {
     // Fetch records that may need type extraction or recategorization
     const { data: items, error } = await supabase
       .from('watches')
-      .select('id, model, notes, jewellery_type, category')
+      .select('id, model, notes, reference, jewellery_type, category')
       .in('category', ['Jewellery', 'Watches']);
 
     if (error) throw error;
@@ -38,6 +39,9 @@ export default async function handler(req, res) {
       let jewellery_type = extractJewelleryTypeFromText(item.model);
       if (!jewellery_type) {
         jewellery_type = extractJewelleryTypeFromText(item.notes);
+      }
+      if (!jewellery_type) {
+        jewellery_type = extractJewelleryTypeFromText(item.reference);
       }
 
       if (jewellery_type) {

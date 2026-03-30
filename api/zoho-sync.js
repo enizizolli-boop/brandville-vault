@@ -106,7 +106,8 @@ function extractConditionFromText(text) {
 function extractJewelleryTypeFromText(text) {
   if (!text) return null;
   const lower = text.toLowerCase();
-  if (/\bearrings?\b/.test(lower)) return 'Earrings';
+  if (/\b(?:earrings?|earings?|earing|ear-?rings?)\b/.test(lower)) return 'Earrings';
+  if (/\b(?:studs?|hoops?)\b/.test(lower)) return 'Earrings';
   if (/\bbracelets?\b/.test(lower)) return 'Bracelets';
   if (/\bnecklaces?\b/.test(lower)) return 'Necklaces';
   if (/\brings?\b/.test(lower)) return 'Rings';
@@ -116,6 +117,7 @@ function extractJewelleryTypeFromText(text) {
 function mapZohoItem(item) {
   const brand = (item.cf_brand || item.brand || 'Unknown').trim();
   const model = (item.cf_model || item.name || 'Unknown').trim();
+  const reference = item.sku || null;
   const scopeRaw = item.cf_scope_of_delivery || null;
   const notes = item.description && item.description.trim() ? item.description.trim() : null;
   
@@ -127,6 +129,7 @@ function mapZohoItem(item) {
   // Extract jewellery type from name
   let jewellery_type = extractJewelleryTypeFromText(model);
   if (!jewellery_type) jewellery_type = extractJewelleryTypeFromText(notes);
+  if (!jewellery_type) jewellery_type = extractJewelleryTypeFromText(reference);
   const category = jewellery_type ? 'Jewellery' : 'Watches';
   
   return {
@@ -134,7 +137,7 @@ function mapZohoItem(item) {
     source: 'zoho',
     brand,
     model,
-    reference: item.sku || null,
+    reference,
     price_eur: item.rate || null,
     condition,
     jewellery_type: jewellery_type || null,
