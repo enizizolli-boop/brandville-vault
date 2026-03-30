@@ -138,7 +138,7 @@ export default async function handler(req, res) {
 
     // Fetch batch
     const items = await odooExecute('product.template', 'search_read', domain, {
-      fields: ['id', 'name', 'default_code', 'list_price', 'categ_id', 'description_sale', 'product_brand_id', 'image_1920'],
+      fields: ['id', 'name', 'default_code', 'list_price', 'categ_id', 'description_sale', 'image_1920'],
       limit: batch_size,
       offset: offset,
     });
@@ -164,8 +164,20 @@ export default async function handler(req, res) {
 
     for (const item of items) {
       let brand = 'Unknown';
-      if (item.product_brand_id && Array.isArray(item.product_brand_id) && item.product_brand_id.length > 1) {
-        brand = item.product_brand_id[1];
+      // Brand is stored separately - for now extract from name if possible
+      // Name format often: "BrandName ModelRef Description"
+      // Will be fixed once we identify the correct brand field
+      if (item.name) {
+        // Try to match known brands in the name
+        const knownBrands = ['Van Cleef', 'Cartier', 'Bulgari', 'Chanel', 'Chopard', 'Rolex',
+          'Omega', 'Hermès', 'Louis Vuitton', 'Gucci', 'Prada', 'Dior', 'Tiffany', 'Harry Winston',
+          'Graff', 'Piaget', 'De Beers', 'Mikimoto'];
+        for (const b of knownBrands) {
+          if (item.name.toLowerCase().includes(b.toLowerCase())) {
+            brand = b === 'Van Cleef' ? 'Van Cleef & Arpels' : b;
+            break;
+          }
+        }
       }
 
       const mapped = {
