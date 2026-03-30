@@ -271,7 +271,7 @@ export default function WatchDetail() {
                   <div className="form-row"><label>Jewellery type</label>
                     <select value={editForm.jewellery_type || ''} onChange={e => setEditForm(f => ({ ...f, jewellery_type: e.target.value, item_size: '' }))}>
                       <option value="">Select type</option>
-                      <option>Rings</option><option>Bracelets</option><option>Necklaces</option>
+                      <option>Rings</option><option>Bracelets</option><option>Necklaces</option><option>Earrings</option>
                     </select>
                   </div>
                   <div className="form-row"><label>Metal type</label>

@@ -27,6 +27,17 @@ function fmtPrice(watch, currency) {
   return '—'
 }
 
+function inferJewelleryType(item) {
+  const explicit = item?.jewellery_type
+  if (explicit) return explicit
+  const text = `${item?.model || ''} ${item?.reference || ''} ${item?.notes || ''}`.toLowerCase()
+  if (/\b(?:earrings?|earings?|earing|ear-?rings?)\b/.test(text) || /\b(?:studs?|hoops?)\b/.test(text)) return 'Earrings'
+  if (/\bbracelets?\b/.test(text)) return 'Bracelets'
+  if (/\bnecklaces?\b/.test(text)) return 'Necklaces'
+  if (/\brings?\b/.test(text)) return 'Rings'
+  return ''
+}
+
 export default function DealerCatalog() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -52,7 +63,6 @@ export default function DealerCatalog() {
     if (filterCategory) q = q.eq('category', filterCategory)
     if (filterMetal) q = q.eq('metal_type', filterMetal)
     if (filterSize) q = q.eq('item_size', filterSize)
-    if (filterJewelleryType) q = q.eq('jewellery_type', filterJewelleryType)
     const { data } = await q
     setWatches(data || [])
     setLoading(false)
@@ -65,9 +75,11 @@ export default function DealerCatalog() {
     return () => supabase.removeChannel(sub)
   }, [fetchWatches])
 
-  const filtered = watches.filter(w =>
-    !search || w.model?.toLowerCase().includes(search.toLowerCase()) || w.reference?.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = watches.filter(w => {
+    if (filterJewelleryType && inferJewelleryType(w) !== filterJewelleryType) return false
+    if (!search) return true
+    return w.model?.toLowerCase().includes(search.toLowerCase()) || w.reference?.toLowerCase().includes(search.toLowerCase())
+  })
 
   const avail = watches.filter(w => w.status === 'available').length
   const reserved = watches.filter(w => w.status === 'reserved').length

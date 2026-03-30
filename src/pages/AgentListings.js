@@ -248,6 +248,7 @@ export default function AgentListings() {
                     <option>Rings</option>
                     <option>Bracelets</option>
                     <option>Necklaces</option>
+                    <option>Earrings</option>
                   </select>
                 </div>
                 <div className="form-row">
