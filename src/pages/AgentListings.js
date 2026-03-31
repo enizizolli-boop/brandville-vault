@@ -68,6 +68,7 @@ export default function AgentListings() {
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
   const [currency, setCurrency] = useState('EUR')
+  const [search, setSearch] = useState('')
 
   const fetchMyWatches = useCallback(async () => {
     const q = profile?.role === 'admin'
@@ -164,6 +165,11 @@ export default function AgentListings() {
     return imgs[0]?.url || null
   }
 
+  const q = search.toLowerCase()
+  const filteredWatches = watches.filter(w =>
+    !search || w.brand?.toLowerCase().includes(q) || w.model?.toLowerCase().includes(q) || w.reference?.toLowerCase().includes(q)
+  )
+
   return (
     <div className="page">
       <Topbar currency={currency} onCurrencyChange={setCurrency} />
@@ -175,9 +181,17 @@ export default function AgentListings() {
       {tab === 'listings' && (
         <div style={{ padding: 16 }}>
           {msg && <div className="success-msg" style={{ marginBottom: 12 }}>{msg}</div>}
-          {loading ? <div className="loading-page" style={{ minHeight: 200 }}><div className="spinner" /></div>
-            : watches.length === 0 ? <div className="empty-state">No items posted yet</div>
-            : watches.map(w => (
+          <input
+            placeholder="Search brand, model or reference..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ width: '100%', marginBottom: 12, boxSizing: 'border-box' }}
+          />
+          {loading
+            ? <div className="loading-page" style={{ minHeight: 200 }}><div className="spinner" /></div>
+            : filteredWatches.length === 0
+              ? <div className="empty-state">{search ? 'No items match your search' : 'No items posted yet'}</div>
+              : filteredWatches.map(w => (
               <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid #e8e5e0', borderRadius: 10, marginBottom: 8, background: '#fff' }}>
                 <div onClick={() => navigate(`/catalog/${w.id}`)} style={{ width: 50, height: 50, borderRadius: 8, background: '#f7f6f3', border: '1px solid #e8e5e0', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}>
                   {getThumb(w) ? <img src={getThumb(w)} alt={w.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20 }}>⌚</span>}
