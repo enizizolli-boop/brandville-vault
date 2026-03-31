@@ -125,6 +125,17 @@ export default function WatchDetail() {
     setSaving(false)
   }
 
+  async function handleDeleteListing() {
+    if (!window.confirm('Delete this listing permanently? This cannot be undone.')) return
+    for (const img of images) {
+      const path = img.url.split('/object/public/watch-images/')[1]
+      if (path) await supabase.storage.from('watch-images').remove([decodeURIComponent(path)])
+    }
+    await supabase.from('watch_images').delete().eq('watch_id', id)
+    await supabase.from('watches').delete().eq('id', id)
+    navigate(-1)
+  }
+
   async function handleReorderImages(fromIndex, toIndex) {
     if (fromIndex === toIndex) return
     const reordered = [...images]
@@ -201,8 +212,11 @@ export default function WatchDetail() {
         {/* Back + Edit */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px' }}>
           <button className="btn btn-sm" onClick={() => navigate(-1)}>← Back</button>
-          {canEdit && !editing && <button className="btn btn-sm" onClick={() => setEditing(true)}>Edit</button>}
-          {editing && <button className="btn btn-sm" onClick={() => setEditing(false)}>Cancel</button>}
+          <div style={{ display: 'flex', gap: 8 }}>
+            {canEdit && !editing && <button className="btn btn-sm" onClick={() => setEditing(true)}>Edit</button>}
+            {editing && <button className="btn btn-sm" onClick={() => setEditing(false)}>Cancel</button>}
+            {profile?.role === 'admin' && !editing && <button className="btn btn-sm" onClick={handleDeleteListing} style={{ color: '#e00', borderColor: '#e00' }}>Delete</button>}
+          </div>
         </div>
 
         {msg && <div className="success-msg" style={{ margin: '0 16px 12px' }}>{msg}</div>}
