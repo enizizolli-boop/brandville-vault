@@ -44,8 +44,7 @@ export default function WatchDetail() {
   const [editForm, setEditForm] = useState({})
   const [saving, setSaving] = useState(false)
   const [uploadingImg, setUploadingImg] = useState(false)
-  const [dragIdx, setDragIdx] = useState(null)
-  const [dragOver, setDragOver] = useState(null)
+  const [dragIndex, setDragIndex] = useState(null)
 
   const fetchWatch = useCallback(async () => {
     const { data } = await supabase
@@ -119,6 +118,18 @@ export default function WatchDetail() {
     }).eq('id', id)
     if (!error) { await fetchWatch(); setEditing(false); setMsg('Watch updated successfully.') }
     setSaving(false)
+  }
+
+  async function handleReorderImages(fromIndex, toIndex) {
+    if (fromIndex === toIndex) return
+    const reordered = [...images]
+    const [moved] = reordered.splice(fromIndex, 1)
+    reordered.splice(toIndex, 0, moved)
+    setImages(reordered)
+    setActiveImg(toIndex)
+    await Promise.all(reordered.map((img, i) =>
+      supabase.from('watch_images').update({ position: i }).eq('url', img.url)
+    ))
   }
 
   async function handleDeleteImage(img) {
@@ -220,32 +231,18 @@ export default function WatchDetail() {
             {images.map((img, i) => (
               <div
                 key={img.url}
-                style={{ position: 'relative', flexShrink: 0, opacity: dragOver === i ? 0.4 : 1 }}
                 draggable={editing}
-                onDragStart={() => setDragIdx(i)}
-                onDragOver={e => { e.preventDefault(); setDragOver(i) }}
-                onDragLeave={() => setDragOver(null)}
-                onDrop={async e => {
-                  e.preventDefault()
-                  setDragOver(null)
-                  if (dragIdx === null || dragIdx === i) return
-                  const reordered = [...images]
-                  const [moved] = reordered.splice(dragIdx, 1)
-                  reordered.splice(i, 0, moved)
-                  setImages(reordered)
-                  setActiveImg(i)
-                  setDragIdx(null)
-                  await Promise.all(reordered.map((img, pos) =>
-                    supabase.from('watch_images').update({ position: pos }).eq('url', img.url)
-                  ))
-                }}
-                onDragEnd={() => { setDragOver(null); setDragIdx(null) }}
+                onDragStart={() => setDragIndex(i)}
+                onDragOver={e => e.preventDefault()}
+                onDrop={() => { handleReorderImages(dragIndex, i); setDragIndex(null) }}
+                onDragEnd={() => setDragIndex(null)}
+                style={{ position: 'relative', flexShrink: 0, opacity: dragIndex === i ? 0.4 : 1, cursor: editing ? 'grab' : 'pointer' }}
               >
                 <img
                   src={img.url}
                   alt=""
-                  onClick={() => setActiveImg(i)}
-                  style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: i === activeImg ? '2px solid #222' : '2px solid transparent', cursor: editing ? 'grab' : 'pointer' }}
+                  onClick={() => !editing && setActiveImg(i)}
+                  style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: i === activeImg ? '2px solid #222' : '2px solid transparent', pointerEvents: editing ? 'none' : 'auto' }}
                 />
                 {editing && (
                   <button onClick={() => handleDeleteImage(img)} style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', background: '#e00', color: '#fff', border: 'none', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
