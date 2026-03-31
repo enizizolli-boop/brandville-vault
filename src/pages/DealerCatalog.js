@@ -54,6 +54,7 @@ export default function DealerCatalog() {
   const [filterSize, setFilterSize] = useState('')
   const [filterJewelleryType, setFilterJewelleryType] = useState('')
   const [search, setSearch] = useState('')
+  const [sortBy, setSortBy] = useState('')
 
   const fetchWatches = useCallback(async () => {
     let q = supabase.from('watches').select('*, watch_images(url, position)').order('created_at', { ascending: false })
@@ -75,11 +76,18 @@ export default function DealerCatalog() {
     return () => supabase.removeChannel(sub)
   }, [fetchWatches])
 
-  const filtered = watches.filter(w => {
-    if (filterJewelleryType && inferJewelleryType(w) !== filterJewelleryType) return false
-    if (!search) return true
-    return w.model?.toLowerCase().includes(search.toLowerCase()) || w.reference?.toLowerCase().includes(search.toLowerCase())
-  })
+  const filtered = watches
+    .filter(w => {
+      if (filterJewelleryType && inferJewelleryType(w) !== filterJewelleryType) return false
+      if (!search) return true
+      return w.model?.toLowerCase().includes(search.toLowerCase()) || w.reference?.toLowerCase().includes(search.toLowerCase())
+    })
+    .sort((a, b) => {
+      if (sortBy === 'price_asc') return (a.price_eur || a.price_usd || 0) - (b.price_eur || b.price_usd || 0)
+      if (sortBy === 'price_desc') return (b.price_eur || b.price_usd || 0) - (a.price_eur || a.price_usd || 0)
+      if (sortBy === 'sku_asc') return (a.reference || '').localeCompare(b.reference || '')
+      return 0
+    })
 
   const avail = watches.filter(w => w.status === 'available').length
   const reserved = watches.filter(w => w.status === 'reserved').length
@@ -150,6 +158,12 @@ export default function DealerCatalog() {
             {['14','15','16','17','18','19','20','21','22','23','XS','S','M','L','XL','XXL','3XL'].map(s => <option key={s}>{s}</option>)}
           </select>
         )}
+        <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
+          <option value="">Sort: Default</option>
+          <option value="price_asc">Price: Low → High</option>
+          <option value="price_desc">Price: High → Low</option>
+          <option value="sku_asc">SKU: A → Z</option>
+        </select>
         <span className="filter-count">{filtered.length} items</span>
       </div>
       {loading ? (
