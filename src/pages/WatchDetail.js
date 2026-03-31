@@ -6,6 +6,11 @@ import { useExchangeRate } from '../hooks/useExchangeRate'
 import Topbar from '../components/Topbar'
 
 const WHATSAPP_NUMBER = process.env.REACT_APP_WHATSAPP_NUMBER || ''
+
+function cleanRef(ref) {
+  if (!ref) return ''
+  return ref.split(/[\/\-]/).filter(Boolean).pop()
+}
 const CATEGORIES = ['Watches', 'Jewellery', 'Bags']
 
 const CONDITIONS = [
@@ -341,7 +346,7 @@ export default function WatchDetail() {
                   <div style={{ fontSize: 10, color: '#aaa', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 2 }}>{watch.category || 'Watches'}</div>
                   <div className="detail-brand">{watch.brand}</div>
                   <div className="detail-model">{watch.model}</div>
-                  <div className="detail-ref">{watch.reference || '—'}</div>
+                  <div className="detail-ref">{cleanRef(watch.reference) || '—'}</div>
                 </div>
                 <span className={`badge badge-${watch.status}`} style={{ fontSize: 13, padding: '4px 10px' }}>{watch.status}</span>
               </div>

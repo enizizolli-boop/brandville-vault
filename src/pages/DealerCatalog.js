@@ -21,6 +21,11 @@ const CONDITIONS = [
 
 const BRAND_EMOJI = { 'Rolex': '⌚', 'Patek Philippe': '🕰', 'Audemars Piguet': '⌚', 'Richard Mille': '⌚', 'Omega': '⌚', 'Cartier': '⌚', 'IWC': '⌚', 'Jaeger-LeCoultre': '⌚', 'Vacheron Constantin': '⌚', 'A. Lange & Söhne': '⌚' }
 
+function cleanRef(ref) {
+  if (!ref) return ''
+  return ref.split(/[\/\-]/).filter(Boolean).pop()
+}
+
 function fmtPrice(watch, currency) {
   if (currency === 'EUR' && watch.price_eur) return '€' + Number(watch.price_eur).toLocaleString()
   if (watch.price_usd) return '$' + Number(watch.price_usd).toLocaleString()
@@ -85,7 +90,7 @@ export default function DealerCatalog() {
     .sort((a, b) => {
       if (sortBy === 'price_asc') return (a.price_eur || a.price_usd || 0) - (b.price_eur || b.price_usd || 0)
       if (sortBy === 'price_desc') return (b.price_eur || b.price_usd || 0) - (a.price_eur || a.price_usd || 0)
-      if (sortBy === 'sku_asc') return (a.reference || '').localeCompare(b.reference || '')
+      if (sortBy === 'sku_asc') return cleanRef(a.reference).localeCompare(cleanRef(b.reference))
       return 0
     })
 
@@ -180,7 +185,7 @@ export default function DealerCatalog() {
               <div className="watch-card-body">
                 <div className="watch-card-brand">{w.category ? w.category + ' · ' : ''}{w.brand}</div>
                 <div className="watch-card-model">{w.model}</div>
-                <div className="watch-card-ref">{w.reference || '—'}</div>
+                <div className="watch-card-ref">{cleanRef(w.reference) || '—'}</div>
                 <div className="watch-card-foot">
                   <span className="watch-card-price">{fmtPrice(w, currency)}</span>
                   <span className={`badge badge-${w.status}`}>{w.status}</span>
