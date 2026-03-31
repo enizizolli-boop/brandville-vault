@@ -91,6 +91,7 @@ export default function DealerCatalog() {
       if (sortBy === 'price_asc') return (a.price_eur || a.price_usd || 0) - (b.price_eur || b.price_usd || 0)
       if (sortBy === 'price_desc') return (b.price_eur || b.price_usd || 0) - (a.price_eur || a.price_usd || 0)
       if (sortBy === 'sku_asc') return cleanRef(a.reference).localeCompare(cleanRef(b.reference))
+      if (sortBy === 'sku_desc') return cleanRef(b.reference).localeCompare(cleanRef(a.reference))
       return 0
     })
 
@@ -167,7 +168,8 @@ export default function DealerCatalog() {
           <option value="">Sort: Default</option>
           <option value="price_asc">Price: Low → High</option>
           <option value="price_desc">Price: High → Low</option>
-          <option value="sku_asc">SKU: A → Z</option>
+          <option value="sku_asc">SKU: Old → New</option>
+          <option value="sku_desc">SKU: New → Old</option>
         </select>
         <span className="filter-count">{filtered.length} items</span>
       </div>
