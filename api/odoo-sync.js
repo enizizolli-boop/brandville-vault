@@ -95,6 +95,8 @@ function parseVal(raw) {
   if (m) return m[1] === '1';
   m = raw.match(/^<string>([\s\S]*)<\/string>$/);
   if (m) return m[1];
+  m = raw.match(/^<base64>([\s\S]*)<\/base64>$/);
+  if (m) return m[1].replace(/\s/g, '');
   if (raw === '<nil/>') return null;
   if (raw.startsWith('<array>')) {
     const intM = raw.match(/<int>(\d+)<\/int>/);
@@ -105,11 +107,36 @@ function parseVal(raw) {
   }
   m = raw.match(/<string>([\s\S]*?)<\/string>/);
   if (m) return m[1];
+  m = raw.match(/<base64>([\s\S]*?)<\/base64>/);
+  if (m) return m[1].replace(/\s/g, '');
   m = raw.match(/<int>(\d+)<\/int>/);
   if (m) return parseInt(m[1]);
   m = raw.match(/<double>([^<]+)<\/double>/);
   if (m) return parseFloat(m[1]);
   return null;
+}
+
+async function odooReadProductImages(productTmplIds) {
+  if (!productTmplIds.length) return [];
+  const idsXml = productTmplIds.map(id => `<value><int>${id}</int></value>`).join('');
+  const domainXml = `<value><array><data><value><string>product_tmpl_id</string></value><value><string>in</string></value><value><array><data>${idsXml}</data></array></value></data></array></value>`;
+  const body = `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>` +
+    `<param><value><string>${ODOO_DB}</string></value></param>` +
+    `<param><value><int>${ODOO_UID}</int></value></param>` +
+    `<param><value><string>${ODOO_API_KEY}</string></value></param>` +
+    `<param><value><string>product.image</string></value></param>` +
+    `<param><value><string>search_read</string></value></param>` +
+    `<param><value><array><data><value><array><data>${domainXml}</data></array></value></data></array></value></param>` +
+    `<param><value><struct>` +
+    `<member><name>fields</name><value><array><data><value><string>product_tmpl_id</string></value><value><string>image_1920</string></value><value><string>sequence</string></value></data></array></value></member>` +
+    `<member><name>limit</name><value><int>500</int></value></member>` +
+    `</struct></value></param></params></methodCall>`;
+  const res = await fetch(ODOO_URL + '/xmlrpc/2/object', {
+    method: 'POST', headers: { 'Content-Type': 'text/xml' }, body
+  });
+  const text = await res.text();
+  if (text.includes('<fault>')) { console.error('Extra images fault:', text.substring(0, 300)); return []; }
+  return parseItems(text);
 }
 
 function extractJewelleryTypeFromText(text) {
@@ -138,6 +165,21 @@ export default async function handler(req, res) {
     const { data: existing } = await supabase.from('watches').select('id, odoo_product_id').eq('source', 'odoo').in('odoo_product_id', odooIds);
     const existingMap = {};
     (existing || []).forEach(i => { existingMap[i.odoo_product_id] = i.id; });
+
+    // Fetch extra product images for all items in this batch
+    const extraImagesMap = {};
+    try {
+      const extraImgs = await odooReadProductImages(items.map(i => i.id));
+      for (const img of extraImgs) {
+        const tmplId = String(Array.isArray(img.product_tmpl_id) ? img.product_tmpl_id[0] : img.product_tmpl_id);
+        if (!extraImagesMap[tmplId]) extraImagesMap[tmplId] = [];
+        extraImagesMap[tmplId].push(img);
+      }
+      // Sort extra images by sequence
+      for (const key of Object.keys(extraImagesMap)) {
+        extraImagesMap[key].sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+      }
+    } catch (e) { console.error('Extra images fetch error:', e); }
 
     let added = 0, updated = 0, imagesAdded = 0;
     const errors = [];
@@ -204,19 +246,42 @@ export default async function handler(req, res) {
       const watchId = upserted?.id || existingMap[mapped.odoo_product_id];
       isExisting ? updated++ : added++;
 
-      if (watchId && item.image_1920 && item.image_1920 !== false) {
-        try {
-          const buffer = Buffer.from(item.image_1920, 'base64');
-          const path = watchId + '/odoo_primary.jpg';
-          await supabase.storage.from('watch-images').remove([path]);
-          const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
-          if (!upErr) {
-            const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
-            await supabase.from('watch_images').delete().eq('watch_id', watchId);
-            await supabase.from('watch_images').insert({ watch_id: watchId, url: publicUrl, position: 0 });
-            imagesAdded++;
-          }
-        } catch (e) { console.error('img err', e); }
+      if (watchId) {
+        await supabase.from('watch_images').delete().eq('watch_id', watchId);
+        let position = 0;
+
+        // Primary image
+        if (item.image_1920 && item.image_1920 !== false) {
+          try {
+            const buffer = Buffer.from(item.image_1920, 'base64');
+            const path = watchId + '/odoo_primary.jpg';
+            const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
+            if (!upErr) {
+              const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
+              await supabase.from('watch_images').insert({ watch_id: watchId, url: publicUrl, position });
+              position++;
+              imagesAdded++;
+            }
+          } catch (e) { console.error('primary img err', e); }
+        }
+
+        // Extra product media images
+        const extras = extraImagesMap[String(item.id)] || [];
+        for (let i = 0; i < extras.length; i++) {
+          const extraImg = extras[i];
+          if (!extraImg.image_1920 || extraImg.image_1920 === false) continue;
+          try {
+            const buffer = Buffer.from(extraImg.image_1920, 'base64');
+            const path = watchId + '/odoo_extra_' + i + '.jpg';
+            const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
+            if (!upErr) {
+              const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
+              await supabase.from('watch_images').insert({ watch_id: watchId, url: publicUrl, position });
+              position++;
+              imagesAdded++;
+            }
+          } catch (e) { console.error('extra img err', e); }
+        }
       }
     }
 

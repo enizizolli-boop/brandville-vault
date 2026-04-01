@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Topbar from '../components/Topbar'
@@ -43,6 +43,52 @@ function inferJewelleryType(item) {
   return ''
 }
 
+function CardImages({ watch, brandEmoji }) {
+  const [idx, setIdx] = useState(0)
+  const imgs = [...(watch.watch_images || [])].sort((a, b) => a.position - b.position)
+  const touchStartX = useRef(null)
+
+  function prev(e) {
+    e.stopPropagation()
+    setIdx(i => Math.max(i - 1, 0))
+  }
+  function next(e) {
+    e.stopPropagation()
+    setIdx(i => Math.min(i + 1, imgs.length - 1))
+  }
+  function onTouchStart(e) { touchStartX.current = e.touches[0].clientX }
+  function onTouchEnd(e) {
+    if (touchStartX.current === null) return
+    const dx = e.changedTouches[0].clientX - touchStartX.current
+    if (dx < -40 && idx < imgs.length - 1) setIdx(i => i + 1)
+    if (dx > 40 && idx > 0) setIdx(i => i - 1)
+    touchStartX.current = null
+  }
+
+  if (!imgs.length) return <span>{brandEmoji}</span>
+
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}
+      onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      <img src={imgs[idx].url} alt={watch.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      {imgs.length > 1 && idx > 0 && (
+        <button onClick={prev} style={{ position: 'absolute', left: 4, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.35)', border: 'none', color: '#fff', width: 24, height: 24, borderRadius: '50%', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>‹</button>
+      )}
+      {imgs.length > 1 && idx < imgs.length - 1 && (
+        <button onClick={next} style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.35)', border: 'none', color: '#fff', width: 24, height: 24, borderRadius: '50%', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>›</button>
+      )}
+      {imgs.length > 1 && (
+        <div style={{ position: 'absolute', bottom: 6, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 4 }}>
+          {imgs.map((_, i) => (
+            <div key={i} onClick={e => { e.stopPropagation(); setIdx(i) }}
+              style={{ width: 5, height: 5, borderRadius: '50%', background: i === idx ? '#fff' : 'rgba(255,255,255,0.45)', cursor: 'pointer' }} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function DealerCatalog() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -65,7 +111,12 @@ export default function DealerCatalog() {
     let q = supabase.from('watches').select('*, watch_images(url, position)').order('created_at', { ascending: false })
     if (filterBrand) q = q.eq('brand', filterBrand)
     if (filterCond) q = q.eq('condition', filterCond)
-    if (filterStatus) q = q.eq('status', filterStatus)
+    if (filterStatus) {
+      q = q.eq('status', filterStatus)
+    } else {
+      // Never show sold items even when "All status" is selected
+      q = q.neq('status', 'sold')
+    }
     if (filterCategory) q = q.eq('category', filterCategory)
     if (filterMetal) q = q.eq('metal_type', filterMetal)
     if (filterSize) q = q.eq('item_size', filterSize)
@@ -97,11 +148,6 @@ export default function DealerCatalog() {
 
   const avail = watches.filter(w => w.status === 'available').length
   const reserved = watches.filter(w => w.status === 'reserved').length
-
-  function getThumb(watch) {
-    const imgs = watch.watch_images || []
-    return [...imgs].sort((a, b) => a.position - b.position)[0]?.url || null
-  }
 
   const isWatches = filterCategory === 'Watches' || filterCategory === ''
 
@@ -135,9 +181,9 @@ export default function DealerCatalog() {
           </select>
         )}
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-          <option value="">All status</option>
           <option value="available">Available</option>
           <option value="reserved">Reserved</option>
+          <option value="">All status</option>
         </select>
         <input placeholder="Search model or ref..." value={search} onChange={e => setSearch(e.target.value)} style={{ width: 180 }} />
         {filterCategory === 'Jewellery' && (
@@ -182,7 +228,7 @@ export default function DealerCatalog() {
           {filtered.map(w => (
             <div key={w.id} className="watch-card" onClick={() => navigate(`/catalog/${w.id}`)}>
               <div className="watch-card-img">
-                {getThumb(w) ? <img src={getThumb(w)} alt={w.model} /> : <span>{BRAND_EMOJI[w.brand] || '⌚'}</span>}
+                <CardImages watch={w} brandEmoji={BRAND_EMOJI[w.brand] || '⌚'} />
               </div>
               <div className="watch-card-body">
                 <div className="watch-card-brand">{w.category ? w.category + ' · ' : ''}{w.brand}</div>
