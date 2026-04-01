@@ -48,10 +48,10 @@ export default function Home() {
         padding: '40px 16px 60px',
       }}>
         <div style={{ marginBottom: 40, textAlign: 'center' }}>
-          <div style={{ fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: '#aaa', marginBottom: 8 }}>
+          <div style={{ fontSize: 10, letterSpacing: 2.5, textTransform: 'uppercase', color: '#b8b0a5', marginBottom: 10, fontWeight: 600 }}>
             Welcome{profile?.full_name ? `, ${profile.full_name.split(' ')[0]}` : ''}
           </div>
-          <div style={{ fontSize: 26, fontWeight: 600, letterSpacing: -0.5 }}>
+          <div style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 30, fontWeight: 600, letterSpacing: 0.2, color: '#1c1814' }}>
             What are you looking for?
           </div>
         </div>
@@ -64,38 +64,38 @@ export default function Home() {
               onMouseEnter={() => setHovered(cat.key)}
               onMouseLeave={() => setHovered(null)}
               style={{
-                background: hovered === cat.key ? '#f0ede8' : '#fff',
-                border: '1px solid #e8e5e0',
+                background: '#fff',
+                border: hovered === cat.key ? '1px solid #b8965a' : '1px solid #eeebe5',
                 borderRadius: 16,
-                padding: '24px 28px',
+                padding: '22px 24px',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 20,
-                transition: 'all 0.15s ease',
-                transform: hovered === cat.key ? 'translateY(-1px)' : 'none',
-                boxShadow: hovered === cat.key ? '0 4px 16px rgba(0,0,0,0.06)' : '0 1px 3px rgba(0,0,0,0.04)',
+                gap: 18,
+                transition: 'all 0.2s ease',
+                transform: hovered === cat.key ? 'translateY(-2px)' : 'none',
+                boxShadow: hovered === cat.key ? '0 4px 20px rgba(0,0,0,0.09)' : '0 1px 3px rgba(0,0,0,0.05)',
               }}
             >
               <div style={{
-                width: 56,
-                height: 56,
-                borderRadius: 14,
-                background: cat.bg,
+                width: 52,
+                height: 52,
+                borderRadius: 12,
+                background: '#faf3e5',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 26,
+                fontSize: 24,
                 flexShrink: 0,
-                border: '1px solid #e8e5e0',
+                border: '1px solid #eeebe5',
               }}>
                 {cat.emoji}
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 3 }}>{cat.label}</div>
-                <div style={{ fontSize: 13, color: '#999' }}>{cat.description}</div>
+                <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 3, color: '#1c1814' }}>{cat.label}</div>
+                <div style={{ fontSize: 12, color: '#8a8078' }}>{cat.description}</div>
               </div>
-              <div style={{ fontSize: 20, color: '#ccc' }}>›</div>
+              <div style={{ fontSize: 18, color: hovered === cat.key ? '#b8965a' : '#c8c0b5' }}>›</div>
             </div>
           ))}
         </div>
@@ -107,7 +107,7 @@ export default function Home() {
               marginTop: 20,
               textAlign: 'center',
               fontSize: 13,
-              color: '#aaa',
+              color: '#b8b0a5',
               cursor: 'pointer',
               textDecoration: 'underline',
             }}

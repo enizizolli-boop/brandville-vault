@@ -21,11 +21,13 @@ export default function Login() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f7f6f3', padding: 16 }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8f6f2', padding: 16 }}>
       <div style={{ width: '100%', maxWidth: 360 }}>
-        <div style={{ marginBottom: 32, textAlign: 'center' }}>
-          <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: -0.5, marginBottom: 4 }}>Brandville <span style={{ color: '#aaa', fontWeight: 400 }}>Vault</span></div>
-          <div style={{ fontSize: 13, color: '#aaa' }}>Private watch catalog — access by invitation only</div>
+        <div style={{ marginBottom: 36, textAlign: 'center' }}>
+          <div style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 28, fontWeight: 600, letterSpacing: 0.3, marginBottom: 6 }}>
+            Brandville <span style={{ color: '#b8965a', fontStyle: 'italic', fontWeight: 500 }}>Vault</span>
+          </div>
+          <div style={{ fontSize: 12, color: '#b8b0a5', letterSpacing: 0.3 }}>Private catalog — access by invitation only</div>
         </div>
         <div className="card" style={{ padding: '28px 24px' }}>
           {error && <div className="error-msg">{error}</div>}

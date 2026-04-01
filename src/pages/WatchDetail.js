@@ -207,88 +207,91 @@ export default function WatchDetail() {
   return (
     <div className="page">
       <Topbar currency={currency} onCurrencyChange={setCurrency} />
-      <div style={{ maxWidth: 680, margin: '0 auto', padding: '0 0 40px' }}>
 
-        {/* Back + Edit */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px' }}>
-          <button className="btn btn-sm" onClick={() => navigate(-1)}>← Back</button>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {canEdit && !editing && <button className="btn btn-sm" onClick={() => setEditing(true)}>Edit</button>}
-            {editing && <button className="btn btn-sm" onClick={() => setEditing(false)}>Cancel</button>}
-            {profile?.role === 'admin' && !editing && <button className="btn btn-sm" onClick={handleDeleteListing} style={{ color: '#e00', borderColor: '#e00' }}>Delete</button>}
-          </div>
+      {/* Back + Edit bar */}
+      <div style={{ maxWidth: 940, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px' }}>
+        <button className="btn btn-sm" onClick={() => navigate(-1)}>← Back</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {canEdit && !editing && <button className="btn btn-sm" onClick={() => setEditing(true)}>Edit</button>}
+          {editing && <button className="btn btn-sm" onClick={() => setEditing(false)}>Cancel</button>}
+          {profile?.role === 'admin' && !editing && <button className="btn btn-sm" onClick={handleDeleteListing} style={{ color: '#c00', borderColor: '#f09595' }}>Delete</button>}
         </div>
+      </div>
 
-        {msg && <div className="success-msg" style={{ margin: '0 16px 12px' }}>{msg}</div>}
+      {msg && <div className="success-msg" style={{ maxWidth: 940, margin: '0 auto 4px', padding: '0 20px' }}><div>{msg}</div></div>}
 
-        {/* Image gallery */}
-        <div style={{ position: 'relative', background: '#f7f6f3', borderRadius: 16, margin: '0 16px', overflow: 'hidden', aspectRatio: '4/3', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {images.length > 0 ? (
-            <>
-              <img
-                src={images[activeImg]?.url}
-                alt={watch.model}
-                style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: 'zoom-in' }}
-                onClick={() => setLightbox(activeImg)}
-              />
-              {images.length > 1 && (
-                <div style={{ position: 'absolute', bottom: 10, display: 'flex', gap: 6 }}>
-                  {images.map((_, i) => (
-                    <div key={i} onClick={() => setActiveImg(i)} style={{ width: 7, height: 7, borderRadius: '50%', background: i === activeImg ? '#222' : 'rgba(0,0,0,0.2)', cursor: 'pointer' }} />
-                  ))}
+      {/* 2-column layout */}
+      <div className="detail-layout">
+
+        {/* LEFT — images */}
+        <div className="detail-left">
+          <div style={{ position: 'relative', background: '#f8f6f2', borderRadius: 16, overflow: 'hidden', aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #eeebe5' }}>
+            {images.length > 0 ? (
+              <>
+                <img
+                  src={images[activeImg]?.url}
+                  alt={watch.model}
+                  style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: 'zoom-in' }}
+                  onClick={() => setLightbox(activeImg)}
+                />
+                {images.length > 1 && (
+                  <div style={{ position: 'absolute', bottom: 12, display: 'flex', gap: 6 }}>
+                    {images.map((_, i) => (
+                      <div key={i} onClick={() => setActiveImg(i)} style={{ width: 7, height: 7, borderRadius: '50%', background: i === activeImg ? '#b8965a' : 'rgba(0,0,0,0.18)', cursor: 'pointer', transition: 'background 0.15s' }} />
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <span style={{ fontSize: 48 }}>⌚</span>
+            )}
+          </div>
+
+          {/* Thumbnails */}
+          {images.length > 1 && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 10, overflowX: 'auto', scrollbarWidth: 'none' }}>
+              {images.map((img, i) => (
+                <div
+                  key={img.url}
+                  draggable={editing}
+                  onDragStart={() => setDragIndex(i)}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={() => { handleReorderImages(dragIndex, i); setDragIndex(null) }}
+                  onDragEnd={() => setDragIndex(null)}
+                  style={{ position: 'relative', flexShrink: 0, opacity: dragIndex === i ? 0.4 : 1, cursor: editing ? 'grab' : 'pointer' }}
+                >
+                  <img
+                    src={img.url}
+                    alt=""
+                    onClick={() => !editing && setActiveImg(i)}
+                    style={{ width: 58, height: 58, objectFit: 'cover', borderRadius: 10, border: i === activeImg ? '2px solid #b8965a' : '2px solid #eeebe5', pointerEvents: editing ? 'none' : 'auto', transition: 'border-color 0.15s' }}
+                  />
+                  {editing && (
+                    <button onClick={() => handleDeleteImage(img)} style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', background: '#e00', color: '#fff', border: 'none', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                  )}
                 </div>
+              ))}
+              {editing && (
+                <label style={{ width: 58, height: 58, borderRadius: 10, border: '2px dashed #b8965a', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, fontSize: 22, color: '#b8965a', background: '#faf3e5' }}>
+                  {uploadingImg ? <span className="spinner" style={{ width: 16, height: 16 }} /> : '+'}
+                  <input type="file" accept="image/*" multiple onChange={handleAddImages} style={{ display: 'none' }} />
+                </label>
               )}
-            </>
-          ) : (
-            <span style={{ fontSize: 48 }}>⌚</span>
+            </div>
+          )}
+          {editing && images.length === 0 && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, cursor: 'pointer', color: '#8a8078', fontSize: 13 }}>
+              {uploadingImg ? <span className="spinner" style={{ width: 16, height: 16 }} /> : '+ Add photos'}
+              <input type="file" accept="image/*" multiple onChange={handleAddImages} style={{ display: 'none' }} />
+            </label>
           )}
         </div>
 
-        {/* Thumbnail row */}
-        {images.length > 1 && (
-          <div style={{ display: 'flex', gap: 8, padding: '10px 16px', overflowX: 'auto' }}>
-            {images.map((img, i) => (
-              <div
-                key={img.url}
-                draggable={editing}
-                onDragStart={() => setDragIndex(i)}
-                onDragOver={e => e.preventDefault()}
-                onDrop={() => { handleReorderImages(dragIndex, i); setDragIndex(null) }}
-                onDragEnd={() => setDragIndex(null)}
-                style={{ position: 'relative', flexShrink: 0, opacity: dragIndex === i ? 0.4 : 1, cursor: editing ? 'grab' : 'pointer' }}
-              >
-                <img
-                  src={img.url}
-                  alt=""
-                  onClick={() => !editing && setActiveImg(i)}
-                  style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: i === activeImg ? '2px solid #222' : '2px solid transparent', pointerEvents: editing ? 'none' : 'auto' }}
-                />
-                {editing && (
-                  <button onClick={() => handleDeleteImage(img)} style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', background: '#e00', color: '#fff', border: 'none', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
-                )}
-              </div>
-            ))}
-            {editing && (
-              <label style={{ width: 56, height: 56, borderRadius: 8, border: '2px dashed #ccc', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, fontSize: 22, color: '#bbb' }}>
-                {uploadingImg ? <span className="spinner" style={{ width: 16, height: 16 }} /> : '+'}
-                <input type="file" accept="image/*" multiple onChange={handleAddImages} style={{ display: 'none' }} />
-              </label>
-            )}
-          </div>
-        )}
-        {editing && images.length === 0 && (
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', cursor: 'pointer', color: '#888', fontSize: 13 }}>
-            {uploadingImg ? <span className="spinner" style={{ width: 16, height: 16 }} /> : '+ Add photos'}
-            <input type="file" accept="image/*" multiple onChange={handleAddImages} style={{ display: 'none' }} />
-          </label>
-        )}
-
-        <div style={{ padding: '16px 16px 0' }}>
-
-          {/* Edit form */}
+        {/* RIGHT — info */}
+        <div className="detail-right">
           {editing ? (
-            <div style={{ background: '#f7f6f3', borderRadius: 12, padding: 16, marginBottom: 20 }}>
-              <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 12 }}>Edit details</div>
+            <div style={{ background: '#f8f6f2', borderRadius: 12, padding: 16, marginBottom: 20, border: '1px solid #eeebe5' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#8a8078', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 14 }}>Edit details</div>
               <div className="form-row"><label>Category</label>
                 <select value={editForm.category || 'Watches'} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}>
                   {CATEGORIES.map(c => <option key={c}>{c}</option>)}
@@ -347,7 +350,7 @@ export default function WatchDetail() {
                 </select>
               </div>
               <div className="form-2col">
-                <div className="form-row"><label>Price USD</label><input type="number" value={editForm.price_usd} onChange={e => setEditForm(f => ({ ...f, price_usd: e.target.value }))} placeholder="Auto-calculated from EUR" /></div>
+                <div className="form-row"><label>Price USD</label><input type="number" value={editForm.price_usd} onChange={e => setEditForm(f => ({ ...f, price_usd: e.target.value }))} placeholder="Auto from EUR" /></div>
                 <div className="form-row"><label>Price EUR</label><input type="number" value={editForm.price_eur} onChange={e => setEditForm(f => ({ ...f, price_eur: e.target.value }))} /></div>
               </div>
               <div className="form-row"><label>Notes</label><textarea rows={2} value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} /></div>
@@ -355,14 +358,14 @@ export default function WatchDetail() {
             </div>
           ) : (
             <>
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14, gap: 12 }}>
                 <div>
-                  <div style={{ fontSize: 10, color: '#aaa', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 2 }}>{watch.category || 'Watches'}</div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: '#b8b0a5', textTransform: 'uppercase', letterSpacing: '1.2px', marginBottom: 4 }}>{watch.category || 'Watches'}</div>
                   <div className="detail-brand">{watch.brand}</div>
                   <div className="detail-model">{watch.model}</div>
                   <div className="detail-ref">{cleanRef(watch.reference) || '—'}</div>
                 </div>
-                <span className={`badge badge-${watch.status}`} style={{ fontSize: 13, padding: '4px 10px' }}>{watch.status}</span>
+                <span className={`badge badge-${watch.status}`} style={{ flexShrink: 0, marginTop: 4 }}>{watch.status}</span>
               </div>
 
               <div className="detail-price">{priceMain}</div>
@@ -376,44 +379,45 @@ export default function WatchDetail() {
                 {watch.item_size && <div className="detail-meta-row"><span>Size</span><span>{watch.item_size}</span></div>}
                 {watch.notes && <div className="detail-meta-row"><span>Notes</span><span>{watch.notes}</span></div>}
                 <div className="detail-meta-row"><span>Agent</span><span>{watch.profiles?.full_name || '—'}</span></div>
-                <div className="detail-meta-row"><span>Posted</span><span>{new Date(watch.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>
+                <div className="detail-meta-row"><span>Posted</span><span>{new Date(watch.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span></div>
               </div>
 
-              <div className="detail-actions" style={{ marginTop: 20 }}>
-                <button className="btn btn-green" onClick={handleWhatsApp} style={{ flex: 1 }}>WhatsApp</button>
+              <div className="detail-actions">
+                <button className="btn btn-green" onClick={handleWhatsApp}>WhatsApp</button>
                 {watch.status === 'available'
-                  ? <button className="btn btn-warning" onClick={handleReserve} disabled={reserving} style={{ flex: 1 }}>{reserving ? '...' : 'Reserve'}</button>
+                  ? <button className="btn btn-warning" onClick={handleReserve} disabled={reserving}>{reserving ? '...' : 'Reserve'}</button>
                   : (watch.reserved_by === profile?.id || profile?.role === 'admin')
-                    ? <button className="btn" onClick={handleUnreserve} disabled={reserving} style={{ flex: 1 }}>{reserving ? '...' : 'Unreserve'}</button>
+                    ? <button className="btn" onClick={handleUnreserve} disabled={reserving}>{reserving ? '...' : 'Unreserve'}</button>
                     : null
                 }
-                <button className="btn" onClick={handleShare} style={{ flex: 1 }}>Share</button>
+                <button className="btn" onClick={handleShare}>Share</button>
               </div>
             </>
           )}
         </div>
 
-        {/* Lightbox */}
-        {lightbox !== null && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.93)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setLightbox(null)}>
-            <button onClick={() => setLightbox(null)} style={{ position: 'absolute', top: 20, right: 24, background: 'none', border: 'none', color: '#fff', fontSize: 36, cursor: 'pointer', lineHeight: 1 }}>×</button>
-            {images.length > 1 && lightbox > 0 && (
-              <button onClick={e => { e.stopPropagation(); setLightbox(i => i - 1) }} style={{ position: 'absolute', left: 16, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', fontSize: 28, width: 48, height: 48, borderRadius: '50%', cursor: 'pointer' }}>‹</button>
-            )}
-            <img src={images[lightbox].url} alt={watch.model} style={{ maxWidth: '92vw', maxHeight: '92vh', objectFit: 'contain', borderRadius: 8 }} onClick={e => e.stopPropagation()} />
-            {images.length > 1 && lightbox < images.length - 1 && (
-              <button onClick={e => { e.stopPropagation(); setLightbox(i => i + 1) }} style={{ position: 'absolute', right: 16, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', fontSize: 28, width: 48, height: 48, borderRadius: '50%', cursor: 'pointer' }}>›</button>
-            )}
-            {images.length > 1 && (
-              <div style={{ position: 'absolute', bottom: 20, display: 'flex', gap: 6 }}>
-                {images.map((_, i) => (
-                  <div key={i} onClick={e => { e.stopPropagation(); setLightbox(i) }} style={{ width: 8, height: 8, borderRadius: '50%', background: i === lightbox ? '#fff' : 'rgba(255,255,255,0.35)', cursor: 'pointer' }} />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </div>
+
+      {/* Lightbox */}
+      {lightbox !== null && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.93)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setLightbox(null)}>
+          <button onClick={() => setLightbox(null)} style={{ position: 'absolute', top: 20, right: 24, background: 'none', border: 'none', color: '#fff', fontSize: 36, cursor: 'pointer', lineHeight: 1 }}>×</button>
+          {images.length > 1 && lightbox > 0 && (
+            <button onClick={e => { e.stopPropagation(); setLightbox(i => i - 1) }} style={{ position: 'absolute', left: 16, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', fontSize: 28, width: 48, height: 48, borderRadius: '50%', cursor: 'pointer' }}>‹</button>
+          )}
+          <img src={images[lightbox].url} alt={watch.model} style={{ maxWidth: '92vw', maxHeight: '92vh', objectFit: 'contain', borderRadius: 8 }} onClick={e => e.stopPropagation()} />
+          {images.length > 1 && lightbox < images.length - 1 && (
+            <button onClick={e => { e.stopPropagation(); setLightbox(i => i + 1) }} style={{ position: 'absolute', right: 16, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', fontSize: 28, width: 48, height: 48, borderRadius: '50%', cursor: 'pointer' }}>›</button>
+          )}
+          {images.length > 1 && (
+            <div style={{ position: 'absolute', bottom: 24, display: 'flex', gap: 7 }}>
+              {images.map((_, i) => (
+                <div key={i} onClick={e => { e.stopPropagation(); setLightbox(i) }} style={{ width: 8, height: 8, borderRadius: '50%', background: i === lightbox ? '#b8965a' : 'rgba(255,255,255,0.35)', cursor: 'pointer', transition: 'background 0.15s' }} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
