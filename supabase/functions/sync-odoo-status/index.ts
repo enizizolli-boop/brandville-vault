@@ -11,160 +11,132 @@ const JEWELRY_CATEG_ID = 8
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
-function buildXml(domain: [string, string, unknown][]) {
+function buildXmlRpc(model: string, domain: unknown[][], fields: string[], limit = 500) {
   const domainXml = domain.map(([field, op, val]) => {
     let valXml: string
-    if (typeof val === 'boolean') valXml = `<value><boolean>${val ? 1 : 0}</boolean></value>`
-    else if (typeof val === 'number') valXml = `<value><int>${val}</int></value>`
-    else valXml = `<value><string>${val}</string></value>`
+    if (Array.isArray(val)) {
+      const items = (val as unknown[]).map(v =>
+        typeof v === 'number' ? `<value><int>${v}</int></value>` : `<value><string>${v}</string></value>`
+      ).join('')
+      valXml = `<value><array><data>${items}</data></array></value>`
+    } else if (typeof val === 'boolean') {
+      valXml = `<value><boolean>${val ? 1 : 0}</boolean></value>`
+    } else if (typeof val === 'number') {
+      valXml = `<value><int>${val}</int></value>`
+    } else {
+      valXml = `<value><string>${val}</string></value>`
+    }
     return `<value><array><data><value><string>${field}</string></value><value><string>${op}</string></value>${valXml}</data></array></value>`
   }).join('')
+
+  const fieldsXml = fields.map(f => `<value><string>${f}</string></value>`).join('')
 
   return `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>
     <param><value><string>${ODOO_DB}</string></value></param>
     <param><value><int>${ODOO_UID}</int></value></param>
     <param><value><string>${ODOO_API_KEY}</string></value></param>
-    <param><value><string>product.template</string></value></param>
+    <param><value><string>${model}</string></value></param>
     <param><value><string>search_read</string></value></param>
     <param><value><array><data><value><array><data>${domainXml}</data></array></value></data></array></value></param>
     <param><value><struct>
-      <member><name>fields</name><value><array><data>
-        <value><string>id</string></value>
-        <value><string>virtual_available</string></value>
-      </data></array></value></member>
-      <member><name>limit</name><value><int>500</int></value></member>
+      <member><name>fields</name><value><array><data>${fieldsXml}</data></array></value></member>
+      <member><name>limit</name><value><int>${limit}</int></value></member>
     </struct></value></param>
   </params></methodCall>`
 }
 
-function parseIds(xml: string): { id: number; virtual_available: number }[] {
+function parseField(xml: string, fieldName: string): string | null {
   const norm = xml.replace(/>\s+</g, '><')
-  const items: { id: number; virtual_available: number }[] = []
+  const re = new RegExp(`<member><name>${fieldName}<\/name><value>([\\s\\S]*?)<\/value><\/member>`)
+  const m = norm.match(re)
+  if (!m) return null
+  const raw = m[1]
+  const intM = raw.match(/<(?:int|i4)>(\d+)<\/(?:int|i4)>/)
+  if (intM) return intM[1]
+  const strM = raw.match(/<string>([\s\S]*?)<\/string>/)
+  if (strM) return strM[1]
+  return null
+}
+
+function parseStructs(xml: string): Record<string, string>[] {
+  const norm = xml.replace(/>\s+</g, '><')
+  const results: Record<string, string>[] = []
   const structRe = /<struct>([\s\S]*?)<\/struct>/g
   let sm
   while ((sm = structRe.exec(norm)) !== null) {
-    const item: Record<string, unknown> = {}
+    const struct: Record<string, string> = {}
     const memberRe = /<member><name>([^<]+)<\/name><value>([\s\S]*?)<\/value><\/member>/g
     let mm
     while ((mm = memberRe.exec(sm[1])) !== null) {
       const raw = mm[2].trim()
-      const intM = raw.match(/^<(?:int|i4|double)>([^<]+)<\/(?:int|i4|double)>$/)
-      if (intM) item[mm[1]] = parseFloat(intM[1])
-      else {
-        const strM = raw.match(/^<string>([\s\S]*)<\/string>$/)
-        if (strM) item[mm[1]] = strM[1]
-        else {
-          // Handle array values like [id, name] for product_id
-          const arrM = raw.match(/^<array><data><value><(?:int|i4)>(\d+)<\/(?:int|i4)>/)
-          if (arrM) item[mm[1]] = parseInt(arrM[1])
-        }
-      }
+      const intM = raw.match(/<(?:int|i4)>(\d+)<\/(?:int|i4)>/)
+      if (intM) { struct[mm[1]] = intM[1]; continue }
+      const strM = raw.match(/<string>([\s\S]*?)<\/string>/)
+      if (strM) { struct[mm[1]] = strM[1]; continue }
+      const dblM = raw.match(/<double>([^<]+)<\/double>/)
+      if (dblM) { struct[mm[1]] = dblM[1]; continue }
     }
-    if (item.id !== undefined) {
-      items.push({ id: item.id as number, virtual_available: (item.virtual_available as number) ?? 0 })
-    }
+    if (struct.id) results.push(struct)
   }
-  return items
+  return results
 }
 
-function parseProductIds(xml: string): number[] {
-  const norm = xml.replace(/>\s+</g, '><')
-  const productIds: number[] = []
-  const structRe = /<struct>([\s\S]*?)<\/struct>/g
-  let sm
-  while ((sm = structRe.exec(norm)) !== null) {
-    const memberRe = /<member><name>product_id<\/name><value>([\s\S]*?)<\/value><\/member>/g
-    const mm = memberRe.exec(sm[1])
-    if (mm) {
-      // product_id comes as [id, name] in XML
-      const idM = mm[1].match(/<int>(\d+)<\/int>/)
-      if (idM) productIds.push(parseInt(idM[1]))
-    }
-  }
-  return productIds
+async function odooCall(model: string, domain: unknown[][], fields: string[], limit = 500) {
+  const xml = buildXmlRpc(model, domain, fields, limit)
+  const res = await fetch(`${ODOO_URL}/xmlrpc/2/object`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/xml' },
+    body: xml,
+  })
+  const text = await res.text()
+  if (text.includes('<fault>')) throw new Error(`Odoo fault on ${model}: ` + text.substring(0, 300))
+  return parseStructs(text)
 }
 
 serve(async () => {
   try {
-    // 1. Fetch all Odoo jewellery products (active) with stock info
-    const xml = buildXml([
-      ['sale_ok', '=', true],
-      ['active', '=', true],
-      ['categ_id', '=', JEWELRY_CATEG_ID],
-    ])
+    // 1. Fetch all jewellery products with stock info
+    const products = await odooCall(
+      'product.template',
+      [['sale_ok', '=', true], ['active', '=', true], ['categ_id', '=', JEWELRY_CATEG_ID]],
+      ['id', 'virtual_available']
+    )
 
-    const res = await fetch(`${ODOO_URL}/xmlrpc/2/object`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/xml' },
-      body: xml,
-    })
-    const text = await res.text()
-    if (text.includes('<fault>')) throw new Error('Odoo fault: ' + text.substring(0, 200))
+    const soldByStock = products.filter(p => parseFloat(p.virtual_available || '1') <= 0).map(p => p.id)
+    const availableByStock = products.filter(p => parseFloat(p.virtual_available || '0') > 0).map(p => p.id)
 
-    const products = parseIds(text)
+    // 2. Fetch products in quotation/draft SOs (state = draft or sent)
+    //    sale.order.line has product_template_id directly
+    const soLines = await odooCall(
+      'sale.order.line',
+      [['order_id.state', 'in', ['draft', 'sent']]],
+      ['product_template_id']
+    )
 
-    const soldInOdoo = products.filter(p => p.virtual_available <= 0).map(p => String(p.id))
+    const inQuotation = new Set(soLines.map(l => l.product_template_id).filter(Boolean))
 
-    // 2. Also fetch products from sales orders in quotation/draft/sent status
-    const soXml = buildXml([
-      ['state', 'in', ['draft', 'sent', 'quotation']],
-    ])
-
-    let soProducts = new Set<string>()
-    try {
-      const soFetch = await fetch(`${ODOO_URL}/xmlrpc/2/object`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/xml' },
-        body: soXml.replace('product.template', 'sale.order'),
-      })
-      const soText = await soFetch.text()
-      if (!soText.includes('<fault>')) {
-        const orders = parseIds(soText)
-        // For each SO, fetch its order lines to get products
-        for (const order of orders) {
-          const lineXml = buildXml([['order_id', '=', order.id]])
-          const lineFetch = await fetch(`${ODOO_URL}/xmlrpc/2/object`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/xml' },
-            body: lineXml.replace('product.template', 'sale.order.line'),
-          })
-          const lineText = await lineFetch.text()
-          if (!lineText.includes('<fault>')) {
-            const productIds = parseProductIds(lineText)
-            productIds.forEach(id => soProducts.add(String(id)))
-          }
-        }
-      }
-    } catch (e) {
-      console.error('SO fetch error:', e)
-    }
-
-    const availableInOdoo = products.filter(p => p.virtual_available > 0).map(p => String(p.id))
-
-    // Combine sold from low stock and sold from quotation SO
-    const allSoldInOdoo = Array.from(new Set([...soldInOdoo, ...soProducts]))
+    // Combine: sold if no stock OR in a quotation
+    const allSold = Array.from(new Set([...soldByStock, ...Array.from(inQuotation)]))
+    // Available only if has stock AND not in any quotation
+    const availableNotInSO = availableByStock.filter(id => !inQuotation.has(id))
 
     let markedSold = 0
     let markedAvailable = 0
 
-    // 3. Mark as sold: products with no stock in Odoo or in quotation SO that are still 'available' in Supabase
-    if (allSoldInOdoo.length > 0) {
+    if (allSold.length > 0) {
       const { data: toSell } = await supabase
         .from('watches')
         .select('id')
         .eq('source', 'odoo')
         .eq('status', 'available')
-        .in('odoo_product_id', allSoldInOdoo)
+        .in('odoo_product_id', allSold)
 
       if (toSell && toSell.length > 0) {
-        const ids = toSell.map(w => w.id)
-        await supabase.from('watches').update({ status: 'sold' }).in('id', ids)
-        markedSold = ids.length
+        await supabase.from('watches').update({ status: 'sold' }).in('id', toSell.map(w => w.id))
+        markedSold = toSell.length
       }
     }
 
-    // 4. Mark as available: products back in stock in Odoo AND not in any quotation SO that are 'sold' in Supabase
-    const availableNotInSO = availableInOdoo.filter(id => !soProducts.has(id))
     if (availableNotInSO.length > 0) {
       const { data: toRestore } = await supabase
         .from('watches')
@@ -174,14 +146,13 @@ serve(async () => {
         .in('odoo_product_id', availableNotInSO)
 
       if (toRestore && toRestore.length > 0) {
-        const ids = toRestore.map(w => w.id)
-        await supabase.from('watches').update({ status: 'available' }).in('id', ids)
-        markedAvailable = ids.length
+        await supabase.from('watches').update({ status: 'available' }).in('id', toRestore.map(w => w.id))
+        markedAvailable = toRestore.length
       }
     }
 
     return new Response(
-      JSON.stringify({ ok: true, marked_sold: markedSold, marked_available: markedAvailable }),
+      JSON.stringify({ ok: true, marked_sold: markedSold, marked_available: markedAvailable, in_quotation: inQuotation.size }),
       { headers: { 'Content-Type': 'application/json' } }
     )
   } catch (err) {

@@ -225,6 +225,7 @@ export default async function handler(req, res) {
         }
       }
 
+      const isExisting = !!existingMap[String(item.id)];
       const mapped = {
         jewellery_type: extractJewelleryTypeFromText(item.name) || extractJewelleryTypeFromText(item.description_sale) || extractJewelleryTypeFromText(item.default_code),
         odoo_product_id: String(item.id),
@@ -233,18 +234,19 @@ export default async function handler(req, res) {
         model: (item.name || '').trim(),
         reference: item.default_code || null,
         price_eur: item.list_price || null,
-        condition: 'Fair', // default for Odoo items
-        status: 'available',
+        condition: 'Fair',
+        // Only set status to 'available' for NEW items — never override status of existing items
+        ...(isExisting ? {} : { status: 'available' }),
         category: 'Jewellery',
         notes: item.description_sale && item.description_sale.trim() ? item.description_sale.trim() : null,
       };
 
-      const isExisting = !!existingMap[mapped.odoo_product_id];
       const { data: upserted, error } = await supabase.from('watches').upsert(mapped, { onConflict: 'odoo_product_id' }).select('id').single();
       if (error) { errors.push({ item: mapped.odoo_product_id, error: error.message }); continue; }
 
       const watchId = upserted?.id || existingMap[mapped.odoo_product_id];
       isExisting ? updated++ : added++;
+
 
       if (watchId) {
         await supabase.from('watch_images').delete().eq('watch_id', watchId);
