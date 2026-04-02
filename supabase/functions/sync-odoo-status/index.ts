@@ -53,6 +53,11 @@ function parseIds(xml: string): { id: number; virtual_available: number }[] {
       else {
         const strM = raw.match(/^<string>([\s\S]*)<\/string>$/)
         if (strM) item[mm[1]] = strM[1]
+        else {
+          // Handle array values like [id, name] for product_id
+          const arrM = raw.match(/^<array><data><value><(?:int|i4)>(\d+)<\/(?:int|i4)>/)
+          if (arrM) item[mm[1]] = parseInt(arrM[1])
+        }
       }
     }
     if (item.id !== undefined) {
@@ -60,6 +65,23 @@ function parseIds(xml: string): { id: number; virtual_available: number }[] {
     }
   }
   return items
+}
+
+function parseProductIds(xml: string): number[] {
+  const norm = xml.replace(/>\s+</g, '><')
+  const productIds: number[] = []
+  const structRe = /<struct>([\s\S]*?)<\/struct>/g
+  let sm
+  while ((sm = structRe.exec(norm)) !== null) {
+    const memberRe = /<member><name>product_id<\/name><value>([\s\S]*?)<\/value><\/member>/g
+    const mm = memberRe.exec(sm[1])
+    if (mm) {
+      // product_id comes as [id, name] in XML
+      const idM = mm[1].match(/<int>(\d+)<\/int>/)
+      if (idM) productIds.push(parseInt(idM[1]))
+    }
+  }
+  return productIds
 }
 
 serve(async () => {
@@ -82,19 +104,57 @@ serve(async () => {
     const products = parseIds(text)
 
     const soldInOdoo = products.filter(p => p.virtual_available <= 0).map(p => String(p.id))
+
+    // 2. Also fetch products from sales orders in quotation/draft/sent status
+    const soXml = buildXml([
+      ['state', 'in', ['draft', 'sent', 'quotation']],
+    ])
+
+    let soProducts = new Set<string>()
+    try {
+      const soFetch = await fetch(`${ODOO_URL}/xmlrpc/2/object`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/xml' },
+        body: soXml.replace('product.template', 'sale.order'),
+      })
+      const soText = await soFetch.text()
+      if (!soText.includes('<fault>')) {
+        const orders = parseIds(soText)
+        // For each SO, fetch its order lines to get products
+        for (const order of orders) {
+          const lineXml = buildXml([['order_id', '=', order.id]])
+          const lineFetch = await fetch(`${ODOO_URL}/xmlrpc/2/object`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/xml' },
+            body: lineXml.replace('product.template', 'sale.order.line'),
+          })
+          const lineText = await lineFetch.text()
+          if (!lineText.includes('<fault>')) {
+            const productIds = parseProductIds(lineText)
+            productIds.forEach(id => soProducts.add(String(id)))
+          }
+        }
+      }
+    } catch (e) {
+      console.error('SO fetch error:', e)
+    }
+
     const availableInOdoo = products.filter(p => p.virtual_available > 0).map(p => String(p.id))
+
+    // Combine sold from low stock and sold from quotation SO
+    const allSoldInOdoo = Array.from(new Set([...soldInOdoo, ...soProducts]))
 
     let markedSold = 0
     let markedAvailable = 0
 
-    // 2. Mark as sold: products with no stock in Odoo that are still 'available' in Supabase
-    if (soldInOdoo.length > 0) {
+    // 3. Mark as sold: products with no stock in Odoo or in quotation SO that are still 'available' in Supabase
+    if (allSoldInOdoo.length > 0) {
       const { data: toSell } = await supabase
         .from('watches')
         .select('id')
         .eq('source', 'odoo')
         .eq('status', 'available')
-        .in('odoo_product_id', soldInOdoo)
+        .in('odoo_product_id', allSoldInOdoo)
 
       if (toSell && toSell.length > 0) {
         const ids = toSell.map(w => w.id)
@@ -103,14 +163,15 @@ serve(async () => {
       }
     }
 
-    // 3. Mark as available: products back in stock in Odoo that are 'sold' in Supabase
-    if (availableInOdoo.length > 0) {
+    // 4. Mark as available: products back in stock in Odoo AND not in any quotation SO that are 'sold' in Supabase
+    const availableNotInSO = availableInOdoo.filter(id => !soProducts.has(id))
+    if (availableNotInSO.length > 0) {
       const { data: toRestore } = await supabase
         .from('watches')
         .select('id')
         .eq('source', 'odoo')
         .eq('status', 'sold')
-        .in('odoo_product_id', availableInOdoo)
+        .in('odoo_product_id', availableNotInSO)
 
       if (toRestore && toRestore.length > 0) {
         const ids = toRestore.map(w => w.id)
