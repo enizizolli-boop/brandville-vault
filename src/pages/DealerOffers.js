@@ -28,6 +28,7 @@ export default function DealerOffers() {
   const [loading, setLoading] = useState(true)
   const [msg, setMsg] = useState('')
   const [currency, setCurrency] = useState('EUR')
+  const [statusTab, setStatusTab] = useState('pending')
 
   const fetchOffers = useCallback(async () => {
     const { data } = await supabase
@@ -90,11 +91,22 @@ export default function DealerOffers() {
 
         {msg && <div className="success-msg" style={{ marginBottom: 12 }}><div>{msg}</div></div>}
 
+        <div className="tabs" style={{ marginBottom: 16 }}>
+          {['pending', 'countered', 'accepted', 'rejected'].map(s => {
+            const count = offers.filter(o => o.status === s).length
+            return (
+              <div key={s} className={`tab ${statusTab === s ? 'active' : ''}`} onClick={() => setStatusTab(s)} style={{ textTransform: 'capitalize' }}>
+                {s}{count > 0 && <span style={{ marginLeft: 5, background: s === 'pending' ? '#e6a817' : s === 'countered' ? '#b8965a' : s === 'accepted' ? '#2e7d32' : '#c62828', color: '#fff', borderRadius: 10, fontSize: 10, padding: '1px 6px', fontWeight: 700 }}>{count}</span>}
+              </div>
+            )
+          })}
+        </div>
+
         {loading
           ? <div className="loading-page" style={{ minHeight: 200 }}><div className="spinner" /></div>
-          : offers.length === 0
-            ? <div className="empty-state">You haven't made any offers yet</div>
-            : offers.map(offer => {
+          : offers.filter(o => o.status === statusTab).length === 0
+            ? <div className="empty-state">No {statusTab} offers</div>
+            : offers.filter(o => o.status === statusTab).map(offer => {
               const watch = offer.watches
               const thumb = getThumb(watch)
               return (

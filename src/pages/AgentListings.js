@@ -89,6 +89,7 @@ export default function AgentListings() {
   const [counterInputs, setCounterInputs] = useState({})
   const [agentComments, setAgentComments] = useState({})
   const [counterOpen, setCounterOpen] = useState({})
+  const [offerStatusTab, setOfferStatusTab] = useState('pending')
 
   const fetchMyWatches = useCallback(async () => {
     const q = profile?.role === 'admin'
@@ -308,11 +309,22 @@ export default function AgentListings() {
       {tab === 'offers' && (
         <div style={{ padding: 16, maxWidth: 700 }}>
           {msg && <div className="success-msg" style={{ marginBottom: 12 }}>{msg}</div>}
+          <div className="tabs" style={{ marginBottom: 16 }}>
+            {['pending', 'countered', 'accepted', 'rejected'].map(s => {
+              const count = offers.filter(o => o.status === s).length
+              const badgeColor = s === 'pending' ? '#e6a817' : s === 'countered' ? '#b8965a' : s === 'accepted' ? '#2e7d32' : '#c62828'
+              return (
+                <div key={s} className={`tab ${offerStatusTab === s ? 'active' : ''}`} onClick={() => setOfferStatusTab(s)} style={{ textTransform: 'capitalize' }}>
+                  {s}{count > 0 && <span style={{ marginLeft: 5, background: badgeColor, color: '#fff', borderRadius: 10, fontSize: 10, padding: '1px 6px', fontWeight: 700 }}>{count}</span>}
+                </div>
+              )
+            })}
+          </div>
           {offersLoading
             ? <div className="loading-page" style={{ minHeight: 200 }}><div className="spinner" /></div>
-            : offers.length === 0
-              ? <div className="empty-state">No offers yet</div>
-              : offers.map(offer => {
+            : offers.filter(o => o.status === offerStatusTab).length === 0
+              ? <div className="empty-state">No {offerStatusTab} offers</div>
+              : offers.filter(o => o.status === offerStatusTab).map(offer => {
                 const watch = offer.watches
                 const imgs = [...(watch?.watch_images || [])].sort((a, b) => a.position - b.position)
                 const thumb = imgs[0]?.url || null
