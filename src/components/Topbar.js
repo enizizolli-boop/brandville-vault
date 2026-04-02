@@ -42,6 +42,9 @@ export default function Topbar({ currency, onCurrencyChange }) {
         {profile?.role !== 'agent' && (
           <button className="btn btn-sm" onClick={() => navigate('/catalog')}>Catalog</button>
         )}
+        {profile?.role === 'dealer' && (
+          <button className="btn btn-sm" onClick={() => navigate('/offers')}>My Offers</button>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div className={`avatar ${avatarColor(profile?.full_name)}`}>{initials(profile?.full_name)}</div>
           <span style={{ fontSize: 12, color: '#888' }}>{profile?.full_name}</span>

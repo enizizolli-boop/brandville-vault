@@ -6,6 +6,20 @@ import { useExchangeRate } from '../hooks/useExchangeRate'
 import Topbar from '../components/Topbar'
 
 const WHATSAPP_NUMBER = process.env.REACT_APP_WHATSAPP_NUMBER || ''
+const SUPABASE_URL = 'https://tulqgebsvpxgwocptnmy.supabase.co'
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1bHFnZWJzdnB4Z3dvY3B0bm15Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MjYzOTEsImV4cCI6MjA5MDIwMjM5MX0.H12dPM59cIxlvpR7jbuDjpX11qNdohvi-nhiMxNheJA'
+
+async function notifyOffer(payload) {
+  try {
+    await fetch(`${SUPABASE_URL}/functions/v1/notify-offer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ANON_KEY}` },
+      body: JSON.stringify(payload)
+    })
+  } catch (err) {
+    console.log('Notify error:', err)
+  }
+}
 
 function cleanRef(ref) {
   if (!ref) return ''
@@ -50,6 +64,12 @@ export default function WatchDetail() {
   const [saving, setSaving] = useState(false)
   const [uploadingImg, setUploadingImg] = useState(false)
   const [dragIndex, setDragIndex] = useState(null)
+  const [offerModal, setOfferModal] = useState(false)
+  const [offerPrice, setOfferPrice] = useState('')
+  const [offerComment, setOfferComment] = useState('')
+  const [offerPhone, setOfferPhone] = useState('')
+  const [submittingOffer, setSubmittingOffer] = useState(false)
+  const [myOffer, setMyOffer] = useState(null)
 
   const fetchWatch = useCallback(async () => {
     const { data } = await supabase
@@ -78,7 +98,20 @@ export default function WatchDetail() {
     setLoading(false)
   }, [id])
 
+  const fetchMyOffer = useCallback(async () => {
+    if (profile?.role !== 'dealer') return
+    const { data } = await supabase
+      .from('offers')
+      .select('*')
+      .eq('watch_id', id)
+      .eq('dealer_id', profile.id)
+      .in('status', ['pending', 'countered'])
+      .maybeSingle()
+    setMyOffer(data || null)
+  }, [id, profile])
+
   useEffect(() => { fetchWatch() }, [fetchWatch])
+  useEffect(() => { fetchMyOffer() }, [fetchMyOffer])
 
   useEffect(() => {
     function onKey(e) {
@@ -171,6 +204,36 @@ export default function WatchDetail() {
     }
     setUploadingImg(false)
     await fetchWatch()
+  }
+
+  async function handleSubmitOffer() {
+    if (!offerPrice) return
+    setSubmittingOffer(true)
+    const { data: offer, error } = await supabase.from('offers').insert({
+      watch_id: id,
+      dealer_id: profile.id,
+      dealer_whatsapp: offerPhone || null,
+      offer_price: Number(offerPrice),
+      status: 'pending',
+      dealer_comment: offerComment || null,
+    }).select().single()
+    if (!error) {
+      notifyOffer({
+        action: 'new_offer',
+        watch: { brand: watch.brand, model: watch.model },
+        dealer_name: profile.full_name,
+        dealer_whatsapp: offerPhone || null,
+        offer_price: Number(offerPrice),
+        dealer_comment: offerComment || null,
+      })
+      setMyOffer(offer)
+      setOfferModal(false)
+      setOfferPrice('')
+      setOfferComment('')
+      setOfferPhone('')
+      setMsg('Offer submitted — the agent will be in touch.')
+    }
+    setSubmittingOffer(false)
   }
 
   function handleShare() {
@@ -384,19 +447,80 @@ export default function WatchDetail() {
 
               <div className="detail-actions">
                 <button className="btn btn-green" onClick={handleWhatsApp}>WhatsApp</button>
-                {watch.status === 'available'
-                  ? <button className="btn btn-warning" onClick={handleReserve} disabled={reserving}>{reserving ? '...' : 'Reserve'}</button>
-                  : (watch.reserved_by === profile?.id || profile?.role === 'admin')
-                    ? <button className="btn" onClick={handleUnreserve} disabled={reserving}>{reserving ? '...' : 'Unreserve'}</button>
-                    : null
-                }
+                {watch.status === 'available' && (
+                  <button className="btn btn-warning" onClick={handleReserve} disabled={reserving}>{reserving ? '...' : 'Reserve'}</button>
+                )}
+                {watch.status === 'reserved' && (watch.reserved_by === profile?.id || profile?.role === 'admin') && (
+                  <button className="btn" onClick={handleUnreserve} disabled={reserving}>{reserving ? '...' : 'Unreserve'}</button>
+                )}
                 <button className="btn" onClick={handleShare}>Share</button>
               </div>
+
+              {profile?.role === 'dealer' && watch.status === 'available' && (
+                <div style={{ marginTop: 12 }}>
+                  {myOffer ? (
+                    <div style={{ fontSize: 13, color: '#b8965a', padding: '8px 12px', background: '#faf3e5', borderRadius: 8, border: '1px solid #e8d9b5' }}>
+                      Offer pending — <strong>€{Number(myOffer.offer_price).toLocaleString()}</strong>
+                      {myOffer.status === 'countered' && ` · Counter: €${Number(myOffer.counter_price).toLocaleString()}`}
+                    </div>
+                  ) : (
+                    <button className="btn btn-dark btn-full" onClick={() => setOfferModal(true)}>Make an Offer</button>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>
 
       </div>
+
+      {/* Offer Modal */}
+      {offerModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setOfferModal(false)}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 420, boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>Make an Offer</div>
+            <div style={{ fontSize: 12, color: '#aaa', marginBottom: 20 }}>{watch.brand} {watch.model} · Listed at {priceMain}</div>
+
+            <div className="form-row">
+              <label>Your offer price (€ EUR)</label>
+              <input
+                type="number"
+                value={offerPrice}
+                onChange={e => setOfferPrice(e.target.value)}
+                placeholder="e.g. 28000"
+                autoFocus
+              />
+            </div>
+
+            <div className="form-row">
+              <label>Comment <span style={{ color: '#bbb', fontWeight: 400 }}>(optional)</span></label>
+              <textarea
+                rows={3}
+                value={offerComment}
+                onChange={e => setOfferComment(e.target.value)}
+                placeholder="Any notes for the agent..."
+              />
+            </div>
+
+            <div className="form-row">
+              <label>Your WhatsApp number <span style={{ color: '#bbb', fontWeight: 400 }}>(for updates)</span></label>
+              <input
+                type="tel"
+                value={offerPhone}
+                onChange={e => setOfferPhone(e.target.value)}
+                placeholder="e.g. 355691234567"
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <button className="btn btn-dark" style={{ flex: 1 }} onClick={handleSubmitOffer} disabled={submittingOffer || !offerPrice}>
+                {submittingOffer ? '...' : 'Submit Offer'}
+              </button>
+              <button className="btn" onClick={() => setOfferModal(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Lightbox */}
       {lightbox !== null && (

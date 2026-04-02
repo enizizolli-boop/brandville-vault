@@ -7,6 +7,7 @@ import DealerCatalog from './pages/DealerCatalog'
 import WatchDetail from './pages/WatchDetail'
 import AgentListings from './pages/AgentListings'
 import AdminPanel from './pages/AdminPanel'
+import DealerOffers from './pages/DealerOffers'
 
 function PrivateRoute({ children, allowedRoles }) {
   const { user, profile, loading } = useAuth()
@@ -38,6 +39,7 @@ export default function App() {
           <Route path="/catalog/:id" element={<PrivateRoute><WatchDetail /></PrivateRoute>} />
           <Route path="/agent" element={<PrivateRoute allowedRoles={['agent', 'admin']}><AgentListings /></PrivateRoute>} />
           <Route path="/admin" element={<PrivateRoute allowedRoles={['admin']}><AdminPanel /></PrivateRoute>} />
+          <Route path="/offers" element={<PrivateRoute allowedRoles={['dealer']}><DealerOffers /></PrivateRoute>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

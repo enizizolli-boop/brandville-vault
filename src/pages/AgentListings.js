@@ -39,6 +39,21 @@ const EMPTY_FORM = {
   jewellery_type: ''
 }
 
+const SUPABASE_URL = 'https://tulqgebsvpxgwocptnmy.supabase.co'
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1bHFnZWJzdnB4Z3dvY3B0bm15Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MjYzOTEsImV4cCI6MjA5MDIwMjM5MX0.H12dPM59cIxlvpR7jbuDjpX11qNdohvi-nhiMxNheJA'
+
+async function notifyOffer(payload) {
+  try {
+    await fetch(`${SUPABASE_URL}/functions/v1/notify-offer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ANON_KEY}` },
+      body: JSON.stringify(payload)
+    })
+  } catch (err) {
+    console.log('Notify error:', err)
+  }
+}
+
 async function notifyDealers(watch) {
   try {
     await fetch('https://tulqgebsvpxgwocptnmy.supabase.co/functions/v1/notify-dealers', {
@@ -69,6 +84,11 @@ export default function AgentListings() {
   const [error, setError] = useState('')
   const [currency, setCurrency] = useState('EUR')
   const [search, setSearch] = useState('')
+  const [offers, setOffers] = useState([])
+  const [offersLoading, setOffersLoading] = useState(false)
+  const [counterInputs, setCounterInputs] = useState({})
+  const [agentComments, setAgentComments] = useState({})
+  const [counterOpen, setCounterOpen] = useState({})
 
   const fetchMyWatches = useCallback(async () => {
     const q = profile?.role === 'admin'
@@ -79,7 +99,19 @@ export default function AgentListings() {
     setLoading(false)
   }, [profile])
 
+  const fetchOffers = useCallback(async () => {
+    setOffersLoading(true)
+    const { data, error } = await supabase
+      .from('offers')
+      .select('*, watches(id, brand, model, reference, watch_images(url, position))')
+      .order('created_at', { ascending: false })
+    if (error) console.error('fetchOffers error:', error)
+    setOffers(data || [])
+    setOffersLoading(false)
+  }, [])
+
   useEffect(() => { if (profile) fetchMyWatches() }, [profile, fetchMyWatches])
+  useEffect(() => { if (profile && tab === 'offers') fetchOffers() }, [profile, tab, fetchOffers])
 
   function handleField(k, v) { setForm(f => ({ ...f, [k]: v })) }
 
@@ -143,6 +175,58 @@ export default function AgentListings() {
     setPosting(false)
   }
 
+  async function handleAcceptOffer(offer) {
+    if (agentComments[offer.id]) {
+      await supabase.from('offers').update({ agent_comment: agentComments[offer.id] }).eq('id', offer.id)
+    }
+    const { error } = await supabase.rpc('accept_offer', { offer_id: offer.id })
+    if (error) console.error('accept_offer error:', error)
+    notifyOffer({
+      action: 'accepted',
+      watch: offer.watches,
+      dealer_whatsapp: offer.dealer_whatsapp,
+      offer_price: offer.offer_price,
+      agent_comment: agentComments[offer.id] || null,
+    })
+    setMsg(`Offer accepted for ${offer.watches.brand} ${offer.watches.model}.`)
+    fetchOffers()
+  }
+
+  async function handleRejectOffer(offer) {
+    await supabase.from('offers').update({ status: 'rejected', agent_comment: agentComments[offer.id] || null, updated_at: new Date().toISOString() }).eq('id', offer.id)
+    notifyOffer({
+      action: 'rejected',
+      watch: offer.watches,
+      dealer_whatsapp: offer.dealer_whatsapp,
+      offer_price: offer.offer_price,
+      agent_comment: agentComments[offer.id] || null,
+    })
+    setMsg(`Offer rejected for ${offer.watches.brand} ${offer.watches.model}.`)
+    fetchOffers()
+  }
+
+  async function handleCounterOffer(offer) {
+    const counterPrice = counterInputs[offer.id]
+    if (!counterPrice) return
+    await supabase.from('offers').update({
+      status: 'countered',
+      counter_price: Number(counterPrice),
+      agent_comment: agentComments[offer.id] || null,
+      updated_at: new Date().toISOString()
+    }).eq('id', offer.id)
+    notifyOffer({
+      action: 'countered',
+      watch: offer.watches,
+      dealer_whatsapp: offer.dealer_whatsapp,
+      dealer_name: 'Dealer',
+      counter_price: Number(counterPrice),
+      agent_comment: agentComments[offer.id] || null,
+    })
+    setMsg(`Counter offer sent for ${offer.watches.brand} ${offer.watches.model}.`)
+    setCounterOpen(prev => ({ ...prev, [offer.id]: false }))
+    fetchOffers()
+  }
+
   async function markSold(id) {
     await supabase.from('watches').update({ status: 'sold' }).eq('id', id)
     fetchMyWatches()
@@ -176,6 +260,13 @@ export default function AgentListings() {
       <div className="tabs">
         <div className={`tab ${tab === 'listings' ? 'active' : ''}`} onClick={() => setTab('listings')}>My listings</div>
         <div className={`tab ${tab === 'post' ? 'active' : ''}`} onClick={() => setTab('post')}>Post new item</div>
+        <div className={`tab ${tab === 'offers' ? 'active' : ''}`} onClick={() => setTab('offers')}>
+          Offers{offers.filter(o => o.status === 'pending').length > 0 && (
+            <span style={{ marginLeft: 6, background: '#b8965a', color: '#fff', borderRadius: 10, fontSize: 10, padding: '1px 6px', fontWeight: 700 }}>
+              {offers.filter(o => o.status === 'pending').length}
+            </span>
+          )}
+        </div>
       </div>
 
       {tab === 'listings' && (
@@ -210,6 +301,111 @@ export default function AgentListings() {
                 )}
               </div>
             ))
+          }
+        </div>
+      )}
+
+      {tab === 'offers' && (
+        <div style={{ padding: 16, maxWidth: 700 }}>
+          {msg && <div className="success-msg" style={{ marginBottom: 12 }}>{msg}</div>}
+          {offersLoading
+            ? <div className="loading-page" style={{ minHeight: 200 }}><div className="spinner" /></div>
+            : offers.length === 0
+              ? <div className="empty-state">No offers yet</div>
+              : offers.map(offer => {
+                const watch = offer.watches
+                const imgs = [...(watch?.watch_images || [])].sort((a, b) => a.position - b.position)
+                const thumb = imgs[0]?.url || null
+                const STATUS_COLOR = { pending: '#e6a817', countered: '#b8965a', accepted: '#2e7d32', rejected: '#c62828' }
+                return (
+                  <div key={offer.id} style={{ border: '1px solid #e8e5e0', borderRadius: 12, padding: 16, marginBottom: 12, background: '#fff' }}>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                      <div
+                        onClick={() => navigate(`/catalog/${watch.id}`)}
+                        style={{ width: 52, height: 52, borderRadius: 8, background: '#f7f6f3', border: '1px solid #e8e5e0', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}
+                      >
+                        {thumb ? <img src={thumb} alt={watch.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20 }}>⌚</span>}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: 14, cursor: 'pointer' }} onClick={() => navigate(`/catalog/${watch.id}`)}>
+                              {watch.brand} {watch.model}
+                            </div>
+                            <div style={{ fontSize: 11, color: '#aaa' }}>{offer.dealer_whatsapp ? `WA: ${offer.dealer_whatsapp}` : 'Dealer'}</div>
+                          </div>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_COLOR[offer.status] || '#888', textTransform: 'uppercase', letterSpacing: '0.5px', flexShrink: 0 }}>
+                            {offer.status}
+                          </span>
+                        </div>
+
+                        <div style={{ marginTop: 10, display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+                          <div>
+                            <div style={{ fontSize: 10, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Offer</div>
+                            <div style={{ fontSize: 15, fontWeight: 600, color: '#333' }}>€{Number(offer.offer_price).toLocaleString()}</div>
+                          </div>
+                          {offer.counter_price && (
+                            <div>
+                              <div style={{ fontSize: 10, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Your counter</div>
+                              <div style={{ fontSize: 15, fontWeight: 600, color: '#b8965a' }}>€{Number(offer.counter_price).toLocaleString()}</div>
+                            </div>
+                          )}
+                        </div>
+
+                        {offer.dealer_comment && (
+                          <div style={{ marginTop: 8, fontSize: 12, color: '#555', background: '#f8f6f2', borderRadius: 6, padding: '6px 10px' }}>
+                            <span style={{ color: '#aaa', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Dealer · </span>
+                            {offer.dealer_comment}
+                          </div>
+                        )}
+                        {offer.agent_comment && (
+                          <div style={{ marginTop: 6, fontSize: 12, color: '#555', background: '#f0efe9', borderRadius: 6, padding: '6px 10px' }}>
+                            <span style={{ color: '#aaa', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Your note · </span>
+                            {offer.agent_comment}
+                          </div>
+                        )}
+
+                        {(offer.status === 'pending' || offer.status === 'countered') && (
+                          <div style={{ marginTop: 10 }}>
+                            <div className="form-row" style={{ marginBottom: 6 }}>
+                              <input
+                                placeholder="Add a note (optional)"
+                                value={agentComments[offer.id] || ''}
+                                onChange={e => setAgentComments(prev => ({ ...prev, [offer.id]: e.target.value }))}
+                                style={{ fontSize: 12 }}
+                              />
+                            </div>
+                            {counterOpen[offer.id] ? (
+                              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                <input
+                                  type="number"
+                                  placeholder="Counter price (€)"
+                                  value={counterInputs[offer.id] || ''}
+                                  onChange={e => setCounterInputs(prev => ({ ...prev, [offer.id]: e.target.value }))}
+                                  style={{ width: 160, fontSize: 13 }}
+                                />
+                                <button className="btn btn-sm btn-dark" onClick={() => handleCounterOffer(offer)} disabled={!counterInputs[offer.id]}>Send Counter</button>
+                                <button className="btn btn-sm" onClick={() => setCounterOpen(prev => ({ ...prev, [offer.id]: false }))}>Cancel</button>
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                <button className="btn btn-sm btn-green" onClick={() => handleAcceptOffer(offer)}>Accept</button>
+                                <button className="btn btn-sm" style={{ color: '#c00', borderColor: '#f09595' }} onClick={() => handleRejectOffer(offer)}>Reject</button>
+                                <button className="btn btn-sm" onClick={() => setCounterOpen(prev => ({ ...prev, [offer.id]: true }))}>Counter</button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div style={{ marginTop: 8, fontSize: 10, color: '#bbb' }}>
+                          {new Date(offer.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          {offer.dealer_whatsapp && <span> · WA: {offer.dealer_whatsapp}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })
           }
         </div>
       )}
