@@ -256,9 +256,16 @@ button { font-family: inherit; cursor: pointer; }
   color: var(--text);
 }
 .watch-card-ref {
-  font-size: 10px;
-  color: var(--faint);
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #7a6340;
   font-family: 'SF Mono', 'Menlo', monospace;
+  letter-spacing: 0.5px;
+  background: #f5ede0;
+  border: 1px solid #e4d0b0;
+  border-radius: 5px;
+  padding: 2px 7px;
   margin-bottom: 10px;
 }
 .watch-card-foot { display: flex; justify-content: space-between; align-items: center; }

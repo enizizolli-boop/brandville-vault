@@ -13,10 +13,10 @@ function vx(v: string | number | boolean | string[]): string {
   return `<value><string>${v}</string></value>`
 }
 
-function rpc(model: string, domain: [string, string, string | number | boolean | string[]][], fields: string[]): string {
+function rpc(model: string, domain: [string, string, string | number | boolean | string[]][], fields: string[], limit = 5000): string {
   const d = domain.map(([f, op, v]) => `<value><array><data><value><string>${f}</string></value><value><string>${op}</string></value>${vx(v)}</data></array></value>`).join('')
   const fl = fields.map(f => `<value><string>${f}</string></value>`).join('')
-  return `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params><param><value><string>${ODOO_DB}</string></value></param><param><value><int>${ODOO_UID}</int></value></param><param><value><string>${ODOO_API_KEY}</string></value></param><param><value><string>${model}</string></value></param><param><value><string>search_read</string></value></param><param><value><array><data><value><array><data>${d}</data></array></value></data></array></value></param><param><value><struct><member><name>fields</name><value><array><data>${fl}</data></array></value></member><member><name>limit</name><value><int>500</int></value></member></struct></value></param></params></methodCall>`
+  return `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params><param><value><string>${ODOO_DB}</string></value></param><param><value><int>${ODOO_UID}</int></value></param><param><value><string>${ODOO_API_KEY}</string></value></param><param><value><string>${model}</string></value></param><param><value><string>search_read</string></value></param><param><value><array><data><value><array><data>${d}</data></array></value></data></array></value></param><param><value><struct><member><name>fields</name><value><array><data>${fl}</data></array></value></member><member><name>limit</name><value><int>${limit}</int></value></member></struct></value></param></params></methodCall>`
 }
 
 function px(xml: string): Record<string, string>[] {
@@ -48,10 +48,16 @@ async function odoo(model: string, domain: [string, string, string | number | bo
 
 async function sbGet(filters: string, inVals: string[]) {
   if (!inVals.length) return [] as { id: string }[]
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/watches?select=id&${filters}&odoo_product_id=in.(${inVals.join(',')})`, {
-    headers: { Authorization: `Bearer ${SUPABASE_KEY}`, apikey: SUPABASE_KEY }
-  })
-  return await res.json() as { id: string }[]
+  const results: { id: string }[] = []
+  for (let i = 0; i < inVals.length; i += 200) {
+    const chunk = inVals.slice(i, i + 200)
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/watches?select=id&${filters}&odoo_product_id=in.(${chunk.join(',')})`, {
+      headers: { Authorization: `Bearer ${SUPABASE_KEY}`, apikey: SUPABASE_KEY }
+    })
+    const data = await res.json()
+    if (Array.isArray(data)) results.push(...data)
+  }
+  return results
 }
 
 async function sbPatch(ids: string[], status: string) {
@@ -69,7 +75,7 @@ Deno.serve(async () => {
     const noStock = products.filter(p => parseFloat(p.virtual_available ?? '1') <= 0).map(p => p.id)
     const hasStock = products.filter(p => parseFloat(p.virtual_available ?? '0') > 0).map(p => p.id)
 
-    const lines = await odoo('sale.order.line', [['order_id.state', 'in', ['draft', 'sent']]], ['product_template_id'])
+    const lines = await odoo('sale.order.line', [['order_id.state', 'in', ['draft', 'sent', 'sale']]], ['product_template_id'])
     const inSO = new Set(lines.map(l => l.product_template_id).filter(Boolean))
 
     const allSold = [...new Set([...noStock, ...inSO])]

@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { CurrencyProvider } from './context/CurrencyContext'
 import Login from './pages/Login'
 import ResetPassword from './pages/ResetPassword'
 import Home from './pages/Home'
@@ -29,6 +30,7 @@ function RoleRedirect() {
 export default function App() {
   return (
     <AuthProvider>
+      <CurrencyProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -42,6 +44,7 @@ export default function App() {
           <Route path="/offers" element={<PrivateRoute allowedRoles={['dealer']}><DealerOffers /></PrivateRoute>} />
         </Routes>
       </BrowserRouter>
+      </CurrencyProvider>
     </AuthProvider>
   )
 }

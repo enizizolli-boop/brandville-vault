@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useCurrency } from '../context/CurrencyContext'
+import { useExchangeRate } from '../hooks/useExchangeRate'
 import Topbar from '../components/Topbar'
 
 const BRANDS = [
@@ -26,9 +28,13 @@ function cleanRef(ref) {
   return ref.split(/[\/\-]/).filter(Boolean).pop()
 }
 
-function fmtPrice(watch, currency) {
-  if (currency === 'EUR' && watch.price_eur) return '€' + Number(watch.price_eur).toLocaleString()
-  if (watch.price_usd) return '$' + Number(watch.price_usd).toLocaleString()
+function fmtPrice(watch, currency, rate) {
+  if (currency === 'USD') {
+    if (watch.price_usd) return '$' + Number(watch.price_usd).toLocaleString()
+    if (watch.price_eur && rate) return '$' + Math.round(Number(watch.price_eur) * rate).toLocaleString()
+    return '—'
+  }
+  if (watch.price_eur) return '€' + Number(watch.price_eur).toLocaleString()
   return '—'
 }
 
@@ -94,9 +100,10 @@ export default function DealerCatalog() {
   const location = useLocation()
   const urlCategory = new URLSearchParams(location.search).get('category') || ''
 
+  const { currency } = useCurrency()
+  const { rate } = useExchangeRate()
   const [watches, setWatches] = useState([])
   const [loading, setLoading] = useState(true)
-  const [currency, setCurrency] = useState('EUR')
   const [filterBrand, setFilterBrand] = useState('')
   const [filterCond, setFilterCond] = useState('')
   const [filterStatus, setFilterStatus] = useState('available')
@@ -153,7 +160,7 @@ export default function DealerCatalog() {
 
   return (
     <div className="page">
-      <Topbar currency={currency} onCurrencyChange={setCurrency} />
+      <Topbar />
       {urlCategory && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px 0' }}>
           <button className="btn btn-sm" onClick={() => navigate('/home')}>← Back</button>
@@ -235,7 +242,7 @@ export default function DealerCatalog() {
                 <div className="watch-card-model">{w.model}</div>
                 <div className="watch-card-ref">{cleanRef(w.reference) || '—'}</div>
                 <div className="watch-card-foot">
-                  <span className="watch-card-price">{fmtPrice(w, currency)}</span>
+                  <span className="watch-card-price">{fmtPrice(w, currency, rate)}</span>
                   <span className={`badge badge-${w.status}`}>{w.status}</span>
                 </div>
               </div>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useExchangeRate } from '../hooks/useExchangeRate'
+import { useCurrency } from '../context/CurrencyContext'
 import Topbar from '../components/Topbar'
 
 const CATEGORIES = ['Watches', 'Jewellery', 'Bags']
@@ -82,7 +83,7 @@ export default function AgentListings() {
   const [posting, setPosting] = useState(false)
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
-  const [currency, setCurrency] = useState('EUR')
+  const { currency } = useCurrency()
   const [search, setSearch] = useState('')
   const [offers, setOffers] = useState([])
   const [offersLoading, setOffersLoading] = useState(false)
@@ -240,8 +241,12 @@ export default function AgentListings() {
   }
 
   function fmtPrice(w) {
-    if (currency === 'EUR' && w.price_eur) return '€' + Number(w.price_eur).toLocaleString()
-    if (w.price_usd) return '$' + Number(w.price_usd).toLocaleString()
+    if (currency === 'USD') {
+      if (w.price_usd) return '$' + Number(w.price_usd).toLocaleString()
+      if (w.price_eur && rate) return '$' + Math.round(Number(w.price_eur) * rate).toLocaleString()
+      return '—'
+    }
+    if (w.price_eur) return '€' + Number(w.price_eur).toLocaleString()
     return '—'
   }
 
@@ -257,7 +262,7 @@ export default function AgentListings() {
 
   return (
     <div className="page">
-      <Topbar currency={currency} onCurrencyChange={setCurrency} />
+      <Topbar />
       <div className="tabs">
         <div className={`tab ${tab === 'listings' ? 'active' : ''}`} onClick={() => setTab('listings')}>My listings</div>
         <div className={`tab ${tab === 'post' ? 'active' : ''}`} onClick={() => setTab('post')}>Post new item</div>

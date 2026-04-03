@@ -28,8 +28,11 @@ export function AuthProvider({ children }) {
     setLoading(false)
   }
 
-  async function signIn(email, password) {
+  async function signIn(email, password, rememberMe = true) {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (!error && !rememberMe) {
+      sessionStorage.setItem('sessionOnly', '1')
+    }
     return { error }
   }
 

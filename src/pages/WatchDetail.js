@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useExchangeRate } from '../hooks/useExchangeRate'
+import { useCurrency } from '../context/CurrencyContext'
 import Topbar from '../components/Topbar'
 
 const WHATSAPP_NUMBER = process.env.REACT_APP_WHATSAPP_NUMBER || ''
@@ -51,10 +52,10 @@ export default function WatchDetail() {
   const navigate = useNavigate()
   const { profile } = useAuth()
   const { rate } = useExchangeRate()
+  const { currency } = useCurrency()
   const [watch, setWatch] = useState(null)
   const [images, setImages] = useState([])
   const [loading, setLoading] = useState(true)
-  const [currency, setCurrency] = useState('EUR')
   const [reserving, setReserving] = useState(false)
   const [msg, setMsg] = useState('')
   const [lightbox, setLightbox] = useState(null)
@@ -257,19 +258,25 @@ export default function WatchDetail() {
   if (loading) return <div className="loading-page"><div className="spinner" /></div>
   if (!watch) return <div className="page"><div className="empty-state">Item not found</div></div>
 
-  const priceMain = currency === 'EUR' && watch.price_eur
-    ? `€${Number(watch.price_eur).toLocaleString()}`
-    : watch.price_usd ? `$${Number(watch.price_usd).toLocaleString()}` : '—'
+  const priceMain = currency === 'USD'
+    ? (watch.price_usd
+        ? `$${Number(watch.price_usd).toLocaleString()}`
+        : watch.price_eur && rate
+          ? `$${Math.round(Number(watch.price_eur) * rate).toLocaleString()}`
+          : '—')
+    : (watch.price_eur ? `€${Number(watch.price_eur).toLocaleString()}` : '—')
 
-  const priceSecondary = currency === 'EUR' && watch.price_eur && rate
-    ? `$${Math.round(Number(watch.price_eur) * rate).toLocaleString()} USD`
-    : null
+  const priceSecondary = currency === 'USD' && watch.price_eur
+    ? `€${Number(watch.price_eur).toLocaleString()} EUR`
+    : currency === 'EUR' && watch.price_eur && rate
+      ? `$${Math.round(Number(watch.price_eur) * rate).toLocaleString()} USD`
+      : null
 
   const canEdit = profile?.role === 'admin' || profile?.role === 'agent'
 
   return (
     <div className="page">
-      <Topbar currency={currency} onCurrencyChange={setCurrency} />
+      <Topbar />
 
       {/* Back + Edit bar */}
       <div style={{ maxWidth: 940, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px' }}>
@@ -312,7 +319,7 @@ export default function WatchDetail() {
 
           {/* Thumbnails */}
           {images.length > 1 && (
-            <div style={{ display: 'flex', gap: 8, marginTop: 10, overflowX: 'auto', scrollbarWidth: 'none' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
               {images.map((img, i) => (
                 <div
                   key={img.url}
@@ -321,7 +328,7 @@ export default function WatchDetail() {
                   onDragOver={e => e.preventDefault()}
                   onDrop={() => { handleReorderImages(dragIndex, i); setDragIndex(null) }}
                   onDragEnd={() => setDragIndex(null)}
-                  style={{ position: 'relative', flexShrink: 0, opacity: dragIndex === i ? 0.4 : 1, cursor: editing ? 'grab' : 'pointer' }}
+                  style={{ position: 'relative', opacity: dragIndex === i ? 0.4 : 1, cursor: editing ? 'grab' : 'pointer' }}
                 >
                   <img
                     src={img.url}
@@ -335,7 +342,7 @@ export default function WatchDetail() {
                 </div>
               ))}
               {editing && (
-                <label style={{ width: 58, height: 58, borderRadius: 10, border: '2px dashed #b8965a', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, fontSize: 22, color: '#b8965a', background: '#faf3e5' }}>
+                <label style={{ width: 58, height: 58, borderRadius: 10, border: '2px dashed #b8965a', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 22, color: '#b8965a', background: '#faf3e5' }}>
                   {uploadingImg ? <span className="spinner" style={{ width: 16, height: 16 }} /> : '+'}
                   <input type="file" accept="image/*" multiple onChange={handleAddImages} style={{ display: 'none' }} />
                 </label>
