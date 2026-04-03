@@ -84,7 +84,6 @@ export default function AdminPanel() {
     setSyncError('')
 
     const BATCH_SIZE = 5
-    const MAX_RETRIES = 3
     let offset = 0
     let totalAdded = 0
     let totalUpdated = 0
@@ -95,10 +94,8 @@ export default function AdminPanel() {
     try {
       while (true) {
         let data = null
-        let lastError = null
-
-        // Retry logic per batch
-        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        let attempt = 0
+        while (attempt < 5) {
           try {
             const res = await fetch('/api/zoho-sync', {
               method: 'POST',
@@ -106,22 +103,31 @@ export default function AdminPanel() {
               body: JSON.stringify({ batch_size: BATCH_SIZE, offset })
             })
             data = await res.json()
-            if (!res.ok) throw new Error(data.error || 'Sync failed')
-            lastError = null
+            if (!res.ok) {
+              const msg = data.error || ''
+              if (msg.toLowerCase().includes('too many') || msg.toLowerCase().includes('rate') || msg.toLowerCase().includes('access denied')) {
+                setSyncError(`Rate limit hit — auto-retrying in 8 seconds... (attempt ${attempt + 1}/5)`)
+                await new Promise(r => setTimeout(r, 8000))
+                setSyncError('')
+                attempt++
+                continue
+              }
+              throw new Error(msg || 'Sync failed')
+            }
             break
           } catch (err) {
-            lastError = err
-            await new Promise(r => setTimeout(r, 2000)) // wait 2s before retry
+            if (attempt >= 4) throw err
+            await new Promise(r => setTimeout(r, 3000))
+            attempt++
           }
         }
-
-        if (lastError) throw lastError
 
         totalAdded += data.added || 0
         totalUpdated += data.updated || 0
         totalRemoved += data.removed || 0
         totalImages += data.images_added || 0
         grandTotal = data.total || grandTotal
+        const processed = offset + (data.processed || 0)
 
         setSyncResult({
           inProgress: !data.done,
@@ -129,19 +135,18 @@ export default function AdminPanel() {
           updated: totalUpdated,
           removed: totalRemoved,
           images_added: totalImages,
-          processed: offset + (data.processed || 0),
+          processed,
           total: grandTotal,
+          pct: grandTotal ? Math.round((processed / grandTotal) * 100) : 0,
         })
 
         if (data.done || !data.next_offset) break
         offset = data.next_offset
       }
-
       fetchStats()
     } catch (err) {
-      setSyncError(`Failed at batch ${offset} — ${err.message}. You can click Sync now to resume.`)
-      // Save offset so user knows where it stopped
-      setSyncResult(prev => prev ? { ...prev, inProgress: false, stoppedAt: offset } : null)
+      setSyncError(`Failed at item ${offset} — ${err.message}`)
+      setSyncResult(prev => prev ? { ...prev, inProgress: false } : null)
     }
     setSyncing(false)
   }
@@ -248,107 +253,98 @@ export default function AdminPanel() {
       </div>
 
       {tab === 'sync' && (
-        <div className="admin-section" style={{ maxWidth: 500 }}>
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Sync from Zoho Commerce</div>
-            <div style={{ fontSize: 13, color: '#888', lineHeight: 1.6 }}>
-              Pulls all items currently listed on your Zoho Commerce store into Vault.
-              Items removed from your store will be removed from Vault automatically.
-              Manually added items in Vault are never affected.
-            </div>
-          </div>
+        <div className="admin-section" style={{ maxWidth: 520 }}>
 
-          {syncResult && (
-            <div className="success-msg" style={{ marginBottom: 12 }}>
-              {syncResult.inProgress
-                ? `⏳ Syncing... ${syncResult.processed}/${syncResult.total} items`
-                : `✓ Sync complete — ${syncResult.added} added, ${syncResult.updated} updated, ${syncResult.removed} removed, ${syncResult.images_added} images`
-              }
-              {syncResult.stoppedAt > 0 && (
-                <div style={{ marginTop: 4, fontSize: 12, color: '#c00' }}>
-                  Stopped at item {syncResult.stoppedAt} — click Sync now to resume from where it stopped.
+          {/* Zoho sync */}
+          <div style={{ background: '#fff', border: '1px solid var(--border-light)', borderRadius: 14, padding: 20, marginBottom: 16, boxShadow: 'var(--shadow-xs)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: '#e8f5e9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🛍</div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>Zoho Commerce</div>
+                <div style={{ fontSize: 11, color: 'var(--faint)' }}>Watches & Bags</div>
+              </div>
+            </div>
+            <div style={{ fontSize: 12, color: '#888', lineHeight: 1.6, marginBottom: 14 }}>
+              Pulls all items from your Zoho store. Removed items are deleted automatically. Manually added items are never affected.
+            </div>
+
+            {syncResult && (
+              <div style={{ marginBottom: 12 }}>
+                <div className="progress-wrap">
+                  <div className="progress-bar" style={{ width: `${syncResult.pct || (syncResult.inProgress ? 5 : 100)}%` }} />
                 </div>
-              )}
-            </div>
-          )}
-
-          {syncError && (
-            <div className="error-msg" style={{ marginBottom: 12 }}>{syncError}</div>
-          )}
-
-          <button
-            className="btn btn-dark btn-full"
-            onClick={handleSync}
-            disabled={syncing}
-          >
-            {syncing ? (
-              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                <span className="spinner" style={{ width: 16, height: 16 }} />
-                Syncing...
-              </span>
-            ) : '↻ Sync now'}
-          </button>
-
-          <div style={{ marginTop: 24, borderTop: '1px solid #e8e5e0', paddingTop: 20 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Sync Jewellery from Odoo</div>
-            <div style={{ fontSize: 13, color: '#888', lineHeight: 1.6, marginBottom: 12 }}>
-              Pulls all jewellery items from Odoo into Vault.
-            </div>
-
-            {odooResult && (
-              <div className="success-msg" style={{ marginBottom: 12 }}>
-                {odooResult.inProgress
-                  ? `⏳ Syncing... ${odooResult.processed}/${odooResult.total} items`
-                  : `✓ Done — ${odooResult.added} added, ${odooResult.updated} updated, ${odooResult.images_added} images`
-                }
+                <div className="progress-label">
+                  {syncResult.inProgress
+                    ? `${syncResult.processed} / ${syncResult.total} items (${syncResult.pct || 0}%)`
+                    : `✓ Done — ${syncResult.added} added · ${syncResult.updated} updated · ${syncResult.removed} removed · ${syncResult.images_added} images`
+                  }
+                </div>
               </div>
             )}
 
-            {odooError && (
-              <div className="error-msg" style={{ marginBottom: 12 }}>{odooError}</div>
-            )}
+            {syncError && <div className="error-msg" style={{ marginBottom: 10, fontSize: 12 }}>{syncError}</div>}
 
-            <button
-              className="btn btn-dark btn-full"
-              onClick={handleOdooSync}
-              disabled={odooSyncing || syncing}
-            >
-              {odooSyncing ? (
-                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                  <span className="spinner" style={{ width: 16, height: 16 }} />
-                  Syncing Odoo...
-                </span>
-              ) : '↻ Sync Jewellery from Odoo'}
+            <button className="btn btn-dark btn-full" onClick={handleSync} disabled={syncing}>
+              {syncing ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Syncing...</> : '↻ Sync now'}
             </button>
           </div>
 
-          <div style={{ marginTop: 24, borderTop: '1px solid #e8e5e0', paddingTop: 20 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Extract Jewellery Types</div>
-            <div style={{ fontSize: 13, color: '#888', lineHeight: 1.6, marginBottom: 12 }}>
-              Extracts jewellery type (Rings, Bracelets, Necklaces, Earrings) from product names for existing items.
+          {/* Odoo sync */}
+          <div style={{ background: '#fff', border: '1px solid var(--border-light)', borderRadius: 14, padding: 20, marginBottom: 16, boxShadow: 'var(--shadow-xs)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: '#fff3e0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>💎</div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>Odoo</div>
+                <div style={{ fontSize: 11, color: 'var(--faint)' }}>Jewellery</div>
+              </div>
+            </div>
+            <div style={{ fontSize: 12, color: '#888', lineHeight: 1.6, marginBottom: 14 }}>
+              Pulls all jewellery items from Odoo. Status (available/sold) is updated automatically every 15 minutes.
             </div>
 
-            {extractResult && (
-              <div className="success-msg" style={{ marginBottom: 12 }}>
-                ✓ Updated {extractResult.updated} jewellery items ({extractResult.skipped} had no type found, {extractResult.constraint_skipped || 0} blocked by DB type constraint)
+            {odooResult && (
+              <div style={{ marginBottom: 12 }}>
+                <div className="progress-wrap">
+                  <div className="progress-bar" style={{ width: `${odooResult.total ? Math.round((odooResult.processed / odooResult.total) * 100) : (odooResult.inProgress ? 5 : 100)}%` }} />
+                </div>
+                <div className="progress-label">
+                  {odooResult.inProgress
+                    ? `${odooResult.processed} / ${odooResult.total} items`
+                    : `✓ Done — ${odooResult.added} added · ${odooResult.updated} updated · ${odooResult.images_added} images`
+                  }
+                </div>
               </div>
             )}
 
-            {extractError && (
-              <div className="error-msg" style={{ marginBottom: 12 }}>{extractError}</div>
-            )}
+            {odooError && <div className="error-msg" style={{ marginBottom: 10, fontSize: 12 }}>{odooError}</div>}
 
-            <button
-              className="btn btn-dark btn-full"
-              onClick={handleExtractJewelleryTypes}
-              disabled={extractingJewellery || syncing || odooSyncing}
-            >
-              {extractingJewellery ? (
-                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                  <span className="spinner" style={{ width: 16, height: 16 }} />
-                  Extracting...
-                </span>
-              ) : '✨ Extract Types'}
+            <button className="btn btn-dark btn-full" onClick={handleOdooSync} disabled={odooSyncing || syncing}>
+              {odooSyncing ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Syncing...</> : '↻ Sync Jewellery from Odoo'}
+            </button>
+          </div>
+
+          {/* Extract types */}
+          <div style={{ background: '#fff', border: '1px solid var(--border-light)', borderRadius: 14, padding: 20, boxShadow: 'var(--shadow-xs)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: '#f3e8ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>✨</div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>Extract Jewellery Types</div>
+                <div style={{ fontSize: 11, color: 'var(--faint)' }}>Rings · Bracelets · Necklaces · Earrings</div>
+              </div>
+            </div>
+            <div style={{ fontSize: 12, color: '#888', lineHeight: 1.6, marginBottom: 14 }}>
+              Scans product names and sets the jewellery type for existing items that are missing it.
+            </div>
+
+            {extractResult && (
+              <div className="success-msg" style={{ marginBottom: 10, fontSize: 12 }}>
+                ✓ Updated {extractResult.updated} items — {extractResult.skipped} unrecognized
+              </div>
+            )}
+            {extractError && <div className="error-msg" style={{ marginBottom: 10, fontSize: 12 }}>{extractError}</div>}
+
+            <button className="btn btn-dark btn-full" onClick={handleExtractJewelleryTypes} disabled={extractingJewellery || syncing || odooSyncing}>
+              {extractingJewellery ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Extracting...</> : '✨ Extract Types'}
             </button>
           </div>
         </div>

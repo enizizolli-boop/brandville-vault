@@ -155,8 +155,24 @@ export default function DealerCatalog() {
 
   const avail = watches.filter(w => w.status === 'available').length
   const reserved = watches.filter(w => w.status === 'reserved').length
-
   const isWatches = filterCategory === 'Watches' || filterCategory === ''
+
+  const activePills = [
+    filterCategory && { label: filterCategory, clear: () => { setFilterCategory(''); setFilterMetal(''); setFilterSize(''); setFilterJewelleryType(''); setFilterCond('') } },
+    filterBrand && { label: filterBrand, clear: () => setFilterBrand('') },
+    filterCond && { label: filterCond.split(' ').slice(0,3).join(' ') + '…', clear: () => setFilterCond('') },
+    filterStatus === 'reserved' && { label: 'Reserved', clear: () => setFilterStatus('available') },
+    filterMetal && { label: filterMetal, clear: () => setFilterMetal('') },
+    filterJewelleryType && { label: filterJewelleryType, clear: () => { setFilterJewelleryType(''); setFilterSize('') } },
+    filterSize && { label: 'Size ' + filterSize, clear: () => setFilterSize('') },
+    search && { label: `"${search}"`, clear: () => setSearch('') },
+    sortBy && { label: sortBy === 'price_asc' ? 'Price ↑' : sortBy === 'price_desc' ? 'Price ↓' : sortBy === 'sku_asc' ? 'SKU ↑' : 'SKU ↓', clear: () => setSortBy('') },
+  ].filter(Boolean)
+
+  function clearAllFilters() {
+    setFilterCategory(''); setFilterBrand(''); setFilterCond(''); setFilterStatus('available')
+    setFilterMetal(''); setFilterSize(''); setFilterJewelleryType(''); setSearch(''); setSortBy('')
+  }
 
   return (
     <div className="page">
@@ -226,10 +242,44 @@ export default function DealerCatalog() {
         </select>
         <span className="filter-count">{filtered.length} items</span>
       </div>
+
+      {activePills.length > 0 && (
+        <div className="filter-pills">
+          {activePills.map((p, i) => (
+            <span key={i} className="filter-pill" onClick={p.clear}>
+              {p.label} <span className="filter-pill-x">×</span>
+            </span>
+          ))}
+          {activePills.length > 1 && (
+            <span className="filter-clear-all" onClick={clearAllFilters}>Clear all</span>
+          )}
+        </div>
+      )}
+
       {loading ? (
-        <div className="loading-page"><div className="spinner" /></div>
+        <div className="watch-grid">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className="watch-card-skeleton">
+              <div className="sk-img skeleton" />
+              <div className="sk-body">
+                <div className="sk-brand skeleton" />
+                <div className="sk-model skeleton" />
+                <div className="sk-model2 skeleton" />
+                <div className="sk-ref skeleton" />
+                <div className="sk-foot">
+                  <div className="sk-price skeleton" />
+                  <div className="sk-badge skeleton" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       ) : filtered.length === 0 ? (
-        <div className="empty-state">No items match your filters</div>
+        <div className="empty-state">
+          <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.3 }}>◻</div>
+          <div style={{ fontWeight: 500, marginBottom: 6 }}>No items match your filters</div>
+          {activePills.length > 0 && <span className="filter-clear-all" onClick={clearAllFilters} style={{ fontSize: 13 }}>Clear all filters</span>}
+        </div>
       ) : (
         <div className="watch-grid">
           {filtered.map(w => (
