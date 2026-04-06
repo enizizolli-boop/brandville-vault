@@ -295,14 +295,17 @@ button { font-family: inherit; cursor: pointer; }
 
 /* ── Catalog banner ──────────────────────────────────── */
 .catalog-banner {
-  grid-column: 1 / -1;
   display: block;
+  margin: 0 20px;
   border-radius: var(--radius);
   overflow: hidden;
   border: 1px solid var(--border-light);
   box-shadow: var(--shadow-xs);
   transition: box-shadow 0.2s;
   background: #fff;
+}
+@media (max-width: 600px) {
+  .catalog-banner { margin: 0 10px; }
 }
 .catalog-banner:hover { box-shadow: var(--shadow-sm); }
 .catalog-banner img { width: 100%; display: block; object-fit: contain; }

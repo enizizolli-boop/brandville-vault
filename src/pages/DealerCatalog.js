@@ -280,34 +280,38 @@ export default function DealerCatalog() {
           <div style={{ fontWeight: 500, marginBottom: 6 }}>No items match your filters</div>
           {activePills.length > 0 && <span className="filter-clear-all" onClick={clearAllFilters} style={{ fontSize: 13 }}>Clear all filters</span>}
         </div>
-      ) : (
-        <div className="watch-grid">
-          {filtered.map((w, i) => (
-            <React.Fragment key={w.id}>
-              {i === 8 && (
-                <a href="https://chasovnikari.com/checkout/" target="_blank" rel="noopener noreferrer"
-                  className="catalog-banner" onClick={e => e.stopPropagation()}>
+      ) : (() => {
+          const BANNER_AFTER = 10
+          const first = filtered.slice(0, BANNER_AFTER)
+          const rest = filtered.slice(BANNER_AFTER)
+          const renderCard = w => (
+            <div key={w.id} className="watch-card" onClick={() => navigate(`/catalog/${w.id}`)}>
+              <div className="watch-card-img">
+                <CardImages watch={w} brandEmoji={BRAND_EMOJI[w.brand] || '⌚'} />
+              </div>
+              <div className="watch-card-body">
+                <div className="watch-card-brand">{w.category ? w.category + ' · ' : ''}{w.brand}</div>
+                <div className="watch-card-model">{w.model}</div>
+                <div className="watch-card-ref">{cleanRef(w.reference) || '—'}</div>
+                <div className="watch-card-foot">
+                  <span className="watch-card-price">{fmtPrice(w, currency, rate)}</span>
+                  <span className={`badge badge-${w.status}`}>{w.status}</span>
+                </div>
+              </div>
+            </div>
+          )
+          return (
+            <>
+              <div className="watch-grid">{first.map(renderCard)}</div>
+              {filtered.length > BANNER_AFTER && (
+                <a href="https://chasovnikari.com/checkout/" target="_blank" rel="noopener noreferrer" className="catalog-banner">
                   <img src="/banner-repair.png" alt="KK Time Studio — Watchmaking repair service" />
                 </a>
               )}
-              <div className="watch-card" onClick={() => navigate(`/catalog/${w.id}`)}>
-                <div className="watch-card-img">
-                  <CardImages watch={w} brandEmoji={BRAND_EMOJI[w.brand] || '⌚'} />
-                </div>
-                <div className="watch-card-body">
-                  <div className="watch-card-brand">{w.category ? w.category + ' · ' : ''}{w.brand}</div>
-                  <div className="watch-card-model">{w.model}</div>
-                  <div className="watch-card-ref">{cleanRef(w.reference) || '—'}</div>
-                  <div className="watch-card-foot">
-                    <span className="watch-card-price">{fmtPrice(w, currency, rate)}</span>
-                    <span className={`badge badge-${w.status}`}>{w.status}</span>
-                  </div>
-                </div>
-              </div>
-            </React.Fragment>
-          ))}
-        </div>
-      )}
+              {rest.length > 0 && <div className="watch-grid">{rest.map(renderCard)}</div>}
+            </>
+          )
+        })()}
     </div>
   )
 }
