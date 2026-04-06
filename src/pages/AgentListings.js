@@ -105,7 +105,7 @@ export default function AgentListings() {
     setOffersLoading(true)
     const { data, error } = await supabase
       .from('offers')
-      .select('*, watches(id, brand, model, reference, watch_images(url, position))')
+      .select('*, watches(id, brand, model, reference, price_eur, price_usd, watch_images(url, position))')
       .order('created_at', { ascending: false })
     if (error) console.error('fetchOffers error:', error)
     setOffers(data || [])
@@ -357,6 +357,10 @@ export default function AgentListings() {
                         </div>
 
                         <div style={{ marginTop: 10, display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+                          <div>
+                            <div style={{ fontSize: 10, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Listing price</div>
+                            <div style={{ fontSize: 15, fontWeight: 600, color: '#888' }}>{watch?.price_eur ? `€${Number(watch.price_eur).toLocaleString()}` : '—'}</div>
+                          </div>
                           <div>
                             <div style={{ fontSize: 10, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Offer</div>
                             <div style={{ fontSize: 15, fontWeight: 600, color: '#333' }}>€{Number(offer.offer_price).toLocaleString()}</div>
