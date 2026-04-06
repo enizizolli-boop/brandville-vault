@@ -496,10 +496,12 @@ button { font-family: inherit; cursor: pointer; }
 
 /* ── Mobile improvements ──────────────────────────────────────────────────── */
 @media (max-width: 600px) {
-  .topbar { padding: 0 14px; height: 52px; }
-  .topbar-logo { font-size: 18px; }
-  .topbar-right { gap: 6px; }
-  .topbar-right .btn-sm { padding: 5px 8px; font-size: 11px; }
+  .topbar { padding: 0 10px; height: 48px; gap: 8px; }
+  .topbar-logo { font-size: 16px; flex-shrink: 0; }
+  .topbar-right { gap: 5px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; flex-shrink: 1; min-width: 0; }
+  .topbar-right::-webkit-scrollbar { display: none; }
+  .topbar-right .btn-sm { padding: 4px 8px; font-size: 10px; flex-shrink: 0; white-space: nowrap; }
+  .topbar-right .user-name-label { display: none; }
   .stat-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px; padding: 10px; }
   .stat-val { font-size: 24px; }
   .watch-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 12px 10px; }

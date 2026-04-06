@@ -45,9 +45,9 @@ export default function Topbar() {
         {profile?.role === 'dealer' && (
           <button className="btn btn-sm" onClick={() => navigate('/offers')}>My Offers</button>
         )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           <div className={`avatar ${avatarColor(profile?.full_name)}`}>{initials(profile?.full_name)}</div>
-          <span style={{ fontSize: 12, color: '#888' }}>{profile?.full_name}</span>
+          <span className="user-name-label" style={{ fontSize: 12, color: '#888' }}>{profile?.full_name}</span>
         </div>
         <button className="btn btn-sm" onClick={handleSignOut}>Sign out</button>
       </div>
