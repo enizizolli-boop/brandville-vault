@@ -293,6 +293,23 @@ button { font-family: inherit; cursor: pointer; }
   color: var(--text);
 }
 
+/* ── Catalog banner ──────────────────────────────────── */
+.catalog-banner {
+  grid-column: 1 / -1;
+  display: block;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow-xs);
+  transition: box-shadow 0.2s;
+  max-height: 80px;
+}
+.catalog-banner:hover { box-shadow: var(--shadow-sm); }
+.catalog-banner img { width: 100%; height: 100%; object-fit: cover; display: block; }
+@media (max-width: 600px) {
+  .catalog-banner { max-height: 52px; border-radius: var(--radius-sm); }
+}
+
 /* ── Tabs ─────────────────────────────────────── */
 .tabs {
   display: flex;

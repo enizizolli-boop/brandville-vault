@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useCurrency } from '../context/CurrencyContext'
@@ -256,13 +256,6 @@ export default function DealerCatalog() {
         </div>
       )}
 
-      {/* Repair service banner */}
-      <a href="https://chasovnikari.com/checkout/" target="_blank" rel="noopener noreferrer"
-        style={{ display: 'block', margin: '0 20px 4px', borderRadius: 12, overflow: 'hidden', cursor: 'pointer' }}>
-        <img src="/banner-repair.png" alt="KK Time Studio — Watchmaking repair service"
-          style={{ width: '100%', height: 'auto', display: 'block' }} />
-      </a>
-
       {loading ? (
         <div className="watch-grid">
           {Array.from({ length: 12 }).map((_, i) => (
@@ -289,21 +282,29 @@ export default function DealerCatalog() {
         </div>
       ) : (
         <div className="watch-grid">
-          {filtered.map(w => (
-            <div key={w.id} className="watch-card" onClick={() => navigate(`/catalog/${w.id}`)}>
-              <div className="watch-card-img">
-                <CardImages watch={w} brandEmoji={BRAND_EMOJI[w.brand] || '⌚'} />
-              </div>
-              <div className="watch-card-body">
-                <div className="watch-card-brand">{w.category ? w.category + ' · ' : ''}{w.brand}</div>
-                <div className="watch-card-model">{w.model}</div>
-                <div className="watch-card-ref">{cleanRef(w.reference) || '—'}</div>
-                <div className="watch-card-foot">
-                  <span className="watch-card-price">{fmtPrice(w, currency, rate)}</span>
-                  <span className={`badge badge-${w.status}`}>{w.status}</span>
+          {filtered.map((w, i) => (
+            <React.Fragment key={w.id}>
+              {i === 8 && (
+                <a href="https://chasovnikari.com/checkout/" target="_blank" rel="noopener noreferrer"
+                  className="catalog-banner" onClick={e => e.stopPropagation()}>
+                  <img src="/banner-repair.png" alt="KK Time Studio — Watchmaking repair service" />
+                </a>
+              )}
+              <div className="watch-card" onClick={() => navigate(`/catalog/${w.id}`)}>
+                <div className="watch-card-img">
+                  <CardImages watch={w} brandEmoji={BRAND_EMOJI[w.brand] || '⌚'} />
+                </div>
+                <div className="watch-card-body">
+                  <div className="watch-card-brand">{w.category ? w.category + ' · ' : ''}{w.brand}</div>
+                  <div className="watch-card-model">{w.model}</div>
+                  <div className="watch-card-ref">{cleanRef(w.reference) || '—'}</div>
+                  <div className="watch-card-foot">
+                    <span className="watch-card-price">{fmtPrice(w, currency, rate)}</span>
+                    <span className={`badge badge-${w.status}`}>{w.status}</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            </React.Fragment>
           ))}
         </div>
       )}
