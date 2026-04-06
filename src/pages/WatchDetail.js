@@ -218,7 +218,10 @@ export default function WatchDetail() {
       status: 'pending',
       dealer_comment: offerComment || null,
     }).select().single()
-    if (!error) {
+    if (error) {
+      console.error('Offer insert error:', error)
+      setMsg('Failed to submit offer. Please try again.')
+    } else {
       notifyOffer({
         action: 'new_offer',
         watch: { brand: watch.brand, model: watch.model },
