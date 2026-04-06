@@ -500,11 +500,16 @@ button { font-family: inherit; cursor: pointer; }
   .topbar-logo { font-size: 18px; }
   .topbar-right { gap: 6px; }
   .topbar-right .btn-sm { padding: 5px 8px; font-size: 11px; }
-  .stat-grid { grid-template-columns: repeat(3,1fr); gap: 8px; padding: 10px; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px; padding: 10px; }
   .stat-val { font-size: 24px; }
   .watch-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 12px 10px; }
   .watch-card-img { height: 160px; }
   .filters { padding: 8px 10px; gap: 6px; overflow-x: auto; flex-wrap: nowrap; }
   .filters select, .filters input { font-size: 12px; padding: 6px 8px; flex-shrink: 0; }
   .detail-layout { padding: 0 0 48px; }
+  .tabs { overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { padding: 12px 14px; font-size: 12px; }
+  .user-row { flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
+  .user-row-actions { width: 100%; justify-content: flex-end; }
 }
