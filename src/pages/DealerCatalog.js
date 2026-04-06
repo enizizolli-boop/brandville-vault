@@ -256,6 +256,13 @@ export default function DealerCatalog() {
         </div>
       )}
 
+      {/* Repair service banner */}
+      <a href="https://chasovnikari.com/checkout/" target="_blank" rel="noopener noreferrer"
+        style={{ display: 'block', margin: '0 20px 4px', borderRadius: 12, overflow: 'hidden', cursor: 'pointer' }}>
+        <img src="/banner-repair.png" alt="KK Time Studio — Watchmaking repair service"
+          style={{ width: '100%', height: 'auto', display: 'block' }} />
+      </a>
+
       {loading ? (
         <div className="watch-grid">
           {Array.from({ length: 12 }).map((_, i) => (
