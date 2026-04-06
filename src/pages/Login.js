@@ -5,11 +5,11 @@ import { supabase } from '../lib/supabase'
 
 export default function Login() {
   const { signIn, user, profile } = useAuth()
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(() => localStorage.getItem('bv_saved_email') || '')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [rememberMe, setRememberMe] = useState(true)
+  const [rememberMe, setRememberMe] = useState(() => localStorage.getItem('bv_remember') !== 'false')
   const [showPassword, setShowPassword] = useState(false)
   const [forgotMode, setForgotMode] = useState(false)
   const [forgotSent, setForgotSent] = useState(false)
@@ -23,6 +23,15 @@ export default function Login() {
     setLoading(true)
     const { error } = await signIn(email, password, rememberMe)
     if (error) { setError('Invalid email or password.'); setLoading(false) }
+    else {
+      if (rememberMe) {
+        localStorage.setItem('bv_saved_email', email)
+        localStorage.setItem('bv_remember', 'true')
+      } else {
+        localStorage.removeItem('bv_saved_email')
+        localStorage.setItem('bv_remember', 'false')
+      }
+    }
   }
 
   async function handleForgot(e) {
