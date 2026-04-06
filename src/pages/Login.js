@@ -1,11 +1,10 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 
 export default function Login() {
-  const { signIn } = useAuth()
-  const navigate = useNavigate()
+  const { signIn, user, profile } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -16,14 +15,14 @@ export default function Login() {
   const [forgotSent, setForgotSent] = useState(false)
   const [forgotLoading, setForgotLoading] = useState(false)
 
+  if (user && profile) return <Navigate to="/" replace />
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
     setLoading(true)
     const { error } = await signIn(email, password, rememberMe)
-    setLoading(false)
-    if (error) setError('Invalid email or password.')
-    else navigate('/')
+    if (error) { setError('Invalid email or password.'); setLoading(false) }
   }
 
   async function handleForgot(e) {
