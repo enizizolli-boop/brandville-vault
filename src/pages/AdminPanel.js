@@ -23,6 +23,9 @@ export default function AdminPanel() {
   const [odooSyncing, setOdooSyncing] = useState(false)
   const [odooResult, setOdooResult] = useState(null)
   const [odooError, setOdooError] = useState('')
+  const [bagsSyncing, setBagsSyncing] = useState(false)
+  const [bagsResult, setBagsResult] = useState(null)
+  const [bagsError, setBagsError] = useState('')
   const [extractingJewellery, setExtractingJewellery] = useState(false)
   const [extractResult, setExtractResult] = useState(null)
   const [extractError, setExtractError] = useState('')
@@ -212,6 +215,70 @@ export default function AdminPanel() {
     setOdooSyncing(false)
   }
 
+  async function handleBagsSync() {
+    setBagsSyncing(true)
+    setBagsResult(null)
+    setBagsError('')
+
+    const BATCH_SIZE = 5
+    let offset = 0
+    let totalAdded = 0
+    let totalUpdated = 0
+    let totalRemoved = 0
+    let totalImages = 0
+    let grandTotal = 0
+    const MAX_RETRIES = 3
+
+    try {
+      while (true) {
+        let data = null
+        let lastError = null
+
+        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+          try {
+            const res = await fetch('/api/odoo-bags-sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ batch_size: BATCH_SIZE, offset })
+            })
+            data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Bags sync failed')
+            lastError = null
+            break
+          } catch (err) {
+            lastError = err
+            await new Promise(r => setTimeout(r, 2000))
+          }
+        }
+
+        if (lastError) throw lastError
+
+        totalAdded += data.added || 0
+        totalUpdated += data.updated || 0
+        totalRemoved += data.removed || 0
+        totalImages += data.images_added || 0
+        grandTotal = data.total || grandTotal
+
+        setBagsResult({
+          inProgress: !data.done,
+          added: totalAdded,
+          updated: totalUpdated,
+          removed: totalRemoved,
+          images_added: totalImages,
+          processed: offset + (data.processed || 0),
+          total: grandTotal,
+        })
+
+        if (data.done || !data.next_offset) break
+        offset = data.next_offset
+      }
+      fetchStats()
+    } catch (err) {
+      setBagsError(err.message || 'Bags sync failed.')
+    }
+    setBagsSyncing(false)
+  }
+
   async function handleExtractJewelleryTypes() {
     setExtractingJewellery(true)
     setExtractResult(null)
@@ -249,7 +316,7 @@ export default function AdminPanel() {
         <div className={`tab ${tab === 'dealers' ? 'active' : ''}`} onClick={() => setTab('dealers')}>Dealers ({dealers.length})</div>
         <div className={`tab ${tab === 'agents' ? 'active' : ''}`} onClick={() => setTab('agents')}>Agents ({agents.length})</div>
         <div className={`tab ${tab === 'invite' ? 'active' : ''}`} onClick={() => setTab('invite')}>Invite user</div>
-        <div className={`tab ${tab === 'sync' ? 'active' : ''}`} onClick={() => setTab('sync')}>Zoho Sync</div>
+        <div className={`tab ${tab === 'sync' ? 'active' : ''}`} onClick={() => setTab('sync')}>Sync</div>
       </div>
 
       {tab === 'sync' && (
@@ -320,6 +387,40 @@ export default function AdminPanel() {
 
             <button className="btn btn-dark btn-full" onClick={handleOdooSync} disabled={odooSyncing || syncing}>
               {odooSyncing ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Syncing...</> : '↻ Sync Jewellery from Odoo'}
+            </button>
+          </div>
+
+          {/* Bags sync */}
+          <div style={{ background: '#fff', border: '1px solid var(--border-light)', borderRadius: 14, padding: 20, marginBottom: 16, boxShadow: 'var(--shadow-xs)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: '#fce4ec', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>👜</div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>Odoo — Bags</div>
+                <div style={{ fontSize: 11, color: 'var(--faint)' }}>Handbags · Totes · Backpacks · Pouches</div>
+              </div>
+            </div>
+            <div style={{ fontSize: 12, color: '#888', lineHeight: 1.6, marginBottom: 14 }}>
+              Pulls published bags from Odoo with images. Price is calculated as cost + 40%. Only items visible on the website are synced.
+            </div>
+
+            {bagsResult && (
+              <div style={{ marginBottom: 12 }}>
+                <div className="progress-wrap">
+                  <div className="progress-bar" style={{ width: `${bagsResult.total ? Math.round((bagsResult.processed / bagsResult.total) * 100) : (bagsResult.inProgress ? 5 : 100)}%` }} />
+                </div>
+                <div className="progress-label">
+                  {bagsResult.inProgress
+                    ? `${bagsResult.processed} / ${bagsResult.total} items`
+                    : `✓ Done — ${bagsResult.added} added · ${bagsResult.updated} updated · ${bagsResult.removed} removed · ${bagsResult.images_added} images`
+                  }
+                </div>
+              </div>
+            )}
+
+            {bagsError && <div className="error-msg" style={{ marginBottom: 10, fontSize: 12 }}>{bagsError}</div>}
+
+            <button className="btn btn-dark btn-full" onClick={handleBagsSync} disabled={bagsSyncing || syncing || odooSyncing}>
+              {bagsSyncing ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Syncing...</> : '↻ Sync Bags from Odoo'}
             </button>
           </div>
 
