@@ -239,7 +239,7 @@ export default function AdminPanel() {
             const res = await fetch('/api/odoo-bags-sync', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ batch_size: BATCH_SIZE, offset })
+              body: JSON.stringify({ batch_size: BATCH_SIZE, offset, debug_no_category: true })
             })
             data = await res.json()
             if (!res.ok) throw new Error(data.error || 'Bags sync failed')

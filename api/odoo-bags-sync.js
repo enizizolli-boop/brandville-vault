@@ -192,11 +192,18 @@ export default async function handler(req, res) {
   const { batch_size = 5, offset = 0 } = req.body || {};
 
   try {
+    const { categ_id, debug_no_category } = req.body || {};
+    const bagsCategId = categ_id || null;
+
     const domain = [
       ['sale_ok', '=', true],
       ['active', '=', true],
-      ['public_categ_ids', 'child_of', BAGS_ECATEG_ID],
     ];
+    if (!debug_no_category && bagsCategId) {
+      domain.push(['categ_id', 'child_of', bagsCategId]);
+    } else if (!debug_no_category) {
+      domain.push(['public_categ_ids', 'child_of', BAGS_ECATEG_ID]);
+    }
 
     const totalCount = await odooCount(domain);
     const allItems = await odooRead(
@@ -238,7 +245,7 @@ export default async function handler(req, res) {
     // Remove stale items on first batch only
     let removed = 0;
     if (offset === 0) {
-      const allOdooItems = await odooRead(domain, ['id'], 5000, 0);
+      const allOdooItems = await odooRead(domain, ['id'], 5000, 0).catch(() => []);
       const allOdooIds = allOdooItems.map(i => String(i.id));
       const { data: allExisting } = await supabase.from('watches').select('odoo_product_id').eq('source', 'odoo_bags');
       const toDelete = (allExisting || []).map(i => i.odoo_product_id).filter(id => !allOdooIds.includes(id));
