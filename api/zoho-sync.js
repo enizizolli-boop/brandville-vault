@@ -150,7 +150,12 @@ export default async function handler(req, res) {
   try {
     const accessToken = await getAccessToken();
     const allItems = await fetchAllItems(accessToken);
-    let zohoItems = allItems.filter(item => item.show_in_storefront === true);
+    // Filter: must be on storefront AND have stock available
+    let zohoItems = allItems.filter(item => {
+      if (item.show_in_storefront !== true) return false;
+      const stock = item.actual_available_stock ?? item.available_stock ?? item.stock_on_hand ?? 0;
+      return Number(stock) > 0;
+    });
     const totalOnStore = zohoItems.length;
 
     if (test_mode) {
@@ -172,14 +177,18 @@ export default async function handler(req, res) {
     const existingMap = {};
     (existingItems || []).forEach(i => { existingMap[i.zoho_item_id] = i.id; });
 
-    // Remove stale items on first batch only
+    // Remove stale items on first batch only (out of stock or removed from storefront)
     let removed = 0;
     if (offset === 0) {
       const { data: allExisting } = await supabase
         .from('products').select('zoho_item_id').eq('source', 'zoho');
       const allExistingIds = (allExisting || []).map(i => i.zoho_item_id);
-      const allZohoIds = allItems.filter(i => i.show_in_storefront === true).map(i => String(i.item_id));
-      const toDelete = allExistingIds.filter(id => !allZohoIds.includes(id));
+      const liveZohoIds = allItems.filter(i => {
+        if (i.show_in_storefront !== true) return false;
+        const stock = i.actual_available_stock ?? i.available_stock ?? i.stock_on_hand ?? 0;
+        return Number(stock) > 0;
+      }).map(i => String(i.item_id));
+      const toDelete = allExistingIds.filter(id => !liveZohoIds.includes(id));
       if (toDelete.length > 0) {
         await supabase.from('products').delete().in('zoho_item_id', toDelete);
         removed = toDelete.length;

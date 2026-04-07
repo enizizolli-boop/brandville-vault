@@ -88,9 +88,14 @@ export default async function handler(req, res) {
   try {
     const accessToken = await getAccessToken();
     const allItems = await fetchAllItems(accessToken);
-    const zohoItems = allItems.filter(item => item.show_in_storefront === true);
+    // Live items: in storefront AND with stock
+    const zohoItems = allItems.filter(item => {
+      if (item.show_in_storefront !== true) return false;
+      const stock = item.actual_available_stock ?? item.available_stock ?? item.stock_on_hand ?? 0;
+      return Number(stock) > 0;
+    });
 
-    // Remove items no longer on storefront
+    // Remove items no longer on storefront or out of stock
     const allZohoIds = zohoItems.map(i => String(i.item_id));
     const { data: allExisting } = await supabase.from('products').select('zoho_item_id').eq('source', 'zoho');
     const toDelete = (allExisting || []).map(i => i.zoho_item_id).filter(id => !allZohoIds.includes(id));
