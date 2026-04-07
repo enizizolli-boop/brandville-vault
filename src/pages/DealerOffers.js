@@ -33,7 +33,7 @@ export default function DealerOffers() {
   const fetchOffers = useCallback(async () => {
     const { data } = await supabase
       .from('offers')
-      .select('*, watches(id, brand, model, reference, price_eur, watch_images(url, position))')
+      .select('*, products(id, brand, model, reference, price_eur, product_images(url, position))')
       .eq('dealer_id', profile.id)
       .order('created_at', { ascending: false })
     setOffers(data || [])
@@ -47,7 +47,7 @@ export default function DealerOffers() {
     if (error) console.error('accept_offer error:', error)
     notifyOffer({
       action: 'dealer_accepted',
-      watch: offer.watches,
+      watch: offer.products,
       dealer_name: profile.full_name,
       dealer_whatsapp: offer.dealer_whatsapp,
       counter_price: offer.counter_price,
@@ -61,7 +61,7 @@ export default function DealerOffers() {
     await supabase.from('offers').update({ status: 'rejected', updated_at: new Date().toISOString() }).eq('id', offer.id)
     notifyOffer({
       action: 'dealer_rejected',
-      watch: offer.watches,
+      watch: offer.products,
       dealer_name: profile.full_name,
       dealer_whatsapp: offer.dealer_whatsapp,
       counter_price: offer.counter_price,
@@ -71,8 +71,8 @@ export default function DealerOffers() {
   }
 
   function getThumb(w) {
-    if (!w?.watch_images?.length) return null
-    return [...w.watch_images].sort((a, b) => a.position - b.position)[0]?.url
+    if (!w?.product_images?.length) return null
+    return [...w.product_images].sort((a, b) => a.position - b.position)[0]?.url
   }
 
   function fmtPrice(amount) {
@@ -107,7 +107,7 @@ export default function DealerOffers() {
           : offers.filter(o => o.status === statusTab).length === 0
             ? <div className="empty-state">No {statusTab} offers</div>
             : offers.filter(o => o.status === statusTab).map(offer => {
-              const watch = offer.watches
+              const watch = offer.products
               const thumb = getThumb(watch)
               return (
                 <div key={offer.id} style={{ border: '1px solid #e8e5e0', borderRadius: 12, padding: 16, marginBottom: 12, background: '#fff' }}>

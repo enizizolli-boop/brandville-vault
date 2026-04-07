@@ -4,7 +4,7 @@ const STORE_DOMAIN = 'thewatchstore.zohocommerce.eu';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL,
+  process.env.SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
@@ -62,7 +62,7 @@ export default async function handler(req, res) {
   try {
     // Get Zoho-sourced watches that need images (or all for full refresh)
     const { data: watches, error } = await supabase
-      .from('watches')
+      .from('products')
       .select('id, zoho_item_id')
       .eq('source', 'zoho')
       .not('zoho_item_id', 'is', null)
@@ -83,17 +83,17 @@ export default async function handler(req, res) {
 
       if (images.length > 0) {
         // Delete existing images for this watch
-        await supabase.from('watch_images').delete().eq('watch_id', watch.id);
+        await supabase.from('product_images').delete().eq('product_id', watch.id);
 
         // Insert all images
         const imageRows = images.map((url, i) => ({
-          watch_id: watch.id,
+          product_id: watch.id,
           url,
           position: i
         }));
 
         const { error: insertError } = await supabase
-          .from('watch_images')
+          .from('product_images')
           .insert(imageRows);
 
         if (insertError) {
@@ -107,7 +107,7 @@ export default async function handler(req, res) {
     }
 
     const total = await supabase
-      .from('watches')
+      .from('products')
       .select('id', { count: 'exact', head: true })
       .eq('source', 'zoho');
 

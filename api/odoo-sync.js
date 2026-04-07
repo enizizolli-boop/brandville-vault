@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL,
+  process.env.SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
@@ -139,15 +139,65 @@ async function odooReadProductImages(productTmplIds) {
   return parseItems(text);
 }
 
-function extractJewelleryTypeFromText(text) {
-  if (!text) return null;
-  const lower = String(text).toLowerCase();
-  if (/\b(?:earrings?|earings?|earing|ear-?rings?)\b/.test(lower)) return 'Earrings';
-  if (/\b(?:studs?|hoops?)\b/.test(lower)) return 'Earrings';
-  if (/\bbracelets?\b/.test(lower)) return 'Bracelets';
-  if (/\bnecklaces?\b/.test(lower)) return 'Necklaces';
-  if (/\brings?\b/.test(lower)) return 'Rings';
-  return null;
+
+async function fetchSoldProductTemplateIds() {
+  // Returns a Set of product.template IDs on any non-cancelled sale order (draft or confirmed).
+  // Two-step: sale.order.line → product.product → product.template (works across all Odoo versions).
+  try {
+    // Step 1: get product.product IDs from non-cancelled sale order lines
+    const domainXml = domainToXml([['order_id.state', '!=', 'cancel']]);
+    const body1 = `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>` +
+      `<param><value><string>${ODOO_DB}</string></value></param>` +
+      `<param><value><int>${ODOO_UID}</int></value></param>` +
+      `<param><value><string>${ODOO_API_KEY}</string></value></param>` +
+      `<param><value><string>sale.order.line</string></value></param>` +
+      `<param><value><string>search_read</string></value></param>` +
+      `<param><value><array><data><value><array><data>${domainXml}</data></array></value></data></array></value></param>` +
+      `<param><value><struct>` +
+      `<member><name>fields</name><value><array><data><value><string>product_id</string></value></data></array></value></member>` +
+      `<member><name>limit</name><value><int>5000</int></value></member>` +
+      `</struct></value></param></params></methodCall>`;
+    const res1 = await fetch(ODOO_URL + '/xmlrpc/2/object', { method: 'POST', headers: { 'Content-Type': 'text/xml' }, body: body1 });
+    const text1 = await res1.text();
+    if (text1.includes('<fault>')) { console.error('fetchSoldIds step1 fault:', text1.substring(0, 300)); return new Set(); }
+
+    const lines = parseItems(text1);
+    const variantIds = [...new Set(lines.map(l => {
+      const pid = Array.isArray(l.product_id) ? l.product_id[0] : l.product_id;
+      return typeof pid === 'number' ? pid : null;
+    }).filter(Boolean))];
+
+    if (!variantIds.length) return new Set();
+
+    // Step 2: map product.product IDs → product.template IDs
+    const idsXml = variantIds.map(id => `<value><int>${id}</int></value>`).join('');
+    const domainXml2 = `<value><array><data><value><string>id</string></value><value><string>in</string></value><value><array><data>${idsXml}</data></array></value></data></array></value>`;
+    const body2 = `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>` +
+      `<param><value><string>${ODOO_DB}</string></value></param>` +
+      `<param><value><int>${ODOO_UID}</int></value></param>` +
+      `<param><value><string>${ODOO_API_KEY}</string></value></param>` +
+      `<param><value><string>product.product</string></value></param>` +
+      `<param><value><string>search_read</string></value></param>` +
+      `<param><value><array><data><value><array><data>${domainXml2}</data></array></value></data></array></value></param>` +
+      `<param><value><struct>` +
+      `<member><name>fields</name><value><array><data><value><string>product_tmpl_id</string></value></data></array></value></member>` +
+      `<member><name>limit</name><value><int>5000</int></value></member>` +
+      `</struct></value></param></params></methodCall>`;
+    const res2 = await fetch(ODOO_URL + '/xmlrpc/2/object', { method: 'POST', headers: { 'Content-Type': 'text/xml' }, body: body2 });
+    const text2 = await res2.text();
+    if (text2.includes('<fault>')) { console.error('fetchSoldIds step2 fault:', text2.substring(0, 300)); return new Set(); }
+
+    const variants = parseItems(text2);
+    const ids = new Set();
+    for (const v of variants) {
+      const tmplId = Array.isArray(v.product_tmpl_id) ? v.product_tmpl_id[0] : v.product_tmpl_id;
+      if (typeof tmplId === 'number') ids.add(tmplId);
+    }
+    return ids;
+  } catch (e) {
+    console.error('fetchSoldProductTemplateIds error:', e);
+    return new Set();
+  }
 }
 
 export default async function handler(req, res) {
@@ -155,14 +205,18 @@ export default async function handler(req, res) {
   const { batch_size = 5, offset = 0 } = req.body || {};
 
   try {
-    const domain = [['sale_ok', '=', true], ['active', '=', true], ['categ_id', '=', JEWELRY_CATEG_ID], ['virtual_available', '>', 0]];
+    const domain = [['sale_ok', '=', true], ['active', '=', true], ['categ_id', '=', JEWELRY_CATEG_ID]];
     const totalCount = await odooCount(domain);
-    const items = await odooRead(domain, ['id', 'name', 'default_code', 'list_price', 'description_sale', 'image_1920'], batch_size, offset);
+    const items = await odooRead(domain, ['id', 'name', 'default_code', 'list_price', 'description_sale', 'image_1920', 'qty_available', 'virtual_available', 'categ_id'], batch_size, offset);
+
+    // Fetch all product template IDs currently on any non-cancelled sale order (draft or confirmed).
+    // These are definitively sold regardless of qty_available.
+    const soldTemplateIds = await fetchSoldProductTemplateIds();
 
     if (!items || items.length === 0) return res.status(200).json({ success: true, done: true, processed: 0, total: totalCount });
 
     const odooIds = items.map(i => String(i.id));
-    const { data: existing } = await supabase.from('watches').select('id, odoo_product_id').eq('source', 'odoo').in('odoo_product_id', odooIds);
+    const { data: existing } = await supabase.from('products').select('id, odoo_product_id').eq('source', 'odoo').in('odoo_product_id', odooIds);
     const existingMap = {};
     (existing || []).forEach(i => { existingMap[i.odoo_product_id] = i.id; });
 
@@ -226,8 +280,29 @@ export default async function handler(req, res) {
       }
 
       const isExisting = !!existingMap[String(item.id)];
+      // Sold if: on any non-cancelled sale order (draft or confirmed) OR physically no stock left
+      const qtyOnHand = item.qty_available != null ? item.qty_available : null;
+      const qtyForecast = item.virtual_available != null ? item.virtual_available : null;
+      const isSold = soldTemplateIds.has(item.id) ||
+        (qtyOnHand !== null && qtyOnHand <= 0) ||
+        (qtyForecast !== null && qtyForecast <= 0);
+
+      // Derive jewellery_type from Odoo sub-category name, not from product name keywords
+      // categ_id is returned as [id, 'Category Name']
+      const categName = Array.isArray(item.categ_id) ? item.categ_id[1] : (typeof item.categ_id === 'string' ? item.categ_id : null);
+      const JEWELLERY_TYPE_MAP = {
+        'bracelets': 'Bracelets', 'bracelet': 'Bracelets',
+        'earrings': 'Earrings', 'earring': 'Earrings',
+        'necklaces': 'Necklaces', 'necklace': 'Necklaces',
+        'rings': 'Rings', 'ring': 'Rings',
+        'pendants': 'Necklaces', 'pendant': 'Necklaces',
+      };
+      const jewelleryType = categName
+        ? (JEWELLERY_TYPE_MAP[categName.toLowerCase()] || null)
+        : null;
+
       const mapped = {
-        jewellery_type: extractJewelleryTypeFromText(item.name) || extractJewelleryTypeFromText(item.description_sale) || extractJewelleryTypeFromText(item.default_code),
+        subcategory: jewelleryType,
         odoo_product_id: String(item.id),
         source: 'odoo',
         brand,
@@ -235,13 +310,13 @@ export default async function handler(req, res) {
         reference: item.default_code || null,
         price_eur: item.list_price || null,
         condition: 'Fair',
-        // Only set status to 'available' for NEW items — never override status of existing items
-        ...(isExisting ? {} : { status: 'available' }),
+        // Mark as sold if no stock; only set 'available' for new items with stock
+        ...(isSold ? { status: 'sold' } : isExisting ? {} : { status: 'available' }),
         category: 'Jewellery',
         notes: item.description_sale && item.description_sale.trim() ? item.description_sale.trim() : null,
       };
 
-      const { data: upserted, error } = await supabase.from('watches').upsert(mapped, { onConflict: 'odoo_product_id' }).select('id').single();
+      const { data: upserted, error } = await supabase.from('products').upsert(mapped, { onConflict: 'odoo_product_id' }).select('id').single();
       if (error) { errors.push({ item: mapped.odoo_product_id, error: error.message }); continue; }
 
       const watchId = upserted?.id || existingMap[mapped.odoo_product_id];
@@ -249,7 +324,7 @@ export default async function handler(req, res) {
 
 
       if (watchId) {
-        await supabase.from('watch_images').delete().eq('watch_id', watchId);
+        await supabase.from('product_images').delete().eq('product_id', watchId);
         let position = 0;
 
         // Primary image
@@ -260,7 +335,7 @@ export default async function handler(req, res) {
             const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
             if (!upErr) {
               const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
-              await supabase.from('watch_images').insert({ watch_id: watchId, url: publicUrl, position });
+              await supabase.from('product_images').insert({ product_id: watchId, url: publicUrl, position });
               position++;
               imagesAdded++;
             }
@@ -278,7 +353,7 @@ export default async function handler(req, res) {
             const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
             if (!upErr) {
               const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
-              await supabase.from('watch_images').insert({ watch_id: watchId, url: publicUrl, position });
+              await supabase.from('product_images').insert({ product_id: watchId, url: publicUrl, position });
               position++;
               imagesAdded++;
             }
@@ -289,7 +364,7 @@ export default async function handler(req, res) {
 
     const nextOffset = offset + batch_size;
     const done = nextOffset >= totalCount;
-    return res.status(200).json({ success: true, added, updated, images_added: imagesAdded, processed: items.length, offset, next_offset: done ? null : nextOffset, total: totalCount, done, errors: errors.length > 0 ? errors : undefined });
+    return res.status(200).json({ success: true, added, updated, images_added: imagesAdded, processed: items.length, offset, next_offset: done ? null : nextOffset, total: totalCount, done, sold_on_order: soldTemplateIds.size, errors: errors.length > 0 ? errors : undefined });
   } catch (err) {
     console.error('Odoo sync error:', err);
     return res.status(500).json({ error: err.message });

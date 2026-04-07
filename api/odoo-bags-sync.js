@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL,
+  process.env.SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
@@ -134,6 +134,64 @@ async function odooReadProductImages(productTmplIds) {
   return parseItems(text);
 }
 
+async function fetchSoldProductTemplateIds() {
+  // Returns a Set of product.template IDs on any non-cancelled sale order (draft or confirmed).
+  // Two-step: sale.order.line → product.product → product.template (works across all Odoo versions).
+  try {
+    const domainXml = domainToXml([['order_id.state', '!=', 'cancel']]);
+    const body1 = `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>` +
+      `<param><value><string>${ODOO_DB}</string></value></param>` +
+      `<param><value><int>${ODOO_UID}</int></value></param>` +
+      `<param><value><string>${ODOO_API_KEY}</string></value></param>` +
+      `<param><value><string>sale.order.line</string></value></param>` +
+      `<param><value><string>search_read</string></value></param>` +
+      `<param><value><array><data><value><array><data>${domainXml}</data></array></value></data></array></value></param>` +
+      `<param><value><struct>` +
+      `<member><name>fields</name><value><array><data><value><string>product_id</string></value></data></array></value></member>` +
+      `<member><name>limit</name><value><int>5000</int></value></member>` +
+      `</struct></value></param></params></methodCall>`;
+    const res1 = await fetch(ODOO_URL + '/xmlrpc/2/object', { method: 'POST', headers: { 'Content-Type': 'text/xml' }, body: body1 });
+    const text1 = await res1.text();
+    if (text1.includes('<fault>')) { console.error('fetchSoldIds step1 fault:', text1.substring(0, 300)); return new Set(); }
+
+    const lines = parseItems(text1);
+    const variantIds = [...new Set(lines.map(l => {
+      const pid = Array.isArray(l.product_id) ? l.product_id[0] : l.product_id;
+      return typeof pid === 'number' ? pid : null;
+    }).filter(Boolean))];
+
+    if (!variantIds.length) return new Set();
+
+    const idsXml = variantIds.map(id => `<value><int>${id}</int></value>`).join('');
+    const domainXml2 = `<value><array><data><value><string>id</string></value><value><string>in</string></value><value><array><data>${idsXml}</data></array></value></data></array></value>`;
+    const body2 = `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>` +
+      `<param><value><string>${ODOO_DB}</string></value></param>` +
+      `<param><value><int>${ODOO_UID}</int></value></param>` +
+      `<param><value><string>${ODOO_API_KEY}</string></value></param>` +
+      `<param><value><string>product.product</string></value></param>` +
+      `<param><value><string>search_read</string></value></param>` +
+      `<param><value><array><data><value><array><data>${domainXml2}</data></array></value></data></array></value></param>` +
+      `<param><value><struct>` +
+      `<member><name>fields</name><value><array><data><value><string>product_tmpl_id</string></value></data></array></value></member>` +
+      `<member><name>limit</name><value><int>5000</int></value></member>` +
+      `</struct></value></param></params></methodCall>`;
+    const res2 = await fetch(ODOO_URL + '/xmlrpc/2/object', { method: 'POST', headers: { 'Content-Type': 'text/xml' }, body: body2 });
+    const text2 = await res2.text();
+    if (text2.includes('<fault>')) { console.error('fetchSoldIds step2 fault:', text2.substring(0, 300)); return new Set(); }
+
+    const variants = parseItems(text2);
+    const ids = new Set();
+    for (const v of variants) {
+      const tmplId = Array.isArray(v.product_tmpl_id) ? v.product_tmpl_id[0] : v.product_tmpl_id;
+      if (typeof tmplId === 'number') ids.add(tmplId);
+    }
+    return ids;
+  } catch (e) {
+    console.error('fetchSoldProductTemplateIds error:', e);
+    return new Set();
+  }
+}
+
 const BRAND_MAP = {
   'bvlgari': 'Bulgari', 'bulgari': 'Bulgari',
   'van cleef': 'Van Cleef & Arpels',
@@ -192,18 +250,11 @@ export default async function handler(req, res) {
   const { batch_size = 5, offset = 0 } = req.body || {};
 
   try {
-    const { categ_id, debug_no_category } = req.body || {};
-    const bagsCategId = categ_id || null;
-
     const domain = [
       ['sale_ok', '=', true],
       ['active', '=', true],
+      ['website_published', '=', true],
     ];
-    if (!debug_no_category && bagsCategId) {
-      domain.push(['categ_id', 'child_of', bagsCategId]);
-    } else if (!debug_no_category) {
-      domain.push(['public_categ_ids', 'child_of', BAGS_ECATEG_ID]);
-    }
 
     const totalCount = await odooCount(domain);
     const allItems = await odooRead(
@@ -215,13 +266,19 @@ export default async function handler(req, res) {
     // Only process items that have an image
     const items = (allItems || []).filter(i => i.image_1920 && i.image_1920 !== false);
 
+    // Fetch all product template IDs currently on any non-cancelled sale order.
+    const soldTemplateIds = await fetchSoldProductTemplateIds();
+
     if (!items || items.length === 0) {
-      return res.status(200).json({ success: true, done: true, processed: 0, total: totalCount });
+      // If no items with images in this batch, skip to next batch or finish
+      const nextOffset = offset + batch_size;
+      const done = nextOffset >= totalCount;
+      return res.status(200).json({ success: true, done, processed: 0, total: totalCount, added: 0, updated: 0, removed: 0, images_added: 0, next_offset: done ? null : nextOffset });
     }
 
     const odooIds = items.map(i => String(i.id));
     const { data: existing } = await supabase
-      .from('watches')
+      .from('products')
       .select('id, odoo_product_id')
       .eq('source', 'odoo_bags')
       .in('odoo_product_id', odooIds);
@@ -247,10 +304,10 @@ export default async function handler(req, res) {
     if (offset === 0) {
       const allOdooItems = await odooRead(domain, ['id'], 5000, 0).catch(() => []);
       const allOdooIds = allOdooItems.map(i => String(i.id));
-      const { data: allExisting } = await supabase.from('watches').select('odoo_product_id').eq('source', 'odoo_bags');
+      const { data: allExisting } = await supabase.from('products').select('odoo_product_id').eq('source', 'odoo_bags');
       const toDelete = (allExisting || []).map(i => i.odoo_product_id).filter(id => !allOdooIds.includes(id));
       if (toDelete.length > 0) {
-        await supabase.from('watches').delete().in('odoo_product_id', toDelete);
+        await supabase.from('products').delete().in('odoo_product_id', toDelete);
         removed = toDelete.length;
       }
     }
@@ -263,6 +320,7 @@ export default async function handler(req, res) {
       const cost = item.standard_price || 0;
       const priceEur = cost > 0 ? Math.round(cost * PRICE_MARKUP * 100) / 100 : null;
 
+      const isSold = soldTemplateIds.has(item.id);
       const mapped = {
         odoo_product_id: String(item.id),
         source: 'odoo_bags',
@@ -271,12 +329,13 @@ export default async function handler(req, res) {
         reference: item.default_code || null,
         price_eur: priceEur,
         category: 'Bags',
+        condition: 'Pre-owned',
         notes: item.description_sale && item.description_sale.trim() ? item.description_sale.trim() : null,
-        ...(isExisting ? {} : { status: 'available' }),
+        ...(isSold ? { status: 'sold' } : isExisting ? {} : { status: 'available' }),
       };
 
       const { data: upserted, error } = await supabase
-        .from('watches')
+        .from('products')
         .upsert(mapped, { onConflict: 'odoo_product_id' })
         .select('id')
         .single();
@@ -287,7 +346,7 @@ export default async function handler(req, res) {
       isExisting ? updated++ : added++;
 
       if (watchId) {
-        await supabase.from('watch_images').delete().eq('watch_id', watchId);
+        await supabase.from('product_images').delete().eq('product_id', watchId);
         let position = 0;
 
         // Primary image
@@ -298,7 +357,7 @@ export default async function handler(req, res) {
             const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
             if (!upErr) {
               const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
-              await supabase.from('watch_images').insert({ watch_id: watchId, url: publicUrl, position });
+              await supabase.from('product_images').insert({ product_id: watchId, url: publicUrl, position });
               position++;
               imagesAdded++;
             }
@@ -316,7 +375,7 @@ export default async function handler(req, res) {
             const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
             if (!upErr) {
               const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
-              await supabase.from('watch_images').insert({ watch_id: watchId, url: publicUrl, position });
+              await supabase.from('product_images').insert({ product_id: watchId, url: publicUrl, position });
               position++;
               imagesAdded++;
             }

@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL,
+  process.env.SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
@@ -83,7 +83,7 @@ function mapZohoItem(item) {
     price_eur: item.price ? parseFloat(item.price) : null,
     status: 'available',
     category,
-    jewellery_type: jewellery_type || null,
+    subcategory: jewellery_type || null,
     notes: item.description || null,
   };
 }
@@ -104,12 +104,12 @@ export default async function handler(req, res) {
 
     // Remove items no longer on storefront
     const allZohoIds = zohoItems.map(i => String(i.item_id));
-    const { data: allExisting } = await supabase.from('watches').select('zoho_item_id').eq('source', 'zoho');
+    const { data: allExisting } = await supabase.from('products').select('zoho_item_id').eq('source', 'zoho');
     const toDelete = (allExisting || []).map(i => i.zoho_item_id).filter(id => !allZohoIds.includes(id));
-    if (toDelete.length > 0) await supabase.from('watches').delete().in('zoho_item_id', toDelete);
+    if (toDelete.length > 0) await supabase.from('products').delete().in('zoho_item_id', toDelete);
 
     const zohoIds = zohoItems.map(i => String(i.item_id));
-    const { data: existingItems } = await supabase.from('watches').select('id, zoho_item_id').eq('source', 'zoho').in('zoho_item_id', zohoIds);
+    const { data: existingItems } = await supabase.from('products').select('id, zoho_item_id').eq('source', 'zoho').in('zoho_item_id', zohoIds);
     const existingMap = {};
     (existingItems || []).forEach(i => { existingMap[i.zoho_item_id] = i.id; });
 
@@ -120,7 +120,7 @@ export default async function handler(req, res) {
       const isExisting = !!existingMap[mapped.zoho_item_id];
       if (isExisting) delete mapped.status; // never override status of existing items
 
-      const { data: upserted, error } = await supabase.from('watches').upsert(mapped, { onConflict: 'zoho_item_id' }).select('id').single();
+      const { data: upserted, error } = await supabase.from('products').upsert(mapped, { onConflict: 'zoho_item_id' }).select('id').single();
       if (error) continue;
 
       const watchId = upserted?.id || existingMap[mapped.zoho_item_id];
@@ -129,8 +129,8 @@ export default async function handler(req, res) {
       if (watchId && !isExisting) {
         const images = await fetchImagesFromStorePage(zohoItem.item_id);
         if (images.length > 0) {
-          await supabase.from('watch_images').delete().eq('watch_id', watchId);
-          await supabase.from('watch_images').insert(images.map((url, i) => ({ watch_id: watchId, url, position: i })));
+          await supabase.from('product_images').delete().eq('product_id', watchId);
+          await supabase.from('product_images').insert(images.map((url, i) => ({ product_id: watchId, url, position: i })));
           imagesAdded += images.length;
         }
       }

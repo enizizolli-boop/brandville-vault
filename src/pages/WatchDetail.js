@@ -74,13 +74,13 @@ export default function WatchDetail() {
 
   const fetchWatch = useCallback(async () => {
     const { data } = await supabase
-      .from('watches')
-      .select('*, watch_images(url, position), profiles!posted_by(full_name)')
+      .from('products')
+      .select('*, product_images(url, position), profiles!posted_by(full_name)')
       .eq('id', id)
       .single()
     if (data) {
       setWatch(data)
-      setImages([...(data.watch_images || [])].sort((a, b) => a.position - b.position))
+      setImages([...(data.product_images || [])].sort((a, b) => a.position - b.position))
       setEditForm({
         category: data.category || 'Watches',
         brand: data.brand || '',
@@ -91,7 +91,7 @@ export default function WatchDetail() {
         price_eur: data.price_eur || '',
         notes: data.notes || '',
         metal_type: data.metal_type || '',
-        jewellery_type: data.jewellery_type || '',
+        subcategory: data.subcategory || '',
         item_size: data.item_size || '',
         scope_of_delivery: data.scope_of_delivery || '',
       })
@@ -127,21 +127,21 @@ export default function WatchDetail() {
 
   async function handleReserve() {
     setReserving(true)
-    const { error } = await supabase.from('watches').update({ status: 'reserved', reserved_by: profile.id }).eq('id', id)
+    const { error } = await supabase.from('products').update({ status: 'reserved', reserved_by: profile.id }).eq('id', id)
     if (!error) { setWatch(w => ({ ...w, status: 'reserved' })); setMsg('Watch reserved successfully.') }
     setReserving(false)
   }
 
   async function handleUnreserve() {
     setReserving(true)
-    const { error } = await supabase.from('watches').update({ status: 'available', reserved_by: null }).eq('id', id)
+    const { error } = await supabase.from('products').update({ status: 'available', reserved_by: null }).eq('id', id)
     if (!error) { setWatch(w => ({ ...w, status: 'available' })); setMsg('Watch is available again.') }
     setReserving(false)
   }
 
   async function handleSaveEdit() {
     setSaving(true)
-    const { error } = await supabase.from('watches').update({
+    const { error } = await supabase.from('products').update({
       category: editForm.category || 'Watches',
       brand: editForm.brand,
       model: editForm.model,
@@ -152,8 +152,8 @@ export default function WatchDetail() {
       notes: editForm.notes || null,
       scope_of_delivery: editForm.scope_of_delivery || null,
       metal_type: editForm.category === 'Jewellery' && editForm.metal_type ? editForm.metal_type : null,
-      jewellery_type: editForm.category === 'Jewellery' && editForm.jewellery_type ? editForm.jewellery_type : null,
-      item_size: editForm.category === 'Jewellery' && editForm.item_size && editForm.jewellery_type !== 'Necklaces' ? editForm.item_size : null,
+      subcategory: editForm.category === 'Jewellery' && editForm.subcategory ? editForm.subcategory : null,
+      item_size: editForm.category === 'Jewellery' && editForm.item_size && editForm.subcategory !== 'Necklaces' ? editForm.item_size : null,
     }).eq('id', id)
     if (!error) { await fetchWatch(); setEditing(false); setMsg('Watch updated successfully.') }
     setSaving(false)
@@ -165,8 +165,8 @@ export default function WatchDetail() {
       const path = img.url.split('/object/public/watch-images/')[1]
       if (path) await supabase.storage.from('watch-images').remove([decodeURIComponent(path)])
     }
-    await supabase.from('watch_images').delete().eq('watch_id', id)
-    await supabase.from('watches').delete().eq('id', id)
+    await supabase.from('product_images').delete().eq('product_id', id)
+    await supabase.from('products').delete().eq('id', id)
     navigate(-1)
   }
 
@@ -178,14 +178,14 @@ export default function WatchDetail() {
     setImages(reordered)
     setActiveImg(toIndex)
     await Promise.all(reordered.map((img, i) =>
-      supabase.from('watch_images').update({ position: i }).eq('url', img.url)
+      supabase.from('product_images').update({ position: i }).eq('url', img.url)
     ))
   }
 
   async function handleDeleteImage(img) {
     const path = img.url.split('/object/public/watch-images/')[1]
     if (path) await supabase.storage.from('watch-images').remove([decodeURIComponent(path)])
-    await supabase.from('watch_images').delete().eq('url', img.url)
+    await supabase.from('product_images').delete().eq('url', img.url)
     setActiveImg(0)
     await fetchWatch()
   }
@@ -201,7 +201,7 @@ export default function WatchDetail() {
       const { error: upErr } = await supabase.storage.from('watch-images').upload(path, file)
       if (upErr) continue
       const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path)
-      await supabase.from('watch_images').insert({ watch_id: id, url: publicUrl, position: images.length + i })
+      await supabase.from('product_images').insert({ product_id: id, url: publicUrl, position: images.length + i })
     }
     setUploadingImg(false)
     await fetchWatch()
@@ -385,7 +385,7 @@ export default function WatchDetail() {
               {editForm.category === 'Jewellery' && (
                 <>
                   <div className="form-row"><label>Jewellery type</label>
-                    <select value={editForm.jewellery_type || ''} onChange={e => setEditForm(f => ({ ...f, jewellery_type: e.target.value, item_size: '' }))}>
+                    <select value={editForm.subcategory || ''} onChange={e => setEditForm(f => ({ ...f, subcategory: e.target.value, item_size: '' }))}>
                       <option value="">Select type</option>
                       <option>Rings</option><option>Bracelets</option><option>Necklaces</option><option>Earrings</option>
                     </select>
@@ -396,7 +396,7 @@ export default function WatchDetail() {
                       <option>Yellow Gold</option><option>Pink Gold</option><option>White Gold</option><option>Platinum</option>
                     </select>
                   </div>
-                  {editForm.jewellery_type === 'Rings' && (
+                  {editForm.subcategory === 'Rings' && (
                     <div className="form-row"><label>Ring size</label>
                       <select value={editForm.item_size || ''} onChange={e => setEditForm(f => ({ ...f, item_size: e.target.value }))}>
                         <option value="">Select size</option>
@@ -404,7 +404,7 @@ export default function WatchDetail() {
                       </select>
                     </div>
                   )}
-                  {editForm.jewellery_type === 'Bracelets' && (
+                  {editForm.subcategory === 'Bracelets' && (
                     <div className="form-row"><label>Bracelet size</label>
                       <select value={editForm.item_size || ''} onChange={e => setEditForm(f => ({ ...f, item_size: e.target.value }))}>
                         <option value="">Select size</option>
@@ -447,7 +447,7 @@ export default function WatchDetail() {
               <div className="detail-meta">
                 <div className="detail-meta-row"><span>Condition</span><span>{watch.condition}</span></div>
                 {watch.scope_of_delivery && <div className="detail-meta-row"><span>Scope of delivery</span><span>{watch.scope_of_delivery}</span></div>}
-                {watch.jewellery_type && <div className="detail-meta-row"><span>Type</span><span>{watch.jewellery_type}</span></div>}
+                {watch.subcategory && <div className="detail-meta-row"><span>Type</span><span>{watch.subcategory}</span></div>}
                 {watch.metal_type && <div className="detail-meta-row"><span>Metal</span><span>{watch.metal_type}</span></div>}
                 {watch.item_size && <div className="detail-meta-row"><span>Size</span><span>{watch.item_size}</span></div>}
                 {watch.notes && <div className="detail-meta-row"><span>Notes</span><span>{watch.notes}</span></div>}

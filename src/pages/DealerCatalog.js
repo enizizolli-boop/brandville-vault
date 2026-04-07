@@ -39,7 +39,7 @@ function fmtPrice(watch, currency, rate) {
 }
 
 function inferJewelleryType(item) {
-  const explicit = item?.jewellery_type
+  const explicit = item?.subcategory
   if (explicit) return explicit
   const text = `${item?.model || ''} ${item?.reference || ''} ${item?.notes || ''}`.toLowerCase()
   if (/\b(?:earrings?|earings?|earing|ear-?rings?)\b/.test(text) || /\b(?:studs?|hoops?)\b/.test(text)) return 'Earrings'
@@ -51,7 +51,7 @@ function inferJewelleryType(item) {
 
 function CardImages({ watch, brandEmoji }) {
   const [idx, setIdx] = useState(0)
-  const imgs = [...(watch.watch_images || [])].sort((a, b) => a.position - b.position)
+  const imgs = [...(watch.product_images || [])].sort((a, b) => a.position - b.position)
   const touchStartX = useRef(null)
 
   function prev(e) {
@@ -117,7 +117,7 @@ export default function DealerCatalog() {
   const [sortBy, setSortBy] = useState('')
 
   const fetchWatches = useCallback(async () => {
-    let q = supabase.from('watches').select('*, watch_images(url, position)').order('created_at', { ascending: false })
+    let q = supabase.from('products').select('*, product_images(url, position)').order('created_at', { ascending: false })
     if (filterBrand) q = q.eq('brand', filterBrand)
     if (filterCond) q = q.eq('condition', filterCond)
     if (filterStatus) {
@@ -137,7 +137,7 @@ export default function DealerCatalog() {
   useEffect(() => { fetchWatches() }, [fetchWatches])
 
   useEffect(() => {
-    const sub = supabase.channel('watches-catalog').on('postgres_changes', { event: '*', schema: 'public', table: 'watches' }, fetchWatches).subscribe()
+    const sub = supabase.channel('products-catalog').on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, fetchWatches).subscribe()
     return () => supabase.removeChannel(sub)
   }, [fetchWatches])
 

@@ -37,7 +37,7 @@ const EMPTY_FORM = {
   notes: '',
   metal_type: '',
   item_size: '',
-  jewellery_type: ''
+  subcategory: ''
 }
 
 const SUPABASE_URL = 'https://tulqgebsvpxgwocptnmy.supabase.co'
@@ -94,8 +94,8 @@ export default function AgentListings() {
 
   const fetchMyWatches = useCallback(async () => {
     const q = profile?.role === 'admin'
-      ? supabase.from('watches').select('*, watch_images(url, position)').order('created_at', { ascending: false })
-      : supabase.from('watches').select('*, watch_images(url, position)').eq('posted_by', profile?.id).order('created_at', { ascending: false })
+      ? supabase.from('products').select('*, product_images(url, position)').order('created_at', { ascending: false })
+      : supabase.from('products').select('*, product_images(url, position)').eq('posted_by', profile?.id).order('created_at', { ascending: false })
     const { data } = await q
     setWatches(data || [])
     setLoading(false)
@@ -105,7 +105,7 @@ export default function AgentListings() {
     setOffersLoading(true)
     const { data, error } = await supabase
       .from('offers')
-      .select('*, watches(id, brand, model, reference, price_eur, price_usd, watch_images(url, position))')
+      .select('*, products(id, brand, model, reference, price_eur, price_usd, product_images(url, position))')
       .order('created_at', { ascending: false })
     if (error) console.error('fetchOffers error:', error)
     setOffers(data || [])
@@ -135,7 +135,7 @@ export default function AgentListings() {
     setPosting(true)
     try {
       const priceUsd = rate ? Math.round(Number(form.price_eur) * rate) : null
-      const { data: watch, error: wErr } = await supabase.from('watches').insert({
+      const { data: watch, error: wErr } = await supabase.from('products').insert({
         category: form.category,
         brand: form.brand,
         model: form.model,
@@ -145,8 +145,8 @@ export default function AgentListings() {
         price_usd: priceUsd,
         notes: form.notes || null,
         metal_type: form.category === 'Jewellery' && form.metal_type ? form.metal_type : null,
-        jewellery_type: form.category === 'Jewellery' && form.jewellery_type ? form.jewellery_type : null,
-        item_size: form.category === 'Jewellery' && form.item_size && form.jewellery_type !== 'Necklaces' ? form.item_size : null,
+        subcategory: form.category === 'Jewellery' && form.subcategory ? form.subcategory : null,
+        item_size: form.category === 'Jewellery' && form.item_size && form.subcategory !== 'Necklaces' ? form.item_size : null,
         posted_by: profile.id,
         source: 'manual',
         status: 'available'
@@ -160,7 +160,7 @@ export default function AgentListings() {
         const { error: upErr } = await supabase.storage.from('watch-images').upload(path, file)
         if (upErr) continue
         const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path)
-        await supabase.from('watch_images').insert({ watch_id: watch.id, url: publicUrl, position: i })
+        await supabase.from('product_images').insert({ product_id: watch.id, url: publicUrl, position: i })
       }
 
       notifyDealers(watch)
@@ -185,12 +185,12 @@ export default function AgentListings() {
     if (error) console.error('accept_offer error:', error)
     notifyOffer({
       action: 'accepted',
-      watch: offer.watches,
+      watch: offer.products,
       dealer_whatsapp: offer.dealer_whatsapp,
       offer_price: offer.offer_price,
       agent_comment: agentComments[offer.id] || null,
     })
-    setMsg(`Offer accepted for ${offer.watches.brand} ${offer.watches.model}.`)
+    setMsg(`Offer accepted for ${offer.products.brand} ${offer.products.model}.`)
     fetchOffers()
   }
 
@@ -198,12 +198,12 @@ export default function AgentListings() {
     await supabase.from('offers').update({ status: 'rejected', agent_comment: agentComments[offer.id] || null, updated_at: new Date().toISOString() }).eq('id', offer.id)
     notifyOffer({
       action: 'rejected',
-      watch: offer.watches,
+      watch: offer.products,
       dealer_whatsapp: offer.dealer_whatsapp,
       offer_price: offer.offer_price,
       agent_comment: agentComments[offer.id] || null,
     })
-    setMsg(`Offer rejected for ${offer.watches.brand} ${offer.watches.model}.`)
+    setMsg(`Offer rejected for ${offer.products.brand} ${offer.products.model}.`)
     fetchOffers()
   }
 
@@ -218,25 +218,25 @@ export default function AgentListings() {
     }).eq('id', offer.id)
     notifyOffer({
       action: 'countered',
-      watch: offer.watches,
+      watch: offer.products,
       dealer_whatsapp: offer.dealer_whatsapp,
       dealer_name: 'Dealer',
       counter_price: Number(counterPrice),
       agent_comment: agentComments[offer.id] || null,
     })
-    setMsg(`Counter offer sent for ${offer.watches.brand} ${offer.watches.model}.`)
+    setMsg(`Counter offer sent for ${offer.products.brand} ${offer.products.model}.`)
     setCounterOpen(prev => ({ ...prev, [offer.id]: false }))
     fetchOffers()
   }
 
   async function markSold(id) {
-    await supabase.from('watches').update({ status: 'sold' }).eq('id', id)
+    await supabase.from('products').update({ status: 'sold' }).eq('id', id)
     fetchMyWatches()
   }
 
   async function deleteWatch(id) {
     if (!window.confirm('Delete this item?')) return
-    await supabase.from('watches').delete().eq('id', id)
+    await supabase.from('products').delete().eq('id', id)
     fetchMyWatches()
   }
 
@@ -251,7 +251,7 @@ export default function AgentListings() {
   }
 
   function getThumb(w) {
-    const imgs = [...(w.watch_images || [])].sort((a, b) => a.position - b.position)
+    const imgs = [...(w.product_images || [])].sort((a, b) => a.position - b.position)
     return imgs[0]?.url || null
   }
 
@@ -330,8 +330,8 @@ export default function AgentListings() {
             : offers.filter(o => o.status === offerStatusTab).length === 0
               ? <div className="empty-state">No {offerStatusTab} offers</div>
               : offers.filter(o => o.status === offerStatusTab).map(offer => {
-                const watch = offer.watches
-                const imgs = [...(watch?.watch_images || [])].sort((a, b) => a.position - b.position)
+                const watch = offer.products
+                const imgs = [...(watch?.product_images || [])].sort((a, b) => a.position - b.position)
                 const thumb = imgs[0]?.url || null
                 const STATUS_COLOR = { pending: '#e6a817', countered: '#b8965a', accepted: '#2e7d32', rejected: '#c62828' }
                 return (
@@ -474,7 +474,7 @@ export default function AgentListings() {
               <>
                 <div className="form-row">
                   <label>Jewellery type</label>
-                  <select value={form.jewellery_type} onChange={e => { handleField('jewellery_type', e.target.value); handleField('item_size', '') }}>
+                  <select value={form.subcategory} onChange={e => { handleField('subcategory', e.target.value); handleField('item_size', '') }}>
                     <option value="">Select type</option>
                     <option>Rings</option>
                     <option>Bracelets</option>
@@ -492,7 +492,7 @@ export default function AgentListings() {
                     <option>Platinum</option>
                   </select>
                 </div>
-                {form.jewellery_type === 'Rings' && (
+                {form.subcategory === 'Rings' && (
                   <div className="form-row">
                     <label>Ring size</label>
                     <select value={form.item_size} onChange={e => handleField('item_size', e.target.value)}>
@@ -501,7 +501,7 @@ export default function AgentListings() {
                     </select>
                   </div>
                 )}
-                {form.jewellery_type === 'Bracelets' && (
+                {form.subcategory === 'Bracelets' && (
                   <div className="form-row">
                     <label>Bracelet size</label>
                     <select value={form.item_size} onChange={e => handleField('item_size', e.target.value)}>

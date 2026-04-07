@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL,
+  process.env.SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
@@ -29,8 +29,8 @@ export default async function handler(req, res) {
   try {
     // Only process Jewellery rows. This endpoint must never modify Watches.
     const { data: items, error } = await supabase
-      .from('watches')
-      .select('id, model, notes, reference, jewellery_type, category')
+      .from('products')
+      .select('id, model, notes, reference, subcategory, category')
       .eq('category', 'Jewellery');
 
     if (error) throw error;
@@ -55,8 +55,8 @@ export default async function handler(req, res) {
 
         for (const candidate of typeCandidates(jewellery_type)) {
           const { error: updateErr } = await supabase
-            .from('watches')
-            .update({ jewellery_type: candidate })
+            .from('products')
+            .update({ subcategory: candidate })
             .eq('id', item.id)
             .eq('category', 'Jewellery');
 
@@ -66,7 +66,8 @@ export default async function handler(req, res) {
           }
 
           lastError = updateErr;
-          if (!String(updateErr.message || '').includes('watches_jewellery_type_check')) {
+          const errMsg = String(updateErr.message || '');
+          if (!errMsg.includes('products_subcategory_check') && !errMsg.includes('watches_jewellery_type_check')) {
             throw updateErr;
           }
         }
@@ -75,7 +76,7 @@ export default async function handler(req, res) {
           updated++;
         } else {
           constraint_skipped++;
-          console.warn('Skipping row due to jewellery_type constraint', { id: item.id, attempted: jewellery_type, error: lastError?.message });
+          console.warn('Skipping row due to subcategory constraint', { id: item.id, attempted: jewellery_type, error: lastError?.message });
         }
       } else {
         skipped++;

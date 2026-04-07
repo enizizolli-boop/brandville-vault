@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL,
+  process.env.SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
@@ -152,7 +152,7 @@ function mapZohoItem(item) {
     reference,
     price_eur: item.rate || null,
     condition,
-    jewellery_type: jewellery_type || null,
+    subcategory: jewellery_type || null,
     scope_of_delivery: ALLOWED_SCOPES.includes(scopeRaw) ? scopeRaw : null,
     status: 'available',
     category,
@@ -183,7 +183,7 @@ export default async function handler(req, res) {
     const zohoIds = zohoItems.map(i => String(i.item_id));
 
     const { data: existingItems } = await supabase
-      .from('watches')
+      .from('products')
       .select('id, zoho_item_id')
       .eq('source', 'zoho')
       .in('zoho_item_id', zohoIds);
@@ -196,12 +196,12 @@ export default async function handler(req, res) {
     let removed = 0;
     if (offset === 0) {
       const { data: allExisting } = await supabase
-        .from('watches').select('zoho_item_id').eq('source', 'zoho');
+        .from('products').select('zoho_item_id').eq('source', 'zoho');
       const allExistingIds = (allExisting || []).map(i => i.zoho_item_id);
       const allZohoIds = allItems.filter(i => i.show_in_storefront === true).map(i => String(i.item_id));
       const toDelete = allExistingIds.filter(id => !allZohoIds.includes(id));
       if (toDelete.length > 0) {
-        await supabase.from('watches').delete().in('zoho_item_id', toDelete);
+        await supabase.from('products').delete().in('zoho_item_id', toDelete);
         removed = toDelete.length;
       }
     }
@@ -216,7 +216,7 @@ export default async function handler(req, res) {
       const isExisting = existingZohoIds.includes(mapped.zoho_item_id);
 
       const { data: upserted, error } = await supabase
-        .from('watches')
+        .from('products')
         .upsert(mapped, { onConflict: 'zoho_item_id' })
         .select('id')
         .single();
@@ -233,9 +233,9 @@ export default async function handler(req, res) {
       if (watchId) {
         const images = await fetchImagesFromStorePage(zohoItem.item_id);
         if (images.length > 0) {
-          await supabase.from('watch_images').delete().eq('watch_id', watchId);
-          const imageRows = images.map((url, i) => ({ watch_id: watchId, url, position: i }));
-          await supabase.from('watch_images').insert(imageRows);
+          await supabase.from('product_images').delete().eq('product_id', watchId);
+          const imageRows = images.map((url, i) => ({ product_id: watchId, url, position: i }));
+          await supabase.from('product_images').insert(imageRows);
           imagesAdded += images.length;
         }
       }
