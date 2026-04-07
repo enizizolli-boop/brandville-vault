@@ -133,15 +133,25 @@ function mapZohoItem(item) {
   if (!condition) condition = extractConditionFromText(notes);
   if (!condition) condition = mapCondition(item.cf_conditions);
 
-  // Watch brands are always Watches — never Jewellery
-  const isWatchBrand = WATCH_BRANDS.has(brand.toLowerCase());
-  let jewellery_type = null;
+  // Category is determined ONLY from the Zoho category_name field — never from item name/description.
+  // This prevents watch models with "bracelet" in the name from being misclassified as jewellery.
+  const zohoCategory = (item.category_name || '').toLowerCase().trim();
   let category = 'Watches';
-  if (!isWatchBrand) {
-    jewellery_type = extractJewelleryTypeFromText(model);
-    if (!jewellery_type) jewellery_type = extractJewelleryTypeFromText(notes);
-    if (!jewellery_type) jewellery_type = extractJewelleryTypeFromText(reference);
-    category = jewellery_type ? 'Jewellery' : 'Watches';
+  if (zohoCategory.includes('jewel') || zohoCategory.includes('ring') ||
+      zohoCategory.includes('necklace') || zohoCategory.includes('earring') ||
+      zohoCategory.includes('bracelet') || zohoCategory.includes('pendant')) {
+    category = 'Jewellery';
+  } else if (zohoCategory.includes('bag') || zohoCategory.includes('handbag') ||
+             zohoCategory.includes('wallet') || zohoCategory.includes('purse')) {
+    category = 'Bags';
+  }
+
+  // Subcategory (jewellery type) only set when category is definitively Jewellery
+  let jewellery_type = null;
+  if (category === 'Jewellery') {
+    jewellery_type = extractJewelleryTypeFromText(zohoCategory) ||
+                     extractJewelleryTypeFromText(model) ||
+                     extractJewelleryTypeFromText(notes);
   }
   
   return {

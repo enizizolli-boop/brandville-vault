@@ -70,10 +70,20 @@ const WATCH_BRANDS = new Set([
 
 function mapZohoItem(item) {
   const name = item.name || '';
-  const brand = (item.brand || 'Unknown').trim();
-  const isWatchBrand = WATCH_BRANDS.has(brand.toLowerCase());
-  const jewellery_type = isWatchBrand ? null : (extractJewelleryType(name) || extractJewelleryType(item.description));
-  const category = jewellery_type ? 'Jewellery' : 'Watches';
+  // Category from Zoho category_name field only — never inferred from item name
+  const zohoCategory = (item.category_name || '').toLowerCase().trim();
+  let category = 'Watches';
+  if (zohoCategory.includes('jewel') || zohoCategory.includes('ring') ||
+      zohoCategory.includes('necklace') || zohoCategory.includes('earring') ||
+      zohoCategory.includes('bracelet') || zohoCategory.includes('pendant')) {
+    category = 'Jewellery';
+  } else if (zohoCategory.includes('bag') || zohoCategory.includes('handbag') ||
+             zohoCategory.includes('wallet') || zohoCategory.includes('purse')) {
+    category = 'Bags';
+  }
+  const jewellery_type = category === 'Jewellery'
+    ? (extractJewelleryType(zohoCategory) || extractJewelleryType(name))
+    : null;
   return {
     zoho_item_id: String(item.item_id),
     source: 'zoho',
