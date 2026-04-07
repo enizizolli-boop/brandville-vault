@@ -55,15 +55,24 @@ function extractJewelleryType(text) {
   if (!text) return null;
   const lower = String(text).toLowerCase();
   if (/\b(?:earrings?|studs?|hoops?)\b/.test(lower)) return 'Earrings';
-  if (/\bbracelets?\b/.test(lower)) return 'Bracelets';
+  if (/\bbracelets?\b/.test(lower) && !/watch\s+bracelet|bracelet\s*\(|strap/i.test(lower)) return 'Bracelets';
   if (/\bnecklaces?\b/.test(lower)) return 'Necklaces';
   if (/\brings?\b/.test(lower)) return 'Rings';
   return null;
 }
 
+const WATCH_BRANDS = new Set([
+  'rolex','audemars piguet','patek philippe','omega','iwc','jaeger-lecoultre',
+  'breitling','tag heuer','tudor','hublot','richard mille','vacheron constantin',
+  'a. lange & söhne','panerai','blancpain','breguet','zenith','grand seiko',
+  'ulysse nardin','girard-perregaux','piaget','chopard',
+]);
+
 function mapZohoItem(item) {
   const name = item.name || '';
-  const jewellery_type = extractJewelleryType(name) || extractJewelleryType(item.description);
+  const brand = (item.brand || 'Unknown').trim();
+  const isWatchBrand = WATCH_BRANDS.has(brand.toLowerCase());
+  const jewellery_type = isWatchBrand ? null : (extractJewelleryType(name) || extractJewelleryType(item.description));
   const category = jewellery_type ? 'Jewellery' : 'Watches';
   return {
     zoho_item_id: String(item.item_id),

@@ -108,11 +108,18 @@ function extractJewelleryTypeFromText(text) {
   const lower = text.toLowerCase();
   if (/\b(?:earrings?|earings?|earing|ear-?rings?)\b/.test(lower)) return 'Earrings';
   if (/\b(?:studs?|hoops?)\b/.test(lower)) return 'Earrings';
-  if (/\bbracelets?\b/.test(lower)) return 'Bracelets';
+  if (/\bbracelets?\b/.test(lower) && !/watch\s+bracelet|bracelet\s*\(|strap/i.test(lower)) return 'Bracelets';
   if (/\bnecklaces?\b/.test(lower)) return 'Necklaces';
   if (/\brings?\b/.test(lower)) return 'Rings';
   return null;
 }
+
+const WATCH_BRANDS = new Set([
+  'rolex','audemars piguet','patek philippe','omega','iwc','jaeger-lecoultre',
+  'breitling','tag heuer','tudor','hublot','richard mille','vacheron constantin',
+  'a. lange & söhne','panerai','blancpain','breguet','zenith','grand seiko',
+  'ulysse nardin','girard-perregaux','piaget','chopard','a. lange & sohne',
+]);
 
 function mapZohoItem(item) {
   const brand = (item.cf_brand || item.brand || 'Unknown').trim();
@@ -120,17 +127,22 @@ function mapZohoItem(item) {
   const reference = item.sku || null;
   const scopeRaw = item.cf_scope_of_delivery || null;
   const notes = item.description && item.description.trim() ? item.description.trim() : null;
-  
+
   // Extract condition from name first, then description, then custom field
   let condition = extractConditionFromText(model);
   if (!condition) condition = extractConditionFromText(notes);
   if (!condition) condition = mapCondition(item.cf_conditions);
-  
-  // Extract jewellery type from name
-  let jewellery_type = extractJewelleryTypeFromText(model);
-  if (!jewellery_type) jewellery_type = extractJewelleryTypeFromText(notes);
-  if (!jewellery_type) jewellery_type = extractJewelleryTypeFromText(reference);
-  const category = jewellery_type ? 'Jewellery' : 'Watches';
+
+  // Watch brands are always Watches — never Jewellery
+  const isWatchBrand = WATCH_BRANDS.has(brand.toLowerCase());
+  let jewellery_type = null;
+  let category = 'Watches';
+  if (!isWatchBrand) {
+    jewellery_type = extractJewelleryTypeFromText(model);
+    if (!jewellery_type) jewellery_type = extractJewelleryTypeFromText(notes);
+    if (!jewellery_type) jewellery_type = extractJewelleryTypeFromText(reference);
+    category = jewellery_type ? 'Jewellery' : 'Watches';
+  }
   
   return {
     zoho_item_id: String(item.item_id),
