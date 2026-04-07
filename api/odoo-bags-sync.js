@@ -195,18 +195,18 @@ export default async function handler(req, res) {
     const domain = [
       ['sale_ok', '=', true],
       ['active', '=', true],
-      ['website_published', '=', true],
-      ['image_1920', '!=', false],
-      ['public_categ_ids', 'in', [BAGS_ECATEG_ID]],
+      ['public_categ_ids', 'child_of', BAGS_ECATEG_ID],
     ];
 
     const totalCount = await odooCount(domain);
-    const items = await odooRead(
+    const allItems = await odooRead(
       domain,
       ['id', 'name', 'default_code', 'standard_price', 'description_sale', 'image_1920'],
       batch_size,
       offset
     );
+    // Only process items that have an image
+    const items = (allItems || []).filter(i => i.image_1920 && i.image_1920 !== false);
 
     if (!items || items.length === 0) {
       return res.status(200).json({ success: true, done: true, processed: 0, total: totalCount });
