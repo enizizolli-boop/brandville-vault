@@ -108,6 +108,42 @@ async function fetchSoldProductTemplateIds() {
   }
 }
 
+async function fetchOdooQtyMap(odooIds) {
+  // Returns a Map of odoo_product_id (string) → qty_available for all given IDs
+  if (!odooIds.length) return new Map();
+  try {
+    const CHUNK = 200;
+    const qtyMap = new Map();
+    for (let i = 0; i < odooIds.length; i += CHUNK) {
+      const chunk = odooIds.slice(i, i + CHUNK);
+      const idsXml = chunk.map(id => `<value><int>${id}</int></value>`).join('');
+      const domainXml = `<value><array><data><value><string>id</string></value><value><string>in</string></value><value><array><data>${idsXml}</data></array></value></data></array></value>`;
+      const body = `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>` +
+        `<param><value><string>${ODOO_DB}</string></value></param>` +
+        `<param><value><int>${ODOO_UID}</int></value></param>` +
+        `<param><value><string>${ODOO_API_KEY}</string></value></param>` +
+        `<param><value><string>product.template</string></value></param>` +
+        `<param><value><string>search_read</string></value></param>` +
+        `<param><value><array><data><value><array><data>${domainXml}</data></array></value></data></array></value></param>` +
+        `<param><value><struct>` +
+        `<member><name>fields</name><value><array><data><value><string>id</string></value><value><string>qty_available</string></value></data></array></value></member>` +
+        `<member><name>limit</name><value><int>${CHUNK}</int></value></member>` +
+        `</struct></value></param></params></methodCall>`;
+      const res = await fetch(ODOO_URL + '/xmlrpc/2/object', { method: 'POST', headers: { 'Content-Type': 'text/xml' }, body });
+      const text = await res.text();
+      if (!text.includes('<fault>')) {
+        for (const item of parseItems(text)) {
+          if (item.id !== undefined) qtyMap.set(String(item.id), item.qty_available ?? 0);
+        }
+      }
+    }
+    return qtyMap;
+  } catch (e) {
+    console.error('fetchOdooQtyMap error:', e);
+    return new Map();
+  }
+}
+
 export default async function handler(req, res) {
   // Accept GET (Vercel cron) or POST (manual trigger)
   if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end();
@@ -124,17 +160,26 @@ export default async function handler(req, res) {
 
     if (error) throw error;
 
+    // Also check qty_available from Odoo so zero-stock items are marked sold
+    const odooNumericIds = (allProducts || [])
+      .map(p => parseInt(p.odoo_product_id))
+      .filter(id => !isNaN(id));
+    const qtyMap = await fetchOdooQtyMap(odooNumericIds);
+
     let markedSold = 0;
     let markedAvailable = 0;
 
     for (const product of allProducts || []) {
       const onOrder = soldIdStrings.includes(product.odoo_product_id);
+      const qty = qtyMap.get(product.odoo_product_id);
+      const noStock = qty !== undefined && qty <= 0;
+      const isSold = onOrder || noStock;
 
-      if (onOrder && product.status !== 'sold') {
+      if (isSold && product.status !== 'sold') {
         await supabase.from('products').update({ status: 'sold' }).eq('id', product.id);
         markedSold++;
-      } else if (!onOrder && product.status === 'sold') {
-        // Order was cancelled — restore to available
+      } else if (!isSold && product.status === 'sold') {
+        // Order cancelled and stock available again — restore to available
         await supabase.from('products').update({ status: 'available' }).eq('id', product.id);
         markedAvailable++;
       }

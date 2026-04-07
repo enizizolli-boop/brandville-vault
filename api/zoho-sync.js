@@ -103,16 +103,6 @@ function extractConditionFromText(text) {
   return null;
 }
 
-function extractJewelleryTypeFromText(text) {
-  if (!text) return null;
-  const lower = text.toLowerCase();
-  if (/\b(?:earrings?|earings?|earing|ear-?rings?)\b/.test(lower)) return 'Earrings';
-  if (/\b(?:studs?|hoops?)\b/.test(lower)) return 'Earrings';
-  if (/\bbracelets?\b/.test(lower) && !/watch\s+bracelet|bracelet\s*\(|strap/i.test(lower)) return 'Bracelets';
-  if (/\bnecklaces?\b/.test(lower)) return 'Necklaces';
-  if (/\brings?\b/.test(lower)) return 'Rings';
-  return null;
-}
 
 const WATCH_BRANDS = new Set([
   'rolex','audemars piguet','patek philippe','omega','iwc','jaeger-lecoultre',
@@ -133,27 +123,7 @@ function mapZohoItem(item) {
   if (!condition) condition = extractConditionFromText(notes);
   if (!condition) condition = mapCondition(item.cf_conditions);
 
-  // Category is determined ONLY from the Zoho category_name field — never from item name/description.
-  // This prevents watch models with "bracelet" in the name from being misclassified as jewellery.
-  const zohoCategory = (item.category_name || '').toLowerCase().trim();
-  let category = 'Watches';
-  if (zohoCategory.includes('jewel') || zohoCategory.includes('ring') ||
-      zohoCategory.includes('necklace') || zohoCategory.includes('earring') ||
-      zohoCategory.includes('bracelet') || zohoCategory.includes('pendant')) {
-    category = 'Jewellery';
-  } else if (zohoCategory.includes('bag') || zohoCategory.includes('handbag') ||
-             zohoCategory.includes('wallet') || zohoCategory.includes('purse')) {
-    category = 'Bags';
-  }
-
-  // Subcategory (jewellery type) only set when category is definitively Jewellery
-  let jewellery_type = null;
-  if (category === 'Jewellery') {
-    jewellery_type = extractJewelleryTypeFromText(zohoCategory) ||
-                     extractJewelleryTypeFromText(model) ||
-                     extractJewelleryTypeFromText(notes);
-  }
-  
+  // Zoho items are always Watches — Jewellery comes exclusively from Odoo
   return {
     zoho_item_id: String(item.item_id),
     source: 'zoho',
@@ -162,10 +132,10 @@ function mapZohoItem(item) {
     reference,
     price_eur: item.rate || null,
     condition,
-    subcategory: jewellery_type || null,
+    subcategory: null,
     scope_of_delivery: ALLOWED_SCOPES.includes(scopeRaw) ? scopeRaw : null,
     status: 'available',
-    category,
+    category: 'Watches',
     notes,
   };
 }

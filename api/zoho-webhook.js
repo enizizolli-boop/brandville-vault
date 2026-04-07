@@ -51,15 +51,6 @@ async function fetchImagesFromStorePage(itemId) {
   } catch { return []; }
 }
 
-function extractJewelleryType(text) {
-  if (!text) return null;
-  const lower = String(text).toLowerCase();
-  if (/\b(?:earrings?|studs?|hoops?)\b/.test(lower)) return 'Earrings';
-  if (/\bbracelets?\b/.test(lower) && !/watch\s+bracelet|bracelet\s*\(|strap/i.test(lower)) return 'Bracelets';
-  if (/\bnecklaces?\b/.test(lower)) return 'Necklaces';
-  if (/\brings?\b/.test(lower)) return 'Rings';
-  return null;
-}
 
 const WATCH_BRANDS = new Set([
   'rolex','audemars piguet','patek philippe','omega','iwc','jaeger-lecoultre',
@@ -70,20 +61,7 @@ const WATCH_BRANDS = new Set([
 
 function mapZohoItem(item) {
   const name = item.name || '';
-  // Category from Zoho category_name field only — never inferred from item name
-  const zohoCategory = (item.category_name || '').toLowerCase().trim();
-  let category = 'Watches';
-  if (zohoCategory.includes('jewel') || zohoCategory.includes('ring') ||
-      zohoCategory.includes('necklace') || zohoCategory.includes('earring') ||
-      zohoCategory.includes('bracelet') || zohoCategory.includes('pendant')) {
-    category = 'Jewellery';
-  } else if (zohoCategory.includes('bag') || zohoCategory.includes('handbag') ||
-             zohoCategory.includes('wallet') || zohoCategory.includes('purse')) {
-    category = 'Bags';
-  }
-  const jewellery_type = category === 'Jewellery'
-    ? (extractJewelleryType(zohoCategory) || extractJewelleryType(name))
-    : null;
+  // Zoho items are always Watches — Jewellery comes exclusively from Odoo
   return {
     zoho_item_id: String(item.item_id),
     source: 'zoho',
@@ -92,8 +70,8 @@ function mapZohoItem(item) {
     reference: item.sku || null,
     price_eur: item.price ? parseFloat(item.price) : null,
     status: 'available',
-    category,
-    subcategory: jewellery_type || null,
+    category: 'Watches',
+    subcategory: null,
     notes: item.description || null,
   };
 }
