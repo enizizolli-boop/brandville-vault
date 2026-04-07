@@ -279,11 +279,11 @@ export default async function handler(req, res) {
     const odooIds = items.map(i => String(i.id));
     const { data: existing } = await supabase
       .from('products')
-      .select('id, odoo_product_id')
+      .select('id, odoo_product_id, status')
       .eq('source', 'odoo_bags')
       .in('odoo_product_id', odooIds);
     const existingMap = {};
-    (existing || []).forEach(i => { existingMap[i.odoo_product_id] = i.id; });
+    (existing || []).forEach(i => { existingMap[i.odoo_product_id] = { id: i.id, status: i.status }; });
 
     // Fetch extra product images for this batch
     const extraImagesMap = {};
@@ -316,7 +316,9 @@ export default async function handler(req, res) {
     const errors = [];
 
     for (const item of items) {
-      const isExisting = !!existingMap[String(item.id)];
+      const existingEntry = existingMap[String(item.id)];
+      const isExisting = !!existingEntry;
+      const currentStatus = existingEntry?.status;
       const cost = item.standard_price || 0;
       const priceEur = cost > 0 ? Math.round(cost * PRICE_MARKUP * 100) / 100 : null;
 
@@ -331,7 +333,7 @@ export default async function handler(req, res) {
         category: 'Bags',
         condition: 'Pre-owned',
         notes: item.description_sale && item.description_sale.trim() ? item.description_sale.trim() : null,
-        ...(isSold ? { status: 'sold' } : isExisting ? {} : { status: 'available' }),
+        ...(isSold ? { status: 'sold' } : currentStatus === 'sold' ? { status: 'available' } : isExisting ? {} : { status: 'available' }),
       };
 
       const { data: upserted, error } = await supabase

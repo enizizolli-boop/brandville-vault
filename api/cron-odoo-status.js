@@ -1,0 +1,155 @@
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+const ODOO_URL = process.env.ODOO_URL;
+const ODOO_DB = process.env.ODOO_DB;
+const ODOO_UID = parseInt(process.env.ODOO_USER_ID);
+const ODOO_API_KEY = process.env.ODOO_API_KEY;
+
+function parseItems(xml) {
+  const norm = xml.replace(/>\s+</g, '><');
+  const items = [];
+  const structRe = /<struct>([\s\S]*?)<\/struct>/g;
+  let sm;
+  while ((sm = structRe.exec(norm)) !== null) {
+    const item = {};
+    const memberRe = /<member><name>([^<]+)<\/name><value>([\s\S]*?)<\/value><\/member>/g;
+    let mm;
+    while ((mm = memberRe.exec(sm[1])) !== null) {
+      item[mm[1]] = parseVal(mm[2]);
+    }
+    if (item.id !== undefined) items.push(item);
+  }
+  return items;
+}
+
+function parseVal(raw) {
+  raw = raw.trim();
+  let m;
+  m = raw.match(/^<int>(\d+)<\/int>$/) || raw.match(/^<i4>(\d+)<\/i4>$/);
+  if (m) return parseInt(m[1]);
+  m = raw.match(/^<boolean>([01])<\/boolean>$/);
+  if (m) return m[1] === '1';
+  m = raw.match(/^<string>([\s\S]*)<\/string>$/);
+  if (m) return m[1];
+  if (raw === '<nil/>') return null;
+  if (raw.startsWith('<array>')) {
+    const intM = raw.match(/<int>(\d+)<\/int>/);
+    const strM = raw.match(/<string>([^<]+)<\/string>/);
+    if (intM && strM) return [parseInt(intM[1]), strM[1]];
+    if (intM) return parseInt(intM[1]);
+    return null;
+  }
+  m = raw.match(/<int>(\d+)<\/int>/);
+  if (m) return parseInt(m[1]);
+  return null;
+}
+
+async function fetchSoldProductTemplateIds() {
+  try {
+    // Step 1: product.product IDs from non-cancelled sale order lines
+    const body1 = `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>` +
+      `<param><value><string>${ODOO_DB}</string></value></param>` +
+      `<param><value><int>${ODOO_UID}</int></value></param>` +
+      `<param><value><string>${ODOO_API_KEY}</string></value></param>` +
+      `<param><value><string>sale.order.line</string></value></param>` +
+      `<param><value><string>search_read</string></value></param>` +
+      `<param><value><array><data><value><array><data>` +
+      `<value><array><data><value><string>order_id.state</string></value><value><string>!=</string></value><value><string>cancel</string></value></data></array></value>` +
+      `</data></array></value></data></array></value></param>` +
+      `<param><value><struct>` +
+      `<member><name>fields</name><value><array><data><value><string>product_id</string></value></data></array></value></member>` +
+      `<member><name>limit</name><value><int>5000</int></value></member>` +
+      `</struct></value></param></params></methodCall>`;
+    const res1 = await fetch(ODOO_URL + '/xmlrpc/2/object', { method: 'POST', headers: { 'Content-Type': 'text/xml' }, body: body1 });
+    const text1 = await res1.text();
+    if (text1.includes('<fault>')) { console.error('cron step1 fault:', text1.substring(0, 300)); return new Set(); }
+
+    const lines = parseItems(text1);
+    const variantIds = [...new Set(lines.map(l => {
+      const pid = Array.isArray(l.product_id) ? l.product_id[0] : l.product_id;
+      return typeof pid === 'number' ? pid : null;
+    }).filter(Boolean))];
+
+    if (!variantIds.length) return new Set();
+
+    // Step 2: map product.product → product.template
+    const idsXml = variantIds.map(id => `<value><int>${id}</int></value>`).join('');
+    const domainXml2 = `<value><array><data><value><string>id</string></value><value><string>in</string></value><value><array><data>${idsXml}</data></array></value></data></array></value>`;
+    const body2 = `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>` +
+      `<param><value><string>${ODOO_DB}</string></value></param>` +
+      `<param><value><int>${ODOO_UID}</int></value></param>` +
+      `<param><value><string>${ODOO_API_KEY}</string></value></param>` +
+      `<param><value><string>product.product</string></value></param>` +
+      `<param><value><string>search_read</string></value></param>` +
+      `<param><value><array><data><value><array><data>${domainXml2}</data></array></value></data></array></value></param>` +
+      `<param><value><struct>` +
+      `<member><name>fields</name><value><array><data><value><string>product_tmpl_id</string></value></data></array></value></member>` +
+      `<member><name>limit</name><value><int>5000</int></value></member>` +
+      `</struct></value></param></params></methodCall>`;
+    const res2 = await fetch(ODOO_URL + '/xmlrpc/2/object', { method: 'POST', headers: { 'Content-Type': 'text/xml' }, body: body2 });
+    const text2 = await res2.text();
+    if (text2.includes('<fault>')) { console.error('cron step2 fault:', text2.substring(0, 300)); return new Set(); }
+
+    const variants = parseItems(text2);
+    const ids = new Set();
+    for (const v of variants) {
+      const tmplId = Array.isArray(v.product_tmpl_id) ? v.product_tmpl_id[0] : v.product_tmpl_id;
+      if (typeof tmplId === 'number') ids.add(tmplId);
+    }
+    return ids;
+  } catch (e) {
+    console.error('fetchSoldProductTemplateIds error:', e);
+    return new Set();
+  }
+}
+
+export default async function handler(req, res) {
+  // Accept GET (Vercel cron) or POST (manual trigger)
+  if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end();
+
+  try {
+    const soldTemplateIds = await fetchSoldProductTemplateIds();
+    const soldIdStrings = [...soldTemplateIds].map(String);
+
+    // Fetch all Odoo-sourced products with their current status
+    const { data: allProducts, error } = await supabase
+      .from('products')
+      .select('id, odoo_product_id, status')
+      .in('source', ['odoo', 'odoo_bags']);
+
+    if (error) throw error;
+
+    let markedSold = 0;
+    let markedAvailable = 0;
+
+    for (const product of allProducts || []) {
+      const onOrder = soldIdStrings.includes(product.odoo_product_id);
+
+      if (onOrder && product.status !== 'sold') {
+        await supabase.from('products').update({ status: 'sold' }).eq('id', product.id);
+        markedSold++;
+      } else if (!onOrder && product.status === 'sold') {
+        // Order was cancelled — restore to available
+        await supabase.from('products').update({ status: 'available' }).eq('id', product.id);
+        markedAvailable++;
+      }
+    }
+
+    console.log(`Cron status sync: ${markedSold} marked sold, ${markedAvailable} restored available`);
+    return res.status(200).json({
+      success: true,
+      sold_on_order: soldTemplateIds.size,
+      marked_sold: markedSold,
+      marked_available: markedAvailable,
+      total_checked: allProducts?.length || 0,
+    });
+  } catch (err) {
+    console.error('Cron status sync error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+}

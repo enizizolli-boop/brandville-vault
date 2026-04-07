@@ -216,9 +216,9 @@ export default async function handler(req, res) {
     if (!items || items.length === 0) return res.status(200).json({ success: true, done: true, processed: 0, total: totalCount });
 
     const odooIds = items.map(i => String(i.id));
-    const { data: existing } = await supabase.from('products').select('id, odoo_product_id').eq('source', 'odoo').in('odoo_product_id', odooIds);
+    const { data: existing } = await supabase.from('products').select('id, odoo_product_id, status').eq('source', 'odoo').in('odoo_product_id', odooIds);
     const existingMap = {};
-    (existing || []).forEach(i => { existingMap[i.odoo_product_id] = i.id; });
+    (existing || []).forEach(i => { existingMap[i.odoo_product_id] = { id: i.id, status: i.status }; });
 
     // Fetch extra product images for all items in this batch
     const extraImagesMap = {};
@@ -279,7 +279,9 @@ export default async function handler(req, res) {
         }
       }
 
-      const isExisting = !!existingMap[String(item.id)];
+      const existingEntry = existingMap[String(item.id)];
+      const isExisting = !!existingEntry;
+      const currentStatus = existingEntry?.status;
       // Sold if: on any non-cancelled sale order (draft or confirmed) OR physically no stock left
       const qtyOnHand = item.qty_available != null ? item.qty_available : null;
       const qtyForecast = item.virtual_available != null ? item.virtual_available : null;
@@ -310,8 +312,8 @@ export default async function handler(req, res) {
         reference: item.default_code || null,
         price_eur: item.list_price || null,
         condition: 'Fair',
-        // Mark as sold if no stock; only set 'available' for new items with stock
-        ...(isSold ? { status: 'sold' } : isExisting ? {} : { status: 'available' }),
+        // Always set status: sold if on active order, available if order was cancelled (was sold → now free), skip if reserved
+        ...(isSold ? { status: 'sold' } : currentStatus === 'sold' ? { status: 'available' } : isExisting ? {} : { status: 'available' }),
         category: 'Jewellery',
         notes: item.description_sale && item.description_sale.trim() ? item.description_sale.trim() : null,
       };
