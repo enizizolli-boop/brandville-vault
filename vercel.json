@@ -5,5 +5,9 @@
       "path": "/api/cron-odoo-status",
       "schedule": "*/15 * * * *"
     }
-  ]
+  ],
+  "functions": {
+    "api/odoo-sync.js": { "maxDuration": 60 },
+    "api/odoo-bags-sync.js": { "maxDuration": 60 }
+  }
 }
