@@ -9,7 +9,6 @@ const ODOO_URL = process.env.ODOO_URL;
 const ODOO_DB = process.env.ODOO_DB;
 const ODOO_UID = parseInt(process.env.ODOO_USER_ID);
 const ODOO_API_KEY = process.env.ODOO_API_KEY;
-const JEWELRY_CATEG_ID = 8;
 
 function domainToXml(domain) {
   return domain.map(([field, op, val]) => {
@@ -205,7 +204,7 @@ export default async function handler(req, res) {
   const { batch_size = 5, offset = 0 } = req.body || {};
 
   try {
-    const domain = [['sale_ok', '=', true], ['active', '=', true], ['categ_id', '=', JEWELRY_CATEG_ID]];
+    const domain = [['sale_ok', '=', true], ['active', '=', true], ['virtual_available', '>=', 1]];
     const totalCount = await odooCount(domain);
     const items = await odooRead(domain, ['id', 'name', 'default_code', 'list_price', 'description_sale', 'image_1920', 'qty_available', 'virtual_available', 'categ_id'], batch_size, offset);
 
