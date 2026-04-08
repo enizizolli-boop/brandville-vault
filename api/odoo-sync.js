@@ -144,8 +144,8 @@ async function fetchSoldProductTemplateIds() {
   // Returns a Set of product.template IDs on any non-cancelled sale order (draft or confirmed).
   // Two-step: sale.order.line → product.product → product.template (works across all Odoo versions).
   try {
-    // Step 1: get product.product IDs from non-cancelled sale order lines
-    const domainXml = domainToXml([['order_id.state', '!=', 'cancel']]);
+    // Step 1: get product.product IDs from confirmed sale order lines only
+    const domainXml = domainToXml([['order_id.state', 'in', ['sale', 'done']]]);
     const body1 = `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>` +
       `<param><value><string>${ODOO_DB}</string></value></param>` +
       `<param><value><int>${ODOO_UID}</int></value></param>` +
@@ -282,12 +282,8 @@ export default async function handler(req, res) {
       const existingEntry = existingMap[String(item.id)];
       const isExisting = !!existingEntry;
       const currentStatus = existingEntry?.status;
-      // Sold if: on any non-cancelled sale order (draft or confirmed) OR physically no stock left
-      const qtyOnHand = item.qty_available != null ? item.qty_available : null;
-      const qtyForecast = item.virtual_available != null ? item.virtual_available : null;
-      const isSold = soldTemplateIds.has(item.id) ||
-        (qtyOnHand !== null && qtyOnHand <= 0) ||
-        (qtyForecast !== null && qtyForecast <= 0);
+      // Sold only if on a confirmed sale order (state = sale or done)
+      const isSold = soldTemplateIds.has(item.id);
 
       // Derive jewellery_type from Odoo sub-category name, not from product name keywords
       // categ_id is returned as [id, 'Category Name']
