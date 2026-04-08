@@ -308,8 +308,7 @@ export default async function handler(req, res) {
         reference: item.default_code || null,
         price_eur: item.list_price || null,
         condition: 'Fair',
-        // Always set status: sold if on active order, available if order was cancelled (was sold → now free), skip if reserved
-        ...(isSold ? { status: 'sold' } : currentStatus === 'sold' ? { status: 'available' } : isExisting ? {} : { status: 'available' }),
+        status: isSold ? 'sold' : 'available',
         category: 'Jewellery',
         notes: item.description_sale && item.description_sale.trim() ? item.description_sale.trim() : null,
       };
