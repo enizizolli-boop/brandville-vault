@@ -144,8 +144,8 @@ async function fetchSoldProductTemplateIds() {
   // Returns a Set of product.template IDs on any non-cancelled sale order (draft or confirmed).
   // Two-step: sale.order.line → product.product → product.template (works across all Odoo versions).
   try {
-    // Step 1: get product.product IDs from confirmed sale order lines only
-    const domainXml = domainToXml([['order_id.state', 'in', ['sale', 'done']]]);
+    // Step 1: get product.product IDs from non-cancelled sale order lines
+    const domainXml = domainToXml([['order_id.state', '!=', 'cancel']]);
     const body1 = `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>` +
       `<param><value><string>${ODOO_DB}</string></value></param>` +
       `<param><value><int>${ODOO_UID}</int></value></param>` +
@@ -209,22 +209,11 @@ export default async function handler(req, res) {
     const totalCount = await odooCount(domain);
     const items = await odooRead(domain, ['id', 'name', 'default_code', 'list_price', 'description_sale', 'image_1920', 'qty_available', 'virtual_available', 'categ_id'], batch_size, offset);
 
+    // Fetch all product template IDs currently on any non-cancelled sale order (draft or confirmed).
+    // These are definitively sold regardless of qty_available.
     const soldTemplateIds = await fetchSoldProductTemplateIds();
 
-    // On first batch, delete any stale odoo jewellery items no longer in the domain
-    let removed = 0;
-    if (offset === 0) {
-      const allLiveItems = await odooRead(domain, ['id'], 5000, 0);
-      const liveIds = (allLiveItems || []).map(i => String(i.id));
-      const { data: allExisting } = await supabase.from('products').select('odoo_product_id').eq('source', 'odoo');
-      const toDelete = (allExisting || []).map(i => i.odoo_product_id).filter(id => !liveIds.includes(id));
-      if (toDelete.length > 0) {
-        await supabase.from('products').delete().in('odoo_product_id', toDelete);
-        removed = toDelete.length;
-      }
-    }
-
-    if (!items || items.length === 0) return res.status(200).json({ success: true, done: true, processed: 0, total: totalCount, removed });
+    if (!items || items.length === 0) return res.status(200).json({ success: true, done: true, processed: 0, total: totalCount });
 
     const odooIds = items.map(i => String(i.id));
     const { data: existing } = await supabase.from('products').select('id, odoo_product_id, status').eq('source', 'odoo').in('odoo_product_id', odooIds);
@@ -293,8 +282,12 @@ export default async function handler(req, res) {
       const existingEntry = existingMap[String(item.id)];
       const isExisting = !!existingEntry;
       const currentStatus = existingEntry?.status;
-      // Sold only if on a confirmed sale order (state = sale or done)
-      const isSold = soldTemplateIds.has(item.id);
+      // Sold if: on any non-cancelled sale order (draft or confirmed) OR physically no stock left
+      const qtyOnHand = item.qty_available != null ? item.qty_available : null;
+      const qtyForecast = item.virtual_available != null ? item.virtual_available : null;
+      const isSold = soldTemplateIds.has(item.id) ||
+        (qtyOnHand !== null && qtyOnHand <= 0) ||
+        (qtyForecast !== null && qtyForecast <= 0);
 
       // Derive jewellery_type from Odoo sub-category name, not from product name keywords
       // categ_id is returned as [id, 'Category Name']
@@ -319,7 +312,8 @@ export default async function handler(req, res) {
         reference: item.default_code || null,
         price_eur: item.list_price || null,
         condition: 'Fair',
-        status: isSold ? 'sold' : 'available',
+        // Always set status: sold if on active order, available if order was cancelled (was sold → now free), skip if reserved
+        ...(isSold ? { status: 'sold' } : currentStatus === 'sold' ? { status: 'available' } : isExisting ? {} : { status: 'available' }),
         category: 'Jewellery',
         notes: item.description_sale && item.description_sale.trim() ? item.description_sale.trim() : null,
       };
@@ -372,7 +366,7 @@ export default async function handler(req, res) {
 
     const nextOffset = offset + batch_size;
     const done = nextOffset >= totalCount;
-    return res.status(200).json({ success: true, added, updated, removed, images_added: imagesAdded, processed: items.length, offset, next_offset: done ? null : nextOffset, total: totalCount, done, sold_on_order: soldTemplateIds.size, errors: errors.length > 0 ? errors : undefined });
+    return res.status(200).json({ success: true, added, updated, images_added: imagesAdded, processed: items.length, offset, next_offset: done ? null : nextOffset, total: totalCount, done, sold_on_order: soldTemplateIds.size, errors: errors.length > 0 ? errors : undefined });
   } catch (err) {
     console.error('Odoo sync error:', err);
     return res.status(500).json({ error: err.message });
