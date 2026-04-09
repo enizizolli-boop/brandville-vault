@@ -209,11 +209,22 @@ export default async function handler(req, res) {
     const totalCount = await odooCount(domain);
     const items = await odooRead(domain, ['id', 'name', 'default_code', 'list_price', 'description_sale', 'image_1920', 'qty_available', 'virtual_available', 'categ_id'], batch_size, offset);
 
-    // Fetch all product template IDs currently on any non-cancelled sale order (draft or confirmed).
-    // These are definitively sold regardless of qty_available.
     const soldTemplateIds = await fetchSoldProductTemplateIds();
 
-    if (!items || items.length === 0) return res.status(200).json({ success: true, done: true, processed: 0, total: totalCount });
+    // On first batch, delete any stale odoo jewellery items no longer in the domain
+    let removed = 0;
+    if (offset === 0) {
+      const allLiveItems = await odooRead(domain, ['id'], 5000, 0);
+      const liveIds = (allLiveItems || []).map(i => String(i.id));
+      const { data: allExisting } = await supabase.from('products').select('odoo_product_id').eq('source', 'odoo');
+      const toDelete = (allExisting || []).map(i => i.odoo_product_id).filter(id => !liveIds.includes(id));
+      if (toDelete.length > 0) {
+        await supabase.from('products').delete().in('odoo_product_id', toDelete);
+        removed = toDelete.length;
+      }
+    }
+
+    if (!items || items.length === 0) return res.status(200).json({ success: true, done: true, processed: 0, total: totalCount, removed });
 
     const odooIds = items.map(i => String(i.id));
     const { data: existing } = await supabase.from('products').select('id, odoo_product_id, status').eq('source', 'odoo').in('odoo_product_id', odooIds);
@@ -361,7 +372,7 @@ export default async function handler(req, res) {
 
     const nextOffset = offset + batch_size;
     const done = nextOffset >= totalCount;
-    return res.status(200).json({ success: true, added, updated, images_added: imagesAdded, processed: items.length, offset, next_offset: done ? null : nextOffset, total: totalCount, done, sold_on_order: soldTemplateIds.size, errors: errors.length > 0 ? errors : undefined });
+    return res.status(200).json({ success: true, added, updated, removed, images_added: imagesAdded, processed: items.length, offset, next_offset: done ? null : nextOffset, total: totalCount, done, sold_on_order: soldTemplateIds.size, errors: errors.length > 0 ? errors : undefined });
   } catch (err) {
     console.error('Odoo sync error:', err);
     return res.status(500).json({ error: err.message });
