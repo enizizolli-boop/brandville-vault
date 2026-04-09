@@ -59,7 +59,7 @@ async function fetchSoldProductTemplateIds() {
       `<param><value><string>sale.order.line</string></value></param>` +
       `<param><value><string>search_read</string></value></param>` +
       `<param><value><array><data><value><array><data>` +
-      `<value><array><data><value><string>order_id.state</string></value><value><string>!=</string></value><value><string>cancel</string></value></data></array></value>` +
+      `<value><array><data><value><string>order_id.state</string></value><value><string>in</string></value><value><array><data><value><string>sale</string></value><value><string>done</string></value></data></array></value></data></array></value>` +
       `</data></array></value></data></array></value></param>` +
       `<param><value><struct>` +
       `<member><name>fields</name><value><array><data><value><string>product_id</string></value></data></array></value></member>` +
@@ -160,20 +160,11 @@ export default async function handler(req, res) {
 
     if (error) throw error;
 
-    // Also check qty_available from Odoo so zero-stock items are marked sold
-    const odooNumericIds = (allProducts || [])
-      .map(p => parseInt(p.odoo_product_id))
-      .filter(id => !isNaN(id));
-    const qtyMap = await fetchOdooQtyMap(odooNumericIds);
-
     let markedSold = 0;
     let markedAvailable = 0;
 
     for (const product of allProducts || []) {
-      const onOrder = soldIdStrings.includes(product.odoo_product_id);
-      const qty = qtyMap.get(product.odoo_product_id);
-      const noStock = qty !== undefined && qty <= 0;
-      const isSold = onOrder || noStock;
+      const isSold = soldIdStrings.includes(product.odoo_product_id);
 
       if (isSold && product.status !== 'sold') {
         await supabase.from('products').update({ status: 'sold' }).eq('id', product.id);
