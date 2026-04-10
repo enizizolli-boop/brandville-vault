@@ -199,6 +199,7 @@ const EMPTY_FORM = {
   condition: 'pre-owned conditions with MINOR signs of usage',
   scope_of_delivery: '',
   price_eur: '',
+  cost_eur: '',
   notes: '',
   metal_type: '',
   item_size: '',
@@ -314,6 +315,7 @@ export default function AgentListings() {
         condition: form.condition,
         price_eur: Number(form.price_eur),
         price_usd: priceUsd,
+        cost_eur: form.cost_eur ? Number(form.cost_eur) : null,
         notes: form.notes || null,
         scope_of_delivery: form.scope_of_delivery || null,
         metal_type: form.category === 'Jewellery' && form.metal_type ? form.metal_type : null,
@@ -735,12 +737,18 @@ export default function AgentListings() {
               </div>
             )}
 
-            <div className="form-row">
-              <label>Price (€ EUR)</label>
-              <input type="number" value={form.price_eur} onChange={e => handleField('price_eur', e.target.value)} placeholder="e.g. 35000" required />
-              {usdPreview && (
-                <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>≈ {usdPreview} USD <span style={{ color: '#bbb' }}>(live rate)</span></div>
-              )}
+            <div className="form-2col">
+              <div className="form-row">
+                <label>Selling Price (€ EUR)</label>
+                <input type="number" value={form.price_eur} onChange={e => handleField('price_eur', e.target.value)} placeholder="e.g. 35000" required />
+                {usdPreview && (
+                  <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>≈ {usdPreview} USD</div>
+                )}
+              </div>
+              <div className="form-row">
+                <label>Cost Price (€ EUR)</label>
+                <input type="number" value={form.cost_eur} onChange={e => handleField('cost_eur', e.target.value)} placeholder="e.g. 28000" />
+              </div>
             </div>
 
             <div className="form-row">
