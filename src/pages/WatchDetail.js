@@ -6,7 +6,11 @@ import { useExchangeRate } from '../hooks/useExchangeRate'
 import { useCurrency } from '../context/CurrencyContext'
 import Topbar from '../components/Topbar'
 
-const WHATSAPP_NUMBER = process.env.REACT_APP_WHATSAPP_NUMBER || ''
+const WHATSAPP_NUMBERS = {
+  Watches: '18488639660',
+  Bags: '18254757069',
+  Jewellery: '19702793331',
+}
 const SUPABASE_URL = 'https://tulqgebsvpxgwocptnmy.supabase.co'
 const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1bHFnZWJzdnB4Z3dvY3B0bm15Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MjYzOTEsImV4cCI6MjA5MDIwMjM5MX0.H12dPM59cIxlvpR7jbuDjpX11qNdohvi-nhiMxNheJA'
 
@@ -255,7 +259,8 @@ export default function WatchDetail() {
       ? `€${Number(watch.price_eur).toLocaleString()}`
       : watch.price_usd ? `$${Number(watch.price_usd).toLocaleString()}` : ''
     const text = `Hi, I'm interested in this item from Brandville Vault:\n\n${watch.brand} ${watch.model}${watch.reference ? ` (${watch.reference})` : ''}\n${price}\n\n${window.location.href}`
-    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`, '_blank')
+    const waNumber = WHATSAPP_NUMBERS[watch.category] || WHATSAPP_NUMBERS.Watches
+    window.open(`https://wa.me/${waNumber}?text=${encodeURIComponent(text)}`, '_blank')
   }
 
   if (loading) return <div className="loading-page"><div className="spinner" /></div>
