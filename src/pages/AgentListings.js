@@ -562,32 +562,6 @@ export default function AgentListings() {
         <div style={{ padding: 16, maxWidth: 600 }}>
           {error && <div className="error-msg">{error}</div>}
 
-          <div style={{ marginBottom: 20, background: '#f8f6f2', borderRadius: 12, padding: 16, border: '1px solid #e6e0d8' }}>
-            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Quick Post</div>
-            <div style={{ fontSize: 11, color: '#aaa', marginBottom: 10 }}>Paste all info in one go — brand, model, price, condition — and the form fills automatically.</div>
-            <textarea
-              rows={3}
-              placeholder='e.g. Rolex Daytona 116500LN €35,000 minor Card & Box'
-              style={{ width: '100%', boxSizing: 'border-box', fontSize: 13 }}
-              onChange={e => {
-                const parsed = parseQuickPost(e.target.value)
-                setForm(f => {
-                  const updated = { ...f }
-                  if (parsed.brand !== 'Rolex' || !f.brand) updated.brand = parsed.brand
-                  if (parsed.model) updated.model = parsed.model
-                  if (parsed.reference) updated.reference = parsed.reference
-                  if (parsed.price_eur) updated.price_eur = parsed.price_eur
-                  if (parsed.condition !== EMPTY_FORM.condition) updated.condition = parsed.condition
-                  if (parsed.category) updated.category = parsed.category
-                  if (parsed.scope_of_delivery) updated.scope_of_delivery = parsed.scope_of_delivery
-                  if (parsed.metal_type) updated.metal_type = parsed.metal_type
-                  if (parsed.subcategory) updated.subcategory = parsed.subcategory
-                  return updated
-                })
-              }}
-            />
-          </div>
-
           <form onSubmit={handlePost}>
             <label className="upload-zone" htmlFor="img-upload">
               {previews.length > 0
@@ -596,6 +570,32 @@ export default function AgentListings() {
               }
               <input id="img-upload" type="file" accept="image/*" multiple onChange={handleImages} />
             </label>
+
+            <div style={{ marginBottom: 16, background: '#f8f6f2', borderRadius: 12, padding: 16, border: '1px solid #e6e0d8' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Quick Post</div>
+              <div style={{ fontSize: 11, color: '#aaa', marginBottom: 10 }}>Paste all info in one go — brand, model, price, condition — and the form fills automatically.</div>
+              <textarea
+                rows={3}
+                placeholder='e.g. Rolex Daytona 116500LN €35,000 minor Card & Box'
+                style={{ width: '100%', boxSizing: 'border-box', fontSize: 13 }}
+                onChange={e => {
+                  const parsed = parseQuickPost(e.target.value)
+                  setForm(f => {
+                    const updated = { ...f }
+                    if (parsed.brand !== 'Rolex' || !f.brand) updated.brand = parsed.brand
+                    if (parsed.model) updated.model = parsed.model
+                    if (parsed.reference) updated.reference = parsed.reference
+                    if (parsed.price_eur) updated.price_eur = parsed.price_eur
+                    if (parsed.condition !== EMPTY_FORM.condition) updated.condition = parsed.condition
+                    if (parsed.category) updated.category = parsed.category
+                    if (parsed.scope_of_delivery) updated.scope_of_delivery = parsed.scope_of_delivery
+                    if (parsed.metal_type) updated.metal_type = parsed.metal_type
+                    if (parsed.subcategory) updated.subcategory = parsed.subcategory
+                    return updated
+                  })
+                }}
+              />
+            </div>
 
             <div className="form-row">
               <label>Category</label>
