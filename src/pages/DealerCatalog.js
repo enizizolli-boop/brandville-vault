@@ -5,15 +5,24 @@ import { useCurrency } from '../context/CurrencyContext'
 import { useExchangeRate } from '../hooks/useExchangeRate'
 import Topbar from '../components/Topbar'
 
-const BRANDS = [
-  'A. Lange & Söhne','Audemars Piguet','Balenciaga','Blancpain','Bottega Veneta',
-  'Breguet','Breitling','Bulgari','Cartier','Celine','Chanel','Chopard','De Beers',
-  'Dior','Fendi','Girard-Perregaux','Graff','Grand Seiko','Gucci','Harry Winston',
-  'Hermès','Hublot','IWC','Jaeger-LeCoultre','Loewe','Louis Vuitton','Mikimoto',
-  'Omega','Other','Panerai','Patek Philippe','Piaget','Prada','Richard Mille','Rolex',
-  'Saint Laurent','TAG Heuer','Tiffany & Co','Tudor','Ulysse Nardin','Vacheron Constantin',
-  'Van Cleef & Arpels','Zenith'
+const WATCH_BRANDS = [
+  'A. Lange & Söhne','Audemars Piguet','Blancpain','Breguet','Breitling','Cartier',
+  'Chopard','Girard-Perregaux','Grand Seiko','Harry Winston','Hublot','IWC',
+  'Jaeger-LeCoultre','Omega','Other','Panerai','Patek Philippe','Piaget',
+  'Richard Mille','Rolex','TAG Heuer','Tudor','Ulysse Nardin','Vacheron Constantin','Zenith'
 ]
+
+const JEWELLERY_BRANDS = [
+  'Bulgari','Cartier','Chanel','Chopard','De Beers','Dior','Graff','Harry Winston',
+  'Hermès','Mikimoto','Other','Piaget','Tiffany & Co','Van Cleef & Arpels'
+]
+
+const BAG_BRANDS = [
+  'Balenciaga','Bottega Veneta','Celine','Chanel','Dior','Fendi','Gucci',
+  'Hermès','Loewe','Louis Vuitton','Other','Prada','Saint Laurent'
+]
+
+const ALL_BRANDS = [...new Set([...WATCH_BRANDS, ...JEWELLERY_BRANDS, ...BAG_BRANDS])].sort()
 
 const CONDITIONS = [
   'pre-owned conditions with MINOR signs of usage',
@@ -213,13 +222,13 @@ export default function DealerCatalog() {
         <div className="stat-card"><div className="stat-val">{watches.length}</div><div className="stat-lbl">Total in stock</div></div>
       </div>
       <div className="filters">
-        <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setFilterMetal(''); setFilterSize(''); setFilterJewelleryType(''); setFilterCond('') }}>
+        <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setFilterBrand(''); setFilterMetal(''); setFilterSize(''); setFilterJewelleryType(''); setFilterCond('') }}>
           <option value=''>All categories</option>
           <option>Watches</option><option>Jewellery</option><option>Bags</option>
         </select>
         <select value={filterBrand} onChange={e => setFilterBrand(e.target.value)}>
           <option value="">All brands</option>
-          {BRANDS.map(b => <option key={b}>{b}</option>)}
+          {(filterCategory === 'Watches' ? WATCH_BRANDS : filterCategory === 'Jewellery' ? JEWELLERY_BRANDS : filterCategory === 'Bags' ? BAG_BRANDS : ALL_BRANDS).map(b => <option key={b}>{b}</option>)}
         </select>
         {isWatches && (
           <select value={filterCond} onChange={e => setFilterCond(e.target.value)}>
