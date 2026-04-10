@@ -155,11 +155,13 @@ function parseQuickPost(text) {
       // Look up model name from reference database
       const ref = refMatch[0]
       const refClean = ref.replace(/-/g, '')
-      const looked = WATCH_REFS[ref] || WATCH_REFS[refClean]
+      // Strip variant suffix: 126158-0012 → 126158, also try without dashes
+      const refBase = ref.split('-')[0]
+      const looked = WATCH_REFS[ref] || WATCH_REFS[refClean] || WATCH_REFS[refBase]
         // Try with common prefixes stripped or added (e.g. Q3838420 ↔ 3838420, PAM00111 ↔ 111)
-        || Object.entries(WATCH_REFS).find(([k]) => k.endsWith(refClean) || refClean.endsWith(k.replace(/^[A-Z]+/, '')))?.[1]
+        || Object.entries(WATCH_REFS).find(([k]) => k.endsWith(refClean) || k.endsWith(refBase) || refClean.endsWith(k.replace(/^[A-Z]+/, '')))?.[1]
         // Try partial match: ref starts with or is contained in a key
-        || Object.entries(WATCH_REFS).find(([k]) => ref.startsWith(k) || k.includes(ref))?.[1]
+        || Object.entries(WATCH_REFS).find(([k]) => ref.startsWith(k) || refBase.startsWith(k) || k.includes(refBase))?.[1]
       if (looked) {
         result.model = looked
         return result
