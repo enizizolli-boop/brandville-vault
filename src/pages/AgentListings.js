@@ -100,16 +100,33 @@ function parseQuickPost(text) {
   for (const line of lines) {
     const lineLower = line.toLowerCase()
 
-    // Net/cost price line: "Net Price 52'320€" or "net 52320"
+    // Net/cost price line: "Net Price 52'320€" or "Net - 15'250€ - 17'850$ | WeChat: c713671"
     if (/\bnet\b/i.test(lineLower) && /\d/.test(line)) {
-      result.cost_eur = parsePrice(line)
+      // Extract vendor if after | on same line
+      if (line.includes('|')) {
+        const [pricePart, vendorPart] = line.split('|').map(s => s.trim())
+        const eurNet = pricePart.match(/([\d]['\d,.\s]*[\d])\s*€/)
+        result.cost_eur = eurNet ? parsePrice(eurNet[0]) : parsePrice(pricePart)
+        const vendorMatch = vendorPart.match(/(?:vendor|wechat)[:\s]*(.+)/i)
+        if (vendorMatch) result.vendor = vendorMatch[1].trim()
+        else result.vendor = vendorPart
+      } else {
+        const eurNet = line.match(/([\d]['\d,.\s]*[\d])\s*€/)
+        result.cost_eur = eurNet ? parsePrice(eurNet[0]) : parsePrice(line)
+      }
       continue
     }
 
     // Price line: has € or $ or apostrophe-separated number, or just digits
-    const hasPrice = /[€$]/.test(line) || /\d[']\d/.test(line) || /^[\d',.€$\s]+$/.test(line.trim())
+    const hasPrice = /[€$]/.test(line) || /\d[']\d/.test(line) || /^[\d',.€$\s\-]+$/.test(line.trim())
     if (hasPrice && /\d{3,}/.test(line.replace(/'/g, ''))) {
-      result.price_eur = parsePrice(line)
+      // If line has both € and $, extract the EUR part
+      const eurMatch = line.match(/([\d]['\d,.\s]*[\d])\s*€/)
+      if (eurMatch) {
+        result.price_eur = parsePrice(eurMatch[0])
+      } else {
+        result.price_eur = parsePrice(line)
+      }
       continue
     }
 
@@ -126,7 +143,8 @@ function parseQuickPost(text) {
 
     // Scope line (also handle "Card only" → "With Card", "Box only" → "With Box")
     let matchedScope = false
-    if (/\bcard\s+only\b/i.test(line)) { result.scope_of_delivery = 'With Card'; matchedScope = true }
+    if (/\bfull\s+set\b/i.test(line)) { result.scope_of_delivery = 'Card & Box'; matchedScope = true }
+    else if (/\bcard\s+only\b/i.test(line)) { result.scope_of_delivery = 'With Card'; matchedScope = true }
     else if (/\bbox\s+only\b/i.test(line)) { result.scope_of_delivery = 'With Box'; matchedScope = true }
     else {
       for (const s of SCOPE_KEYWORDS) {
@@ -139,9 +157,10 @@ function parseQuickPost(text) {
       continue
     }
 
-    // Vendor line → vendor field
-    if (/\bvendor\b/i.test(lineLower)) {
-      result.vendor = line.replace(/^vendor[:\s]*/i, '').trim()
+    // Vendor line → vendor field (Vendor:, WeChat:, or after | on net line)
+    if (/\bvendor\b/i.test(lineLower) || /\bwechat\b/i.test(lineLower)) {
+      const vendorMatch = line.match(/(?:vendor|wechat)[:\s]*(.+)/i)
+      if (vendorMatch) result.vendor = vendorMatch[1].trim()
       continue
     }
 
