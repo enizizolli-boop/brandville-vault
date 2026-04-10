@@ -760,10 +760,6 @@ export default function AgentListings() {
               </>
             )}
 
-            <div className="form-row">
-              <label>Reference / Serial</label>
-              <input value={form.reference} onChange={e => handleField('reference', e.target.value)} placeholder="Optional — e.g. 116500LN" />
-            </div>
 
             {form.category === 'Watches' && (
               <div className="form-row">
