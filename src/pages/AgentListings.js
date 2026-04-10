@@ -27,6 +27,133 @@ const BRANDS = [
   'Van Cleef & Arpels','Zenith'
 ]
 
+const JEWELLERY_BRANDS = new Set([
+  'balenciaga','bottega veneta','bulgari','cartier','celine','chanel','de beers',
+  'dior','fendi','gucci','hermès','hermes','loewe','louis vuitton','mikimoto',
+  'prada','saint laurent','tiffany & co','van cleef & arpels','harry winston','graff','chopard','piaget',
+])
+
+const BAG_BRANDS = new Set([
+  'balenciaga','bottega veneta','celine','chanel','dior','fendi','gucci',
+  'hermès','hermes','loewe','louis vuitton','prada','saint laurent',
+])
+
+const SCOPE_KEYWORDS = [
+  { match: /card\s*[&+]\s*box/i, value: 'Card & Box' },
+  { match: /with\s+card/i, value: 'With Card' },
+  { match: /with\s+box/i, value: 'With Box' },
+  { match: /watch\s+only/i, value: 'Watch Only' },
+]
+
+const METAL_KEYWORDS = [
+  { match: /yellow\s*gold/i, value: 'Yellow Gold' },
+  { match: /pink\s*gold|rose\s*gold/i, value: 'Pink Gold' },
+  { match: /white\s*gold/i, value: 'White Gold' },
+  { match: /platinum/i, value: 'Platinum' },
+]
+
+const JEWELLERY_TYPE_KEYWORDS = [
+  { match: /\bearrings?\b|\bstuds?\b|\bhoops?\b/i, value: 'Earrings' },
+  { match: /\bbracelets?\b/i, value: 'Bracelets' },
+  { match: /\bnecklaces?\b|\bpendant/i, value: 'Necklaces' },
+  { match: /\brings?\b/i, value: 'Rings' },
+]
+
+function parseQuickPost(text) {
+  const result = { ...EMPTY_FORM }
+  if (!text.trim()) return result
+
+  // Extract price (€ or $ followed by numbers, or just large numbers)
+  const priceMatch = text.match(/[€$]\s*([\d,.]+)/i) || text.match(/(\d{1,3}(?:[.,]\d{3})+)/i) || text.match(/\b(\d{4,})\b/)
+  if (priceMatch) {
+    result.price_eur = priceMatch[1].replace(/[.,]/g, m => m === '.' && priceMatch[1].indexOf('.') !== priceMatch[1].lastIndexOf('.') ? '' : m).replace(/,/g, '')
+    // Clean: remove all dots if multiple (thousand separators), keep last dot if decimal
+    const raw = priceMatch[1].replace(/\s/g, '')
+    const dots = (raw.match(/\./g) || []).length
+    const commas = (raw.match(/,/g) || []).length
+    if (dots > 1 || (dots === 1 && commas > 0)) result.price_eur = raw.replace(/[.,]/g, '')
+    else if (commas > 1) result.price_eur = raw.replace(/,/g, '')
+    else if (commas === 1 && raw.indexOf(',') > raw.length - 4) result.price_eur = raw.replace(',', '.')
+    else result.price_eur = raw.replace(/,/g, '')
+    result.price_eur = String(Math.round(Number(result.price_eur)))
+  }
+
+  // Detect brand (longest match first)
+  const sortedBrands = [...BRANDS].sort((a, b) => b.length - a.length)
+  const textLower = text.toLowerCase()
+  for (const brand of sortedBrands) {
+    if (textLower.includes(brand.toLowerCase())) {
+      result.brand = brand
+      break
+    }
+  }
+  // Also try common abbreviations
+  if (result.brand === 'Rolex') { /* default, check others */ }
+  if (/\bAP\b/.test(text)) result.brand = 'Audemars Piguet'
+  if (/\bPP\b/.test(text)) result.brand = 'Patek Philippe'
+  if (/\bVC\b/.test(text) || /\bvacheron\b/i.test(text)) result.brand = 'Vacheron Constantin'
+  if (/\bJLC\b/.test(text)) result.brand = 'Jaeger-LeCoultre'
+  if (/\bRM\b/.test(text)) result.brand = 'Richard Mille'
+  if (/\bVCA\b/.test(text)) result.brand = 'Van Cleef & Arpels'
+  if (/\bLV\b/.test(text)) result.brand = 'Louis Vuitton'
+
+  // Detect category from brand or keywords
+  const brandLower = result.brand.toLowerCase()
+  if (/\bbag\b|\bbirkin\b|\bkelly\b|\bneverfull\b|\bspeedy\b|\btote\b|\bclutch\b/i.test(text)) {
+    result.category = 'Bags'
+  } else if (/\bjewel|\bring\b|\bbracelet\b|\bnecklace\b|\bearring|\bpendant/i.test(text) || JEWELLERY_BRANDS.has(brandLower)) {
+    result.category = 'Jewellery'
+  } else {
+    result.category = 'Watches'
+  }
+  // If a known watch brand override back
+  if (['rolex','audemars piguet','patek philippe','omega','iwc','jaeger-lecoultre','breitling','tag heuer','tudor','hublot','richard mille','vacheron constantin','a. lange & söhne','panerai','blancpain','breguet','zenith','grand seiko','ulysse nardin','girard-perregaux'].includes(brandLower)) {
+    result.category = 'Watches'
+  }
+
+  // Condition
+  if (/\bmajor\b/i.test(text)) result.condition = 'pre-owned conditions with MAJOR signs of usage'
+  else if (/\bminor\b/i.test(text)) result.condition = 'pre-owned conditions with MINOR signs of usage'
+  else if (/\bneed[s]?\s*repair/i.test(text)) result.condition = 'Needs Repair'
+  else if (/\brepair.*albania/i.test(text)) result.condition = 'Repaired Albania'
+  else if (/\brepaired\b/i.test(text)) result.condition = 'Repaired'
+  else if (/\bfair\b/i.test(text)) result.condition = 'Fair'
+
+  // Scope of delivery
+  for (const s of SCOPE_KEYWORDS) {
+    if (s.match.test(text)) { result.scope_of_delivery = s.value; break }
+  }
+
+  // Metal type (jewellery)
+  for (const m of METAL_KEYWORDS) {
+    if (m.match.test(text)) { result.metal_type = m.value; break }
+  }
+
+  // Jewellery sub-type
+  for (const j of JEWELLERY_TYPE_KEYWORDS) {
+    if (j.match.test(text)) { result.subcategory = j.value; break }
+  }
+
+  // Model: everything after brand, minus price and detected keywords
+  let remaining = text
+  // Remove price
+  if (priceMatch) remaining = remaining.replace(priceMatch[0], '')
+  // Remove brand
+  const brandIdx = remaining.toLowerCase().indexOf(result.brand.toLowerCase())
+  if (brandIdx !== -1) remaining = remaining.slice(0, brandIdx) + remaining.slice(brandIdx + result.brand.length)
+  // Remove known keywords
+  remaining = remaining.replace(/\b(card\s*[&+]\s*box|with\s+card|with\s+box|watch\s+only|minor|major|fair|needs?\s*repair|repaired?\s*albania?|repaired|yellow\s*gold|pink\s*gold|rose\s*gold|white\s*gold|platinum|earrings?|bracelets?|necklaces?|rings?|pendant|jewel\w*|bag)\b/gi, '')
+  remaining = remaining.replace(/[€$]/g, '').replace(/\s+/g, ' ').trim()
+  // Try to extract reference (alphanumeric code like 116500LN, 15400ST, etc.)
+  const refMatch = remaining.match(/\b([A-Z0-9]{4,}[A-Z0-9./\-]*)\b/i)
+  if (refMatch) {
+    result.reference = refMatch[1]
+  }
+  if (remaining) result.model = remaining
+
+  return result
+}
+
 const EMPTY_FORM = {
   category: 'Watches',
   brand: 'Rolex',
@@ -434,6 +561,33 @@ export default function AgentListings() {
       {tab === 'post' && (
         <div style={{ padding: 16, maxWidth: 600 }}>
           {error && <div className="error-msg">{error}</div>}
+
+          <div style={{ marginBottom: 20, background: '#f8f6f2', borderRadius: 12, padding: 16, border: '1px solid #e6e0d8' }}>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Quick Post</div>
+            <div style={{ fontSize: 11, color: '#aaa', marginBottom: 10 }}>Paste all info in one go — brand, model, price, condition — and the form fills automatically.</div>
+            <textarea
+              rows={3}
+              placeholder='e.g. Rolex Daytona 116500LN €35,000 minor Card & Box'
+              style={{ width: '100%', boxSizing: 'border-box', fontSize: 13 }}
+              onChange={e => {
+                const parsed = parseQuickPost(e.target.value)
+                setForm(f => {
+                  const updated = { ...f }
+                  if (parsed.brand !== 'Rolex' || !f.brand) updated.brand = parsed.brand
+                  if (parsed.model) updated.model = parsed.model
+                  if (parsed.reference) updated.reference = parsed.reference
+                  if (parsed.price_eur) updated.price_eur = parsed.price_eur
+                  if (parsed.condition !== EMPTY_FORM.condition) updated.condition = parsed.condition
+                  if (parsed.category) updated.category = parsed.category
+                  if (parsed.scope_of_delivery) updated.scope_of_delivery = parsed.scope_of_delivery
+                  if (parsed.metal_type) updated.metal_type = parsed.metal_type
+                  if (parsed.subcategory) updated.subcategory = parsed.subcategory
+                  return updated
+                })
+              }}
+            />
+          </div>
+
           <form onSubmit={handlePost}>
             <label className="upload-zone" htmlFor="img-upload">
               {previews.length > 0
