@@ -309,7 +309,7 @@ export default async function handler(req, res) {
         source: 'odoo',
         brand,
         model: (item.name || '').trim(),
-        reference: item.default_code || null,
+        reference: item.default_code ? (item.default_code.match(/(\d+)$/) || [])[1] || item.default_code : null,
         price_eur: item.list_price || null,
         condition: 'Fair',
         // Always set status: sold if on active order, available if order was cancelled (was sold → now free), skip if reserved
