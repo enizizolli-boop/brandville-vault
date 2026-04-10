@@ -383,7 +383,8 @@ export default function AgentListings() {
       setTab('listings')
       fetchMyWatches()
     } catch (err) {
-      setError('Something went wrong. Please try again.')
+      console.error('Post error:', err)
+      setError(err?.message || 'Something went wrong. Please try again.')
     }
     setPosting(false)
   }
