@@ -134,22 +134,31 @@ function parseQuickPost(text) {
     if (j.match.test(text)) { result.subcategory = j.value; break }
   }
 
-  // Split text into tokens, find brand position, extract model as the words right after brand
-  // before any price, condition keyword, or scope keyword
-  const brandLowerMatch = result.brand.toLowerCase()
-  const brandPos = textLower.indexOf(brandLowerMatch)
-  const afterBrand = brandPos !== -1 ? text.slice(brandPos + result.brand.length).trim() : text.trim()
+  // Find where the brand appears in the text (full name or abbreviation)
+  const abbreviations = { 'Audemars Piguet': /\bAP\b/i, 'Patek Philippe': /\bPP\b/i, 'Vacheron Constantin': /\bVC\b|\bvacheron\b/i, 'Jaeger-LeCoultre': /\bJLC\b/i, 'Richard Mille': /\bRM\b/i, 'Van Cleef & Arpels': /\bVCA\b/i, 'Louis Vuitton': /\bLV\b/i }
+  let afterBrand = text
+  // Try full brand name first
+  const brandPos = textLower.indexOf(result.brand.toLowerCase())
+  if (brandPos !== -1) {
+    afterBrand = text.slice(brandPos + result.brand.length).trim()
+  } else if (abbreviations[result.brand]) {
+    // Try abbreviation
+    const abbrMatch = text.match(abbreviations[result.brand])
+    if (abbrMatch) afterBrand = text.slice(abbrMatch.index + abbrMatch[0].length).trim()
+  }
 
-  // Split after-brand text into parts by known stop patterns
-  const stopPatterns = /[€$]\s*[\d]|\b(minor|major|fair|needs?\s*repair|repaired|card\s*[&+]\s*box|with\s+card|with\s+box|watch\s+only|yellow\s*gold|pink\s*gold|rose\s*gold|white\s*gold|platinum)\b/i
+  // Stop at price, condition, or scope keywords
+  const stopPatterns = /[€$]\s*[\d]|\b\d{4,}\b(?!\w)|\b(minor|major|fair|needs?\s*repair|repaired|card\s*[&+]\s*box|with\s+card|with\s+box|watch\s+only|yellow\s*gold|pink\s*gold|rose\s*gold|white\s*gold|platinum)\b/i
   const stopMatch = afterBrand.search(stopPatterns)
-  const modelPart = stopMatch > 0 ? afterBrand.slice(0, stopMatch).trim() : afterBrand.replace(/[€$]\s*[\d,.\s]+/g, '').trim()
+  let modelPart = stopMatch > 0 ? afterBrand.slice(0, stopMatch).trim() : afterBrand.replace(/[€$]\s*[\d,.\s]+/g, '').trim()
+  // Clean up any trailing/leading junk
+  modelPart = modelPart.replace(/^[\s,\-·]+|[\s,\-·]+$/g, '')
 
   // Extract reference from model part (alphanumeric code like 116500LN, 15400ST, Q9038180)
   const refMatch = modelPart.match(/\b([A-Z0-9]{4,}[A-Z0-9./\-]*)\b/i)
   if (refMatch) result.reference = refMatch[1]
 
-  if (modelPart) result.model = modelPart.replace(/\s+/g, ' ').trim()
+  if (modelPart) result.model = modelPart
 
   return result
 }
