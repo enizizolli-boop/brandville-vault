@@ -300,18 +300,7 @@ export default async function handler(req, res) {
       }
     } catch (e) { console.error('Extra images fetch error:', e); }
 
-    // Remove stale items on first batch only
-    let removed = 0;
-    if (offset === 0) {
-      const allOdooItems = await odooRead(domain, ['id'], 5000, 0).catch(() => []);
-      const allOdooIds = allOdooItems.map(i => String(i.id));
-      const { data: allExisting } = await supabase.from('products').select('odoo_product_id').eq('source', 'odoo_bags');
-      const toDelete = (allExisting || []).map(i => i.odoo_product_id).filter(id => !allOdooIds.includes(id));
-      if (toDelete.length > 0) {
-        await supabase.from('products').delete().in('odoo_product_id', toDelete);
-        removed = toDelete.length;
-      }
-    }
+    const removed = 0;
 
     let added = 0, updated = 0, imagesAdded = 0;
     const errors = [];
