@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { useExchangeRate } from '../hooks/useExchangeRate'
 import { useCurrency } from '../context/CurrencyContext'
 import Topbar from '../components/Topbar'
+import WATCH_REFS from '../data/watchRefs'
 
 const CATEGORIES = ['Watches', 'Jewellery', 'Bags']
 
@@ -149,7 +150,17 @@ function parseQuickPost(text) {
 
     // Extract reference (alphanumeric code like 116500LN, 278274-0028)
     const refMatch = model.match(/\b([A-Z0-9][A-Z0-9.\-/]{3,}[A-Z0-9])\b/i)
-    if (refMatch) result.reference = refMatch[0]
+    if (refMatch) {
+      result.reference = refMatch[0]
+      // Look up model name from reference database
+      const refKey = refMatch[0].replace(/-/g, '')
+      const looked = WATCH_REFS[refMatch[0]] || WATCH_REFS[refKey]
+        || Object.entries(WATCH_REFS).find(([k]) => refMatch[0].startsWith(k))?.[1]
+      if (looked) {
+        result.model = looked
+        return result // model found from reference, skip raw text
+      }
+    }
 
     if (model) result.model = model
   }
@@ -607,8 +618,13 @@ export default function AgentListings() {
                 rows={3}
                 placeholder='e.g. Rolex Daytona 116500LN €35,000 minor Card & Box'
                 style={{ width: '100%', boxSizing: 'border-box', fontSize: 13 }}
-                onChange={e => {
+                onChange={async e => {
                   const parsed = parseQuickPost(e.target.value)
+                  // If reference found but no model from static map, try DB lookup
+                  if (parsed.reference && (!parsed.model || parsed.model === parsed.reference)) {
+                    const { data } = await supabase.from('products').select('model').ilike('reference', `%${parsed.reference}%`).limit(1).single()
+                    if (data?.model) parsed.model = data.model
+                  }
                   setForm(f => {
                     const updated = { ...f }
                     if (parsed.brand !== 'Rolex' || !f.brand) updated.brand = parsed.brand
