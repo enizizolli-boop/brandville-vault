@@ -15,6 +15,7 @@ const WATCH_REFS = {
   '126660': 'Sea-Dweller Deepsea', '126600': 'Sea-Dweller', '136660': 'Sea-Dweller Deepsea',
   '116681': 'Yacht-Master II', '116680': 'Yacht-Master II', '126621': 'Yacht-Master 40', '126622': 'Yacht-Master 40', '226659': 'Yacht-Master 42',
   '116506': 'Daytona Platinum', '116505': 'Daytona Everose', '126506': 'Daytona Platinum',
+  '126518LN': 'Daytona', '126518': 'Daytona', '126519LN': 'Daytona', '126529LN': 'Daytona',
   '3135': 'Air-King', '126900': 'Air-King', '116900': 'Air-King',
   '5513': 'Submariner Vintage', '5512': 'Submariner Vintage', '1680': 'Submariner Vintage', '16610': 'Submariner', '16710': 'GMT-Master II', '16613': 'Submariner', '16600': 'Sea-Dweller',
   '228236': 'Day-Date 40', '118239': 'Day-Date 36', '118238': 'Day-Date 36',

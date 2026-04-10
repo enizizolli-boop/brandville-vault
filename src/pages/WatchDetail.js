@@ -94,6 +94,7 @@ export default function WatchDetail() {
         price_usd: data.price_usd || '',
         price_eur: data.price_eur || '',
         cost_eur: data.cost_eur || '',
+        vendor: data.vendor || '',
         notes: data.notes || '',
         metal_type: data.metal_type || '',
         subcategory: data.subcategory || '',
@@ -155,6 +156,7 @@ export default function WatchDetail() {
       price_usd: editForm.price_eur && rate ? Math.round(Number(editForm.price_eur) * rate) : editForm.price_usd ? Number(editForm.price_usd) : null,
       price_eur: editForm.price_eur ? Number(editForm.price_eur) : null,
       cost_eur: editForm.cost_eur ? Number(editForm.cost_eur) : null,
+      vendor: editForm.vendor || null,
       notes: editForm.notes || null,
       scope_of_delivery: editForm.scope_of_delivery || null,
       metal_type: editForm.category === 'Jewellery' && editForm.metal_type ? editForm.metal_type : null,
@@ -433,6 +435,7 @@ export default function WatchDetail() {
                 <div className="form-row"><label>Selling Price EUR</label><input type="number" value={editForm.price_eur} onChange={e => setEditForm(f => ({ ...f, price_eur: e.target.value }))} /></div>
                 <div className="form-row"><label>Cost Price EUR</label><input type="number" value={editForm.cost_eur} onChange={e => setEditForm(f => ({ ...f, cost_eur: e.target.value }))} placeholder="Internal only" /></div>
               </div>
+              <div className="form-row"><label>Vendor</label><input value={editForm.vendor} onChange={e => setEditForm(f => ({ ...f, vendor: e.target.value }))} placeholder="Internal only" /></div>
               <div className="form-row"><label>Notes</label><textarea rows={2} value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} /></div>
               <button className="btn btn-dark btn-full" onClick={handleSaveEdit} disabled={saving}>{saving ? '...' : 'Save changes'}</button>
             </div>
@@ -450,8 +453,12 @@ export default function WatchDetail() {
 
               <div className="detail-price">{priceMain}</div>
               {priceSecondary && <div className="detail-price-secondary">≈ {priceSecondary}</div>}
-              {canEdit && watch.cost_eur && (
-                <div style={{ fontSize: 13, color: '#b8965a', marginTop: 4 }}>Cost: €{Number(watch.cost_eur).toLocaleString()}</div>
+              {canEdit && (watch.cost_eur || watch.vendor) && (
+                <div style={{ fontSize: 13, color: '#b8965a', marginTop: 4 }}>
+                  {watch.cost_eur && <>Cost: €{Number(watch.cost_eur).toLocaleString()}</>}
+                  {watch.cost_eur && watch.vendor && ' · '}
+                  {watch.vendor && <>Vendor: {watch.vendor}</>}
+                </div>
               )}
 
               <div className="detail-meta">

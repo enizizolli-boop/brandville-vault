@@ -139,9 +139,9 @@ function parseQuickPost(text) {
       continue
     }
 
-    // Vendor line → notes
+    // Vendor line → vendor field
     if (/\bvendor\b/i.test(lineLower)) {
-      noteLines.push(line.trim())
+      result.vendor = line.replace(/^vendor[:\s]*/i, '').trim()
       continue
     }
 
@@ -235,6 +235,7 @@ const EMPTY_FORM = {
   scope_of_delivery: '',
   price_eur: '',
   cost_eur: '',
+  vendor: '',
   notes: '',
   metal_type: '',
   item_size: '',
@@ -351,6 +352,7 @@ export default function AgentListings() {
         price_eur: Number(form.price_eur),
         price_usd: priceUsd,
         cost_eur: form.cost_eur ? Number(form.cost_eur) : null,
+        vendor: form.vendor || null,
         notes: form.notes || null,
         scope_of_delivery: form.scope_of_delivery || null,
         metal_type: form.category === 'Jewellery' && form.metal_type ? form.metal_type : null,
@@ -679,6 +681,7 @@ export default function AgentListings() {
                     if (parsed.metal_type) updated.metal_type = parsed.metal_type
                     if (parsed.subcategory) updated.subcategory = parsed.subcategory
                     if (parsed.cost_eur) updated.cost_eur = parsed.cost_eur
+                    if (parsed.vendor) updated.vendor = parsed.vendor
                     if (parsed.notes) updated.notes = parsed.notes
                     return updated
                   })
@@ -786,6 +789,11 @@ export default function AgentListings() {
                 <label>Cost Price (€ EUR)</label>
                 <input type="number" value={form.cost_eur} onChange={e => handleField('cost_eur', e.target.value)} placeholder="e.g. 28000" />
               </div>
+            </div>
+
+            <div className="form-row">
+              <label>Vendor</label>
+              <input value={form.vendor} onChange={e => handleField('vendor', e.target.value)} placeholder="e.g. c713671" />
             </div>
 
             <div className="form-row">
