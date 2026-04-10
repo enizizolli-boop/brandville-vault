@@ -79,7 +79,7 @@ export default function WatchDetail() {
   const fetchWatch = useCallback(async () => {
     const { data } = await supabase
       .from('products')
-      .select('*, product_images(url, position), profiles!posted_by(full_name)')
+      .select('*, product_images(id, url, position), profiles!posted_by(full_name)')
       .eq('id', id)
       .single()
     if (data) {
@@ -182,14 +182,14 @@ export default function WatchDetail() {
     setImages(reordered)
     setActiveImg(toIndex)
     await Promise.all(reordered.map((img, i) =>
-      supabase.from('product_images').update({ position: i }).eq('url', img.url)
+      supabase.from('product_images').update({ position: i }).eq('id', img.id)
     ))
   }
 
   async function handleDeleteImage(img) {
     const path = img.url.split('/object/public/watch-images/')[1]
     if (path) await supabase.storage.from('watch-images').remove([decodeURIComponent(path)])
-    await supabase.from('product_images').delete().eq('url', img.url)
+    await supabase.from('product_images').delete().eq('id', img.id)
     setActiveImg(0)
     await fetchWatch()
   }
