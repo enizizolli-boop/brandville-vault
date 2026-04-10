@@ -25,7 +25,9 @@ const BRAND_EMOJI = { 'Rolex': '⌚', 'Patek Philippe': '🕰', 'Audemars Piguet
 
 function cleanRef(ref) {
   if (!ref) return ''
-  return ref.split(/[\/\-]/).filter(Boolean).pop()
+  // Only strip brand prefixes (parts before /), keep hyphenated refs intact
+  if (ref.includes('/')) return ref.split('/').filter(Boolean).pop()
+  return ref
 }
 
 function fmtPrice(watch, currency, rate) {

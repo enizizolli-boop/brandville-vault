@@ -28,7 +28,8 @@ async function notifyOffer(payload) {
 
 function cleanRef(ref) {
   if (!ref) return ''
-  return ref.split(/[\/\-]/).filter(Boolean).pop()
+  if (ref.includes('/')) return ref.split('/').filter(Boolean).pop()
+  return ref
 }
 const CATEGORIES = ['Watches', 'Jewellery', 'Bags']
 
