@@ -181,10 +181,9 @@ function parseQuickPost(text) {
     model = model.replace(/\b(pre-owned|minor|major|fair|needs?\s*repair|repaired|card\s*[&+]\s*box|with\s+card|with\s+box|watch\s+only)\b.*/gi, '').trim()
     model = model.replace(/^[\s,\-·]+|[\s,\-·]+$/g, '')
 
-    // Extract reference (alphanumeric code like 116500LN, 278274-0028)
+    // Use the code to look up model name (don't auto-fill reference/SKU field)
     const refMatch = model.match(/\b([A-Z0-9][A-Z0-9.\-/]{3,}[A-Z0-9])\b/i)
     if (refMatch) {
-      result.reference = refMatch[0]
       // Look up model name from reference database
       const ref = refMatch[0]
       const refClean = ref.replace(/-/g, '')
@@ -334,7 +333,7 @@ export default function AgentListings() {
     setError('')
     if (!form.brand) { setError('Brand is required.'); return }
     if (!form.model) { setError('Model name is required.'); return }
-    if (!form.reference) { setError('Reference / Serial is required.'); return }
+    // reference is optional for manual entries
     if (!form.condition) { setError('Condition is required.'); return }
     if (!form.price_eur) { setError('Price in EUR is required.'); return }
     if (form.category === 'Watches' && !form.scope_of_delivery) { setError('Scope of delivery is required.'); return }
@@ -674,7 +673,7 @@ export default function AgentListings() {
                     const updated = { ...f }
                     if (parsed.brand !== 'Rolex' || !f.brand) updated.brand = parsed.brand
                     if (parsed.model) updated.model = parsed.model
-                    if (parsed.reference) updated.reference = parsed.reference
+                    // reference/SKU left empty — agent fills manually if needed
                     if (parsed.price_eur) updated.price_eur = parsed.price_eur
                     if (parsed.condition !== EMPTY_FORM.condition) updated.condition = parsed.condition
                     if (parsed.category) updated.category = parsed.category
@@ -762,7 +761,7 @@ export default function AgentListings() {
 
             <div className="form-row">
               <label>Reference / Serial</label>
-              <input value={form.reference} onChange={e => handleField('reference', e.target.value)} placeholder="e.g. 116500LN" required />
+              <input value={form.reference} onChange={e => handleField('reference', e.target.value)} placeholder="Optional — e.g. 116500LN" />
             </div>
 
             {form.category === 'Watches' && (
