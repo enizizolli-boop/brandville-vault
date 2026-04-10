@@ -22,7 +22,17 @@ const BAG_BRANDS = [
   'Hermès','Loewe','Louis Vuitton','Other','Prada','Saint Laurent'
 ]
 
-const ALL_BRANDS = [...new Set([...WATCH_BRANDS, ...JEWELLERY_BRANDS, ...BAG_BRANDS])].sort()
+const SHOES_BRANDS = [
+  'Chanel','Christian Louboutin','Dior','Gucci','Hermès','Louis Vuitton',
+  'Manolo Blahnik','Other','Prada','Saint Laurent','Valentino'
+]
+
+const ACCESSORIES_BRANDS = [
+  'Bottega Veneta','Burberry','Cartier','Celine','Chanel','Dior','Fendi',
+  'Gucci','Hermès','Louis Vuitton','Other','Prada','Saint Laurent'
+]
+
+const ALL_BRANDS = [...new Set([...WATCH_BRANDS, ...JEWELLERY_BRANDS, ...BAG_BRANDS, ...SHOES_BRANDS, ...ACCESSORIES_BRANDS])].sort()
 
 const CONDITIONS = [
   'pre-owned conditions with MINOR signs of usage',
@@ -225,11 +235,11 @@ export default function DealerCatalog() {
       <div className="filters">
         <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setFilterBrand(''); setFilterMetal(''); setFilterSize(''); setFilterJewelleryType(''); setFilterCond('') }}>
           <option value=''>All categories</option>
-          <option>Watches</option><option>Jewellery</option><option>Bags</option>
+          <option>Watches</option><option>Jewellery</option><option>Bags</option><option>Shoes</option><option>Accessories</option>
         </select>
         <select value={filterBrand} onChange={e => setFilterBrand(e.target.value)}>
           <option value="">All brands</option>
-          {(filterCategory === 'Watches' ? WATCH_BRANDS : filterCategory === 'Jewellery' ? JEWELLERY_BRANDS : filterCategory === 'Bags' ? BAG_BRANDS : ALL_BRANDS).map(b => <option key={b}>{b}</option>)}
+          {(filterCategory === 'Watches' ? WATCH_BRANDS : filterCategory === 'Jewellery' ? JEWELLERY_BRANDS : filterCategory === 'Bags' ? BAG_BRANDS : filterCategory === 'Shoes' ? SHOES_BRANDS : filterCategory === 'Accessories' ? ACCESSORIES_BRANDS : ALL_BRANDS).map(b => <option key={b}>{b}</option>)}
         </select>
         {isWatches && (
           <select value={filterCond} onChange={e => setFilterCond(e.target.value)}>
