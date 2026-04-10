@@ -134,22 +134,22 @@ function parseQuickPost(text) {
     if (j.match.test(text)) { result.subcategory = j.value; break }
   }
 
-  // Model: everything after brand, minus price and detected keywords
-  let remaining = text
-  // Remove price
-  if (priceMatch) remaining = remaining.replace(priceMatch[0], '')
-  // Remove brand
-  const brandIdx = remaining.toLowerCase().indexOf(result.brand.toLowerCase())
-  if (brandIdx !== -1) remaining = remaining.slice(0, brandIdx) + remaining.slice(brandIdx + result.brand.length)
-  // Remove known keywords
-  remaining = remaining.replace(/\b(card\s*[&+]\s*box|with\s+card|with\s+box|watch\s+only|minor|major|fair|needs?\s*repair|repaired?\s*albania?|repaired|yellow\s*gold|pink\s*gold|rose\s*gold|white\s*gold|platinum|earrings?|bracelets?|necklaces?|rings?|pendant|jewel\w*|bag)\b/gi, '')
-  remaining = remaining.replace(/[€$]/g, '').replace(/\s+/g, ' ').trim()
-  // Try to extract reference (alphanumeric code like 116500LN, 15400ST, etc.)
-  const refMatch = remaining.match(/\b([A-Z0-9]{4,}[A-Z0-9./\-]*)\b/i)
-  if (refMatch) {
-    result.reference = refMatch[1]
-  }
-  if (remaining) result.model = remaining
+  // Split text into tokens, find brand position, extract model as the words right after brand
+  // before any price, condition keyword, or scope keyword
+  const brandLowerMatch = result.brand.toLowerCase()
+  const brandPos = textLower.indexOf(brandLowerMatch)
+  const afterBrand = brandPos !== -1 ? text.slice(brandPos + result.brand.length).trim() : text.trim()
+
+  // Split after-brand text into parts by known stop patterns
+  const stopPatterns = /[€$]\s*[\d]|\b(minor|major|fair|needs?\s*repair|repaired|card\s*[&+]\s*box|with\s+card|with\s+box|watch\s+only|yellow\s*gold|pink\s*gold|rose\s*gold|white\s*gold|platinum)\b/i
+  const stopMatch = afterBrand.search(stopPatterns)
+  const modelPart = stopMatch > 0 ? afterBrand.slice(0, stopMatch).trim() : afterBrand.replace(/[€$]\s*[\d,.\s]+/g, '').trim()
+
+  // Extract reference from model part (alphanumeric code like 116500LN, 15400ST, Q9038180)
+  const refMatch = modelPart.match(/\b([A-Z0-9]{4,}[A-Z0-9./\-]*)\b/i)
+  if (refMatch) result.reference = refMatch[1]
+
+  if (modelPart) result.model = modelPart.replace(/\s+/g, ' ').trim()
 
   return result
 }
