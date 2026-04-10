@@ -181,6 +181,7 @@ const EMPTY_FORM = {
   model: '',
   reference: '',
   condition: 'pre-owned conditions with MINOR signs of usage',
+  scope_of_delivery: '',
   price_eur: '',
   notes: '',
   metal_type: '',
@@ -283,6 +284,7 @@ export default function AgentListings() {
     if (!form.reference) { setError('Reference / Serial is required.'); return }
     if (!form.condition) { setError('Condition is required.'); return }
     if (!form.price_eur) { setError('Price in EUR is required.'); return }
+    if (form.category === 'Watches' && !form.scope_of_delivery) { setError('Scope of delivery is required.'); return }
     if (form.category === 'Jewellery' && !form.subcategory) { setError('Jewellery type is required.'); return }
     if (form.category === 'Jewellery' && !form.metal_type) { setError('Metal type is required.'); return }
     setPosting(true)
@@ -297,6 +299,7 @@ export default function AgentListings() {
         price_eur: Number(form.price_eur),
         price_usd: priceUsd,
         notes: form.notes || null,
+        scope_of_delivery: form.scope_of_delivery || null,
         metal_type: form.category === 'Jewellery' && form.metal_type ? form.metal_type : null,
         subcategory: form.category === 'Jewellery' && form.subcategory ? form.subcategory : null,
         item_size: form.category === 'Jewellery' && form.item_size && form.subcategory !== 'Necklaces' ? form.item_size : null,
@@ -697,6 +700,19 @@ export default function AgentListings() {
               <label>Reference / Serial</label>
               <input value={form.reference} onChange={e => handleField('reference', e.target.value)} placeholder="e.g. 116500LN" required />
             </div>
+
+            {form.category === 'Watches' && (
+              <div className="form-row">
+                <label>Scope of Delivery</label>
+                <select value={form.scope_of_delivery || ''} onChange={e => handleField('scope_of_delivery', e.target.value)} required>
+                  <option value="">Select scope</option>
+                  <option>Watch Only</option>
+                  <option>With Card</option>
+                  <option>With Box</option>
+                  <option>Card & Box</option>
+                </select>
+              </div>
+            )}
 
             <div className="form-row">
               <label>Price (€ EUR)</label>
