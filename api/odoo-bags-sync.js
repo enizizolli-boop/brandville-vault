@@ -138,7 +138,7 @@ async function fetchSoldProductTemplateIds() {
   // Returns a Set of product.template IDs on any non-cancelled sale order (draft or confirmed).
   // Two-step: sale.order.line → product.product → product.template (works across all Odoo versions).
   try {
-    const domainXml = domainToXml([['order_id.state', '!=', 'cancel']]);
+    const domainXml = domainToXml([['order_id.state', 'in', ['sale', 'done']]]);
     const body1 = `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>` +
       `<param><value><string>${ODOO_DB}</string></value></param>` +
       `<param><value><int>${ODOO_UID}</int></value></param>` +
@@ -251,15 +251,16 @@ export default async function handler(req, res) {
 
   try {
     const domain = [
-      ['sale_ok', '=', true],
       ['active', '=', true],
       ['website_published', '=', true],
+      ['dr_free_qty', '>', 0],
+      ['categ_id', '!=', 8],
     ];
 
     const totalCount = await odooCount(domain);
     const allItems = await odooRead(
       domain,
-      ['id', 'name', 'default_code', 'standard_price', 'description_sale', 'image_1920'],
+      ['id', 'name', 'default_code', 'standard_price', 'description_sale', 'image_1920', 'categ_id'],
       batch_size,
       offset
     );
@@ -323,6 +324,26 @@ export default async function handler(req, res) {
       const priceEur = cost > 0 ? Math.round(cost * PRICE_MARKUP * 100) / 100 : null;
 
       const isSold = soldTemplateIds.has(item.id);
+
+      const categName = (Array.isArray(item.categ_id) ? item.categ_id[1] : item.categ_id || '').replace('All / ', '').toLowerCase();
+      const CATEG_MAP = {
+        'handbags': { category: 'Bags', subcategory: 'Handbags' },
+        'totes': { category: 'Bags', subcategory: 'Totes' },
+        'backpacks': { category: 'Bags', subcategory: 'Backpacks' },
+        'belt bags': { category: 'Bags', subcategory: 'Belt Bags' },
+        'pouches': { category: 'Bags', subcategory: 'Pouches' },
+        'luggage': { category: 'Bags', subcategory: 'Luggage' },
+        "women's shoes": { category: 'Shoes', subcategory: null },
+        "men's shoes": { category: 'Shoes', subcategory: null },
+        'wallets': { category: 'Accessories', subcategory: 'Wallets' },
+        'belts': { category: 'Accessories', subcategory: 'Belts' },
+        'scarves': { category: 'Accessories', subcategory: 'Scarves' },
+        'hats': { category: 'Accessories', subcategory: 'Hats' },
+        'cardholder': { category: 'Accessories', subcategory: 'Cardholder' },
+        'card holder': { category: 'Accessories', subcategory: 'Cardholder' },
+      };
+      const { category, subcategory } = CATEG_MAP[categName] || { category: 'Accessories', subcategory: null };
+
       const mapped = {
         odoo_product_id: String(item.id),
         source: 'odoo_bags',
@@ -330,10 +351,11 @@ export default async function handler(req, res) {
         model: (item.name || '').trim(),
         reference: item.default_code || null,
         price_eur: priceEur,
-        category: 'Bags',
+        category,
+        subcategory: subcategory || null,
         condition: 'Pre-owned',
         notes: item.description_sale && item.description_sale.trim() ? item.description_sale.trim() : null,
-        ...(isSold ? { status: 'sold' } : currentStatus === 'sold' ? { status: 'available' } : isExisting ? {} : { status: 'available' }),
+        status: isSold ? 'sold' : 'available',
       };
 
       const { data: upserted, error } = await supabase

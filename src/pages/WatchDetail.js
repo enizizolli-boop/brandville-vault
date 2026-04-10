@@ -29,6 +29,8 @@ async function notifyOffer(payload) {
 function cleanRef(ref) {
   if (!ref) return ''
   if (ref.includes('/')) return ref.split('/').filter(Boolean).pop()
+  const numericSuffix = ref.match(/(\d+)$/)
+  if (numericSuffix) return numericSuffix[1]
   return ref
 }
 const CATEGORIES = ['Watches', 'Jewellery', 'Bags']
@@ -447,7 +449,7 @@ export default function WatchDetail() {
                   <div style={{ fontSize: 9, fontWeight: 700, color: '#b8b0a5', textTransform: 'uppercase', letterSpacing: '1.2px', marginBottom: 4 }}>{watch.category || 'Watches'}</div>
                   <div className="detail-brand">{watch.brand}</div>
                   <div className="detail-model">{watch.model}</div>
-                  <div className="detail-ref">{cleanRef(watch.reference) || '—'}</div>
+                  <div className="watch-card-ref" style={{marginTop: 6}}>{cleanRef(watch.reference) || '—'}</div>
                 </div>
                 <span className={`badge badge-${watch.status}`} style={{ flexShrink: 0, marginTop: 4 }}>{watch.status}</span>
               </div>
