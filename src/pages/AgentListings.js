@@ -195,13 +195,14 @@ function parseQuickPost(text) {
         // Try partial match: ref starts with or is contained in a key
         || Object.entries(WATCH_REFS).find(([k]) => ref.startsWith(k) || refBase.startsWith(k) || k.includes(refBase))?.[1]
       if (looked) {
-        result.model = looked
+        // Model name + full reference: "Daytona 126518-0012"
+        result.model = `${looked} ${ref}`
         return result
       }
     }
 
-    // Don't use the reference as the model name — leave model empty if only a ref was found
-    if (model && model !== result.reference) result.model = model
+    // No lookup found — use the raw text as model (includes the ref code)
+    if (model) result.model = model
   }
 
   // --- Category detection ---
