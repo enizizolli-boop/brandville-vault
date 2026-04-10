@@ -278,8 +278,13 @@ export default function AgentListings() {
   async function handlePost(e) {
     e.preventDefault()
     setError('')
+    if (!form.brand) { setError('Brand is required.'); return }
     if (!form.model) { setError('Model name is required.'); return }
+    if (!form.reference) { setError('Reference / Serial is required.'); return }
+    if (!form.condition) { setError('Condition is required.'); return }
     if (!form.price_eur) { setError('Price in EUR is required.'); return }
+    if (form.category === 'Jewellery' && !form.subcategory) { setError('Jewellery type is required.'); return }
+    if (form.category === 'Jewellery' && !form.metal_type) { setError('Metal type is required.'); return }
     setPosting(true)
     try {
       const priceUsd = rate ? Math.round(Number(form.price_eur) * rate) : null
@@ -690,7 +695,7 @@ export default function AgentListings() {
 
             <div className="form-row">
               <label>Reference / Serial</label>
-              <input value={form.reference} onChange={e => handleField('reference', e.target.value)} placeholder="e.g. 116500LN" />
+              <input value={form.reference} onChange={e => handleField('reference', e.target.value)} placeholder="e.g. 116500LN" required />
             </div>
 
             <div className="form-row">
