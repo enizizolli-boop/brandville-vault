@@ -63,102 +63,114 @@ function parseQuickPost(text) {
   const result = { ...EMPTY_FORM }
   if (!text.trim()) return result
 
-  // Extract price (€ or $ followed by numbers, or just large numbers)
-  const priceMatch = text.match(/[€$]\s*([\d,.]+)/i) || text.match(/(\d{1,3}(?:[.,]\d{3})+)/i) || text.match(/\b(\d{4,})\b/)
-  if (priceMatch) {
-    result.price_eur = priceMatch[1].replace(/[.,]/g, m => m === '.' && priceMatch[1].indexOf('.') !== priceMatch[1].lastIndexOf('.') ? '' : m).replace(/,/g, '')
-    // Clean: remove all dots if multiple (thousand separators), keep last dot if decimal
-    const raw = priceMatch[1].replace(/\s/g, '')
-    const dots = (raw.match(/\./g) || []).length
-    const commas = (raw.match(/,/g) || []).length
-    if (dots > 1 || (dots === 1 && commas > 0)) result.price_eur = raw.replace(/[.,]/g, '')
-    else if (commas > 1) result.price_eur = raw.replace(/,/g, '')
-    else if (commas === 1 && raw.indexOf(',') > raw.length - 4) result.price_eur = raw.replace(',', '.')
-    else result.price_eur = raw.replace(/,/g, '')
-    result.price_eur = String(Math.round(Number(result.price_eur)))
-  }
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+  const fullText = text // keep for keyword scanning
 
-  // Detect brand (longest match first)
+  // --- Brand detection (scan all lines) ---
   const sortedBrands = [...BRANDS].sort((a, b) => b.length - a.length)
-  const textLower = text.toLowerCase()
+  const fullLower = fullText.toLowerCase()
   for (const brand of sortedBrands) {
-    if (textLower.includes(brand.toLowerCase())) {
-      result.brand = brand
-      break
-    }
+    if (fullLower.includes(brand.toLowerCase())) { result.brand = brand; break }
   }
-  // Also try common abbreviations
-  if (result.brand === 'Rolex') { /* default, check others */ }
-  if (/\bAP\b/.test(text)) result.brand = 'Audemars Piguet'
-  if (/\bPP\b/.test(text)) result.brand = 'Patek Philippe'
-  if (/\bVC\b/.test(text) || /\bvacheron\b/i.test(text)) result.brand = 'Vacheron Constantin'
-  if (/\bJLC\b/.test(text)) result.brand = 'Jaeger-LeCoultre'
-  if (/\bRM\b/.test(text)) result.brand = 'Richard Mille'
-  if (/\bVCA\b/.test(text)) result.brand = 'Van Cleef & Arpels'
-  if (/\bLV\b/.test(text)) result.brand = 'Louis Vuitton'
+  const abbreviations = { 'Audemars Piguet': /\bAP\b/, 'Patek Philippe': /\bPP\b/, 'Vacheron Constantin': /\bVC\b/i, 'Jaeger-LeCoultre': /\bJLC\b/, 'Richard Mille': /\bRM\b/, 'Van Cleef & Arpels': /\bVCA\b/, 'Louis Vuitton': /\bLV\b/ }
+  for (const [brand, re] of Object.entries(abbreviations)) {
+    if (re.test(fullText)) { result.brand = brand; break }
+  }
 
-  // Detect category from brand or keywords
+  // --- Process each line ---
+  let modelLine = ''
+  for (const line of lines) {
+    const lineLower = line.toLowerCase()
+
+    // Price line: starts with € or $ or is just a number
+    const priceMatch = line.match(/^[€$]\s*([\d,.\s]+)/) || line.match(/^([\d,.\s]{4,})$/)
+    if (priceMatch) {
+      const raw = priceMatch[1].replace(/\s/g, '')
+      const dots = (raw.match(/\./g) || []).length
+      const commas = (raw.match(/,/g) || []).length
+      if (dots > 1 || (dots === 1 && commas > 0)) result.price_eur = raw.replace(/[.,]/g, '')
+      else if (commas > 1) result.price_eur = raw.replace(/,/g, '')
+      else if (commas === 1 && raw.indexOf(',') > raw.length - 4) result.price_eur = raw.replace(',', '.')
+      else result.price_eur = raw.replace(/,/g, '')
+      result.price_eur = String(Math.round(Number(result.price_eur)))
+      continue
+    }
+
+    // Condition line
+    if (/pre-owned|minor|major|fair|needs?\s*repair|repaired/i.test(lineLower)) {
+      if (/major/i.test(line)) result.condition = 'pre-owned conditions with MAJOR signs of usage'
+      else if (/minor/i.test(line)) result.condition = 'pre-owned conditions with MINOR signs of usage'
+      else if (/repair.*albania/i.test(line)) result.condition = 'Repaired Albania'
+      else if (/repaired/i.test(line)) result.condition = 'Repaired'
+      else if (/needs?\s*repair/i.test(line)) result.condition = 'Needs Repair'
+      else if (/fair/i.test(line)) result.condition = 'Fair'
+      continue
+    }
+
+    // Scope line
+    let matchedScope = false
+    for (const s of SCOPE_KEYWORDS) {
+      if (s.match.test(line)) { result.scope_of_delivery = s.value; matchedScope = true; break }
+    }
+    if (matchedScope) continue
+
+    // Metal type line
+    let matchedMetal = false
+    for (const m of METAL_KEYWORDS) {
+      if (m.match.test(line)) { result.metal_type = m.value; matchedMetal = true; break }
+    }
+    if (matchedMetal) continue
+
+    // Otherwise this is likely the brand + model line (take the first unmatched line)
+    if (!modelLine) modelLine = line
+  }
+
+  // --- Extract model from the brand+model line ---
+  if (modelLine) {
+    let model = modelLine
+    // Strip brand name
+    const brandIdx = model.toLowerCase().indexOf(result.brand.toLowerCase())
+    if (brandIdx !== -1) {
+      model = model.slice(brandIdx + result.brand.length).trim()
+    } else {
+      // Try abbreviation
+      for (const [brand, re] of Object.entries(abbreviations)) {
+        if (brand === result.brand) {
+          const m = model.match(re)
+          if (m) { model = model.slice(m.index + m[0].length).trim(); break }
+        }
+      }
+    }
+    // Strip inline price if present
+    model = model.replace(/[€$]\s*[\d,.]+/g, '').trim()
+    // Strip condition/scope keywords if on the same line
+    model = model.replace(/\b(pre-owned|minor|major|fair|needs?\s*repair|repaired|card\s*[&+]\s*box|with\s+card|with\s+box|watch\s+only)\b.*/gi, '').trim()
+    model = model.replace(/^[\s,\-·]+|[\s,\-·]+$/g, '')
+
+    // Extract reference (alphanumeric code like 116500LN, 278274-0028)
+    const refMatch = model.match(/\b([A-Z0-9][A-Z0-9.\-/]{3,}[A-Z0-9])\b/i)
+    if (refMatch) result.reference = refMatch[0]
+
+    if (model) result.model = model
+  }
+
+  // --- Category detection ---
   const brandLower = result.brand.toLowerCase()
-  if (/\bbag\b|\bbirkin\b|\bkelly\b|\bneverfull\b|\bspeedy\b|\btote\b|\bclutch\b/i.test(text)) {
+  if (/\bbag\b|\bbirkin\b|\bkelly\b|\bneverfull\b|\bspeedy\b|\btote\b|\bclutch\b/i.test(fullText)) {
     result.category = 'Bags'
-  } else if (/\bjewel|\bring\b|\bbracelet\b|\bnecklace\b|\bearring|\bpendant/i.test(text) || JEWELLERY_BRANDS.has(brandLower)) {
+  } else if (/\bjewel|\bring\b|\bbracelet\b|\bnecklace\b|\bearring|\bpendant/i.test(fullText) || JEWELLERY_BRANDS.has(brandLower)) {
     result.category = 'Jewellery'
   } else {
     result.category = 'Watches'
   }
-  // If a known watch brand override back
   if (['rolex','audemars piguet','patek philippe','omega','iwc','jaeger-lecoultre','breitling','tag heuer','tudor','hublot','richard mille','vacheron constantin','a. lange & söhne','panerai','blancpain','breguet','zenith','grand seiko','ulysse nardin','girard-perregaux'].includes(brandLower)) {
     result.category = 'Watches'
   }
 
-  // Condition
-  if (/\bmajor\b/i.test(text)) result.condition = 'pre-owned conditions with MAJOR signs of usage'
-  else if (/\bminor\b/i.test(text)) result.condition = 'pre-owned conditions with MINOR signs of usage'
-  else if (/\bneed[s]?\s*repair/i.test(text)) result.condition = 'Needs Repair'
-  else if (/\brepair.*albania/i.test(text)) result.condition = 'Repaired Albania'
-  else if (/\brepaired\b/i.test(text)) result.condition = 'Repaired'
-  else if (/\bfair\b/i.test(text)) result.condition = 'Fair'
-
-  // Scope of delivery
-  for (const s of SCOPE_KEYWORDS) {
-    if (s.match.test(text)) { result.scope_of_delivery = s.value; break }
-  }
-
-  // Metal type (jewellery)
-  for (const m of METAL_KEYWORDS) {
-    if (m.match.test(text)) { result.metal_type = m.value; break }
-  }
-
   // Jewellery sub-type
   for (const j of JEWELLERY_TYPE_KEYWORDS) {
-    if (j.match.test(text)) { result.subcategory = j.value; break }
+    if (j.match.test(fullText)) { result.subcategory = j.value; break }
   }
-
-  // Find where the brand appears in the text (full name or abbreviation)
-  const abbreviations = { 'Audemars Piguet': /\bAP\b/i, 'Patek Philippe': /\bPP\b/i, 'Vacheron Constantin': /\bVC\b|\bvacheron\b/i, 'Jaeger-LeCoultre': /\bJLC\b/i, 'Richard Mille': /\bRM\b/i, 'Van Cleef & Arpels': /\bVCA\b/i, 'Louis Vuitton': /\bLV\b/i }
-  let afterBrand = text
-  // Try full brand name first
-  const brandPos = textLower.indexOf(result.brand.toLowerCase())
-  if (brandPos !== -1) {
-    afterBrand = text.slice(brandPos + result.brand.length).trim()
-  } else if (abbreviations[result.brand]) {
-    // Try abbreviation
-    const abbrMatch = text.match(abbreviations[result.brand])
-    if (abbrMatch) afterBrand = text.slice(abbrMatch.index + abbrMatch[0].length).trim()
-  }
-
-  // Stop at price, condition, or scope keywords
-  const stopPatterns = /[€$]\s*[\d]|\b\d{4,}\b(?!\w)|\b(minor|major|fair|needs?\s*repair|repaired|card\s*[&+]\s*box|with\s+card|with\s+box|watch\s+only|yellow\s*gold|pink\s*gold|rose\s*gold|white\s*gold|platinum)\b/i
-  const stopMatch = afterBrand.search(stopPatterns)
-  let modelPart = stopMatch > 0 ? afterBrand.slice(0, stopMatch).trim() : afterBrand.replace(/[€$]\s*[\d,.\s]+/g, '').trim()
-  // Clean up any trailing/leading junk
-  modelPart = modelPart.replace(/^[\s,\-·]+|[\s,\-·]+$/g, '')
-
-  // Extract reference from model part (alphanumeric code like 116500LN, 15400ST, Q9038180)
-  const refMatch = modelPart.match(/\b([A-Z0-9]{4,}[A-Z0-9./\-]*)\b/i)
-  if (refMatch) result.reference = refMatch[1]
-
-  if (modelPart) result.model = modelPart
 
   return result
 }
