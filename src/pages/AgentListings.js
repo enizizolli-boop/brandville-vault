@@ -153,16 +153,21 @@ function parseQuickPost(text) {
     if (refMatch) {
       result.reference = refMatch[0]
       // Look up model name from reference database
-      const refKey = refMatch[0].replace(/-/g, '')
-      const looked = WATCH_REFS[refMatch[0]] || WATCH_REFS[refKey]
-        || Object.entries(WATCH_REFS).find(([k]) => refMatch[0].startsWith(k))?.[1]
+      const ref = refMatch[0]
+      const refClean = ref.replace(/-/g, '')
+      const looked = WATCH_REFS[ref] || WATCH_REFS[refClean]
+        // Try with common prefixes stripped or added (e.g. Q3838420 ↔ 3838420, PAM00111 ↔ 111)
+        || Object.entries(WATCH_REFS).find(([k]) => k.endsWith(refClean) || refClean.endsWith(k.replace(/^[A-Z]+/, '')))?.[1]
+        // Try partial match: ref starts with or is contained in a key
+        || Object.entries(WATCH_REFS).find(([k]) => ref.startsWith(k) || k.includes(ref))?.[1]
       if (looked) {
         result.model = looked
-        return result // model found from reference, skip raw text
+        return result
       }
     }
 
-    if (model) result.model = model
+    // Don't use the reference as the model name — leave model empty if only a ref was found
+    if (model && model !== result.reference) result.model = model
   }
 
   // --- Category detection ---
