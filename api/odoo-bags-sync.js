@@ -267,8 +267,8 @@ export default async function handler(req, res) {
     // Only process items that have an image
     const items = (allItems || []).filter(i => i.image_1920 && i.image_1920 !== false);
 
-    // Fetch all product template IDs currently on any non-cancelled sale order.
-    const soldTemplateIds = await fetchSoldProductTemplateIds();
+    // Sold status is handled by the cron job — skip here to avoid timeout
+    const soldTemplateIds = new Set();
 
     if (!items || items.length === 0) {
       // If no items with images in this batch, skip to next batch or finish
