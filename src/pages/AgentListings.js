@@ -78,42 +78,72 @@ function parseQuickPost(text) {
     if (re.test(fullText)) { result.brand = brand; break }
   }
 
+  // Helper: parse a price string (58'000€, €35,000, 52.320, 13050)
+  function parsePrice(str) {
+    const m = str.match(/([\d]['\d,.\s]*[\d])/)
+    if (!m) return ''
+    const raw = m[1].replace(/['\s]/g, '')
+    const dots = (raw.match(/\./g) || []).length
+    const commas = (raw.match(/,/g) || []).length
+    let num
+    if (dots > 1) num = raw.replace(/\./g, '')
+    else if (commas > 1) num = raw.replace(/,/g, '')
+    else if (dots === 1 && commas > 0) num = raw.replace(/[.,]/g, '')
+    else if (commas === 1 && raw.indexOf(',') > raw.length - 4) num = raw.replace(',', '.')
+    else num = raw.replace(/,/g, '')
+    return String(Math.round(Number(num)))
+  }
+
   // --- Process each line ---
   let modelLine = ''
+  const noteLines = []
   for (const line of lines) {
     const lineLower = line.toLowerCase()
 
-    // Price line: starts with € or $ or is just a number
-    const priceMatch = line.match(/^[€$]\s*([\d,.\s]+)/) || line.match(/^([\d,.\s]{4,})$/)
-    if (priceMatch) {
-      const raw = priceMatch[1].replace(/\s/g, '')
-      const dots = (raw.match(/\./g) || []).length
-      const commas = (raw.match(/,/g) || []).length
-      if (dots > 1 || (dots === 1 && commas > 0)) result.price_eur = raw.replace(/[.,]/g, '')
-      else if (commas > 1) result.price_eur = raw.replace(/,/g, '')
-      else if (commas === 1 && raw.indexOf(',') > raw.length - 4) result.price_eur = raw.replace(',', '.')
-      else result.price_eur = raw.replace(/,/g, '')
-      result.price_eur = String(Math.round(Number(result.price_eur)))
+    // Net/cost price line: "Net Price 52'320€" or "net 52320"
+    if (/\bnet\b/i.test(lineLower) && /\d/.test(line)) {
+      result.cost_eur = parsePrice(line)
+      continue
+    }
+
+    // Price line: has € or $ or apostrophe-separated number, or just digits
+    const hasPrice = /[€$]/.test(line) || /\d[']\d/.test(line) || /^[\d',.€$\s]+$/.test(line.trim())
+    if (hasPrice && /\d{3,}/.test(line.replace(/'/g, ''))) {
+      result.price_eur = parsePrice(line)
       continue
     }
 
     // Condition line
-    if (/pre-owned|minor|major|fair|needs?\s*repair|repaired/i.test(lineLower)) {
+    if (/pre-owned|minor|major|\bfair\b|needs?\s*repair|repaired/i.test(lineLower)) {
       if (/major/i.test(line)) result.condition = 'pre-owned conditions with MAJOR signs of usage'
       else if (/minor/i.test(line)) result.condition = 'pre-owned conditions with MINOR signs of usage'
       else if (/repair.*albania/i.test(line)) result.condition = 'Repaired Albania'
       else if (/repaired/i.test(line)) result.condition = 'Repaired'
       else if (/needs?\s*repair/i.test(line)) result.condition = 'Needs Repair'
-      else if (/fair/i.test(line)) result.condition = 'Fair'
+      else if (/\bfair\b/i.test(line)) result.condition = 'Fair'
       continue
     }
 
-    // Scope line
+    // Scope line (also handle "Card only" → "With Card", "Box only" → "With Box")
     let matchedScope = false
-    for (const s of SCOPE_KEYWORDS) {
-      if (s.match.test(line)) { result.scope_of_delivery = s.value; matchedScope = true; break }
+    if (/\bcard\s+only\b/i.test(line)) { result.scope_of_delivery = 'With Card'; matchedScope = true }
+    else if (/\bbox\s+only\b/i.test(line)) { result.scope_of_delivery = 'With Box'; matchedScope = true }
+    else {
+      for (const s of SCOPE_KEYWORDS) {
+        if (s.match.test(line)) { result.scope_of_delivery = s.value; matchedScope = true; break }
+      }
     }
-    if (matchedScope) continue
+    if (matchedScope) {
+      const yearMatch = line.match(/\b(20[12]\d)\b/)
+      if (yearMatch) noteLines.push(yearMatch[1])
+      continue
+    }
+
+    // Vendor line → notes
+    if (/\bvendor\b/i.test(lineLower)) {
+      noteLines.push(line.trim())
+      continue
+    }
 
     // Metal type line
     let matchedMetal = false
@@ -125,6 +155,9 @@ function parseQuickPost(text) {
     // Otherwise this is likely the brand + model line (take the first unmatched line)
     if (!modelLine) modelLine = line
   }
+
+  // Combine note lines into notes
+  if (noteLines.length > 0) result.notes = noteLines.join(', ')
 
   // --- Extract model from the brand+model line ---
   if (modelLine) {
@@ -645,6 +678,8 @@ export default function AgentListings() {
                     if (parsed.scope_of_delivery) updated.scope_of_delivery = parsed.scope_of_delivery
                     if (parsed.metal_type) updated.metal_type = parsed.metal_type
                     if (parsed.subcategory) updated.subcategory = parsed.subcategory
+                    if (parsed.cost_eur) updated.cost_eur = parsed.cost_eur
+                    if (parsed.notes) updated.notes = parsed.notes
                     return updated
                   })
                 }}
