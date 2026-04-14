@@ -74,6 +74,7 @@ const ALLOWED_CONDITIONS = [
   'pre-owned conditions with MINOR signs of usage',
   'pre-owned conditions with MAJOR signs of usage',
   'Fair', 'Needs Repair', 'Repaired', 'Repaired Albania',
+  'Polished A', 'Polished B',
 ];
 const ALLOWED_SCOPES = ['Watch Only', 'With Card', 'With Box', 'Card & Box'];
 
@@ -86,6 +87,9 @@ function mapCondition(raw) {
   if (lower.includes('albania')) return 'Repaired Albania';
   if (lower.includes('repaired')) return 'Repaired';
   if (lower.includes('repair')) return 'Needs Repair';
+  if (lower.includes('polished a')) return 'Polished A';
+  if (lower.includes('polished b')) return 'Polished B';
+  if (lower.includes('polish')) return 'Polished A';
   return 'Fair';
 }
 

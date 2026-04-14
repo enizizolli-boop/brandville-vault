@@ -172,8 +172,8 @@ export default function DealerCatalog() {
     .sort((a, b) => {
       if (sortBy === 'price_asc') return (a.price_eur || a.price_usd || 0) - (b.price_eur || b.price_usd || 0)
       if (sortBy === 'price_desc') return (b.price_eur || b.price_usd || 0) - (a.price_eur || a.price_usd || 0)
-      if (sortBy === 'sku_asc') return cleanRef(a.reference).localeCompare(cleanRef(b.reference))
-      if (sortBy === 'sku_desc') return cleanRef(b.reference).localeCompare(cleanRef(a.reference))
+      if (sortBy === 'sku_asc') return (parseInt(cleanRef(a.reference), 10) || 0) - (parseInt(cleanRef(b.reference), 10) || 0)
+      if (sortBy === 'sku_desc') return (parseInt(cleanRef(b.reference), 10) || 0) - (parseInt(cleanRef(a.reference), 10) || 0)
       return 0
     })
 
