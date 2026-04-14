@@ -26,13 +26,21 @@ async function fetchAllItems(accessToken) {
   let page = 1;
   const perPage = 200;
   while (true) {
-    const url = `https://www.zohoapis.eu/inventory/v1/items?organization_id=${process.env.ZOHO_ORG_ID}&per_page=${perPage}&page=${page}&status=active`;
-    const res = await fetch(url, { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } });
-    const data = await res.json();
-    if (!data.items || data.items.length === 0) break;
-    items = items.concat(data.items);
-    if (data.items.length < perPage) break;
-    page++;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    try {
+      const url = `https://www.zohoapis.eu/inventory/v1/items?organization_id=${process.env.ZOHO_ORG_ID}&per_page=${perPage}&page=${page}&status=active`;
+      const res = await fetch(url, { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }, signal: controller.signal });
+      clearTimeout(timer);
+      const data = await res.json();
+      if (!data.items || data.items.length === 0) break;
+      items = items.concat(data.items);
+      if (data.items.length < perPage) break;
+      page++;
+    } catch {
+      clearTimeout(timer);
+      break;
+    }
   }
   return items;
 }
@@ -126,7 +134,7 @@ export default async function handler(req, res) {
 
     // Bulk upsert all live items (no image scraping — images stay as-is)
     const rows = liveItems.map(mapZohoItem);
-    const CHUNK = 50;
+    const CHUNK = 100;
     let upserted = 0;
     for (let i = 0; i < rows.length; i += CHUNK) {
       const chunk = rows.slice(i, i + CHUNK);
