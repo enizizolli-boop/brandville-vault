@@ -376,7 +376,7 @@ export default function AdminPanel() {
               <div style={{ marginTop: 8, fontSize: 12, padding: '8px 10px', borderRadius: 8, background: cronZohoResult.error ? '#fff0f0' : '#f0fff4', color: cronZohoResult.error ? '#c00' : '#1a7a3a' }}>
                 {cronZohoResult.error
                   ? `Error: ${cronZohoResult.error}`
-                  : `✓ Cron OK — ${cronZohoResult.upserted} updated · ${cronZohoResult.removed} removed · ${cronZohoResult.total} total`
+                  : `✓ Cron OK — ${cronZohoResult.upserted} updated · ${cronZohoResult.marked_sold} marked sold · ${cronZohoResult.total_recent} recent changes`
                 }
               </div>
             )}

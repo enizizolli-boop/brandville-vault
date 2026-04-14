@@ -21,7 +21,11 @@ async function getAccessToken() {
   return data.access_token;
 }
 
-async function fetchAllItems(accessToken) {
+async function fetchRecentItems(accessToken, sinceMinutes = 35) {
+  const since = new Date(Date.now() - sinceMinutes * 60 * 1000);
+  const pad = n => String(n).padStart(2, '0');
+  const dateStr = `${since.getFullYear()}-${pad(since.getMonth()+1)}-${pad(since.getDate())} ${pad(since.getHours())}:${pad(since.getMinutes())}:${pad(since.getSeconds())}`;
+
   let items = [];
   let page = 1;
   const perPage = 200;
@@ -29,7 +33,7 @@ async function fetchAllItems(accessToken) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 10000);
     try {
-      const url = `https://www.zohoapis.eu/inventory/v1/items?organization_id=${process.env.ZOHO_ORG_ID}&per_page=${perPage}&page=${page}&status=active`;
+      const url = `https://www.zohoapis.eu/inventory/v1/items?organization_id=${process.env.ZOHO_ORG_ID}&per_page=${perPage}&page=${page}&status=active&last_modified_time=${encodeURIComponent(dateStr)}`;
       const res = await fetch(url, { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }, signal: controller.signal });
       clearTimeout(timer);
       const data = await res.json();
@@ -113,40 +117,42 @@ function mapZohoItem(item) {
 export default async function handler(req, res) {
   try {
     const accessToken = await getAccessToken();
-    const allItems = await fetchAllItems(accessToken);
 
-    const liveItems = allItems.filter(item => {
+    // Only fetch items modified in the last 35 minutes
+    const recentItems = await fetchRecentItems(accessToken, 35);
+
+    // Filter: must be on storefront with stock
+    const liveItems = recentItems.filter(item => {
       if (item.show_in_storefront !== true) return false;
       const stock = item.actual_available_stock ?? item.available_stock ?? item.stock_on_hand ?? 0;
       return Number(stock) > 0;
     });
 
-    const liveIds = liveItems.map(i => String(i.item_id));
+    // Items that were recently modified but now out of stock/off storefront → mark sold
+    const offItems = recentItems.filter(item => {
+      if (item.show_in_storefront !== true) return true;
+      const stock = item.actual_available_stock ?? item.available_stock ?? item.stock_on_hand ?? 0;
+      return Number(stock) <= 0;
+    });
 
-    // Remove stale items (no longer in stock or on storefront)
-    const { data: existing } = await supabase
-      .from('products').select('zoho_item_id').eq('source', 'zoho');
-    const existingIds = (existing || []).map(i => i.zoho_item_id);
-    const toDelete = existingIds.filter(id => !liveIds.includes(id));
-    if (toDelete.length > 0) {
-      await supabase.from('products').delete().in('zoho_item_id', toDelete);
+    if (offItems.length > 0) {
+      const offIds = offItems.map(i => String(i.item_id));
+      await supabase.from('products').update({ status: 'sold' }).in('zoho_item_id', offIds).eq('source', 'zoho');
     }
 
-    // Bulk upsert all live items (no image scraping — images stay as-is)
-    const rows = liveItems.map(mapZohoItem);
-    const CHUNK = 100;
+    // Upsert recently modified live items
     let upserted = 0;
-    for (let i = 0; i < rows.length; i += CHUNK) {
-      const chunk = rows.slice(i, i + CHUNK);
-      await supabase.from('products').upsert(chunk, { onConflict: 'zoho_item_id' });
-      upserted += chunk.length;
+    if (liveItems.length > 0) {
+      const rows = liveItems.map(mapZohoItem);
+      await supabase.from('products').upsert(rows, { onConflict: 'zoho_item_id' });
+      upserted = rows.length;
     }
 
     return res.status(200).json({
       success: true,
       upserted,
-      removed: toDelete.length,
-      total: liveItems.length,
+      marked_sold: offItems.length,
+      total_recent: recentItems.length,
     });
   } catch (err) {
     console.error('Cron Zoho sync error:', err);
