@@ -8,12 +8,17 @@
     {
       "path": "/api/cron-zoho-sync",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron-odoo-bags-sync",
+      "schedule": "0 2 * * *"
     }
   ],
   "functions": {
     "api/odoo-sync.js": { "maxDuration": 60 },
     "api/odoo-bags-sync.js": { "maxDuration": 60 },
     "api/cron-zoho-sync.js": { "maxDuration": 60 },
-    "api/cron-odoo-status.js": { "maxDuration": 60 }
+    "api/cron-odoo-status.js": { "maxDuration": 60 },
+    "api/cron-odoo-bags-sync.js": { "maxDuration": 60 }
   }
 }
