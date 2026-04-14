@@ -29,6 +29,8 @@ export default function AdminPanel() {
   const [extractingJewellery, setExtractingJewellery] = useState(false)
   const [extractResult, setExtractResult] = useState(null)
   const [extractError, setExtractError] = useState('')
+  const [cronZohoRunning, setCronZohoRunning] = useState(false)
+  const [cronZohoResult, setCronZohoResult] = useState(null)
 
   const fetchUsers = useCallback(async () => {
     const { data } = await supabase.from('profiles').select('*').order('created_at')
@@ -152,6 +154,19 @@ export default function AdminPanel() {
       setSyncResult(prev => prev ? { ...prev, inProgress: false } : null)
     }
     setSyncing(false)
+  }
+
+  async function handleTestCronZoho() {
+    setCronZohoRunning(true)
+    setCronZohoResult(null)
+    try {
+      const res = await fetch('/api/cron-zoho-sync')
+      const data = await res.json()
+      setCronZohoResult(data)
+    } catch (err) {
+      setCronZohoResult({ error: err.message })
+    }
+    setCronZohoRunning(false)
   }
 
   async function handleOdooSync() {
@@ -354,6 +369,17 @@ export default function AdminPanel() {
             <button className="btn btn-dark btn-full" onClick={handleSync} disabled={syncing}>
               {syncing ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Syncing...</> : '↻ Sync now'}
             </button>
+            <button className="btn btn-full" onClick={handleTestCronZoho} disabled={cronZohoRunning} style={{ marginTop: 8, background: '#f5f5f5', color: '#333', border: '1px solid #ddd' }}>
+              {cronZohoRunning ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Running cron...</> : '⏱ Test auto-sync cron'}
+            </button>
+            {cronZohoResult && (
+              <div style={{ marginTop: 8, fontSize: 12, padding: '8px 10px', borderRadius: 8, background: cronZohoResult.error ? '#fff0f0' : '#f0fff4', color: cronZohoResult.error ? '#c00' : '#1a7a3a' }}>
+                {cronZohoResult.error
+                  ? `Error: ${cronZohoResult.error}`
+                  : `✓ Cron OK — ${cronZohoResult.upserted} updated · ${cronZohoResult.removed} removed · ${cronZohoResult.total} total`
+                }
+              </div>
+            )}
           </div>
 
           {/* Odoo sync */}
