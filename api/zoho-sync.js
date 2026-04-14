@@ -43,7 +43,10 @@ async function fetchAllItems(accessToken) {
 async function fetchImagesFromStorePage(zohoItemId) {
   try {
     const url = `https://${STORE_DOMAIN}/products/${STORE_ID}/${zohoItemId}`;
-    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: controller.signal });
+    clearTimeout(timer);
     if (!res.ok) return [];
     const html = await res.text();
 
@@ -218,14 +221,20 @@ export default async function handler(req, res) {
       const watchId = upserted?.id || existingMap[mapped.zoho_item_id];
       isExisting ? updated++ : added++;
 
-      // Fetch all images from Commerce store page
-      if (watchId) {
-        const images = await fetchImagesFromStorePage(zohoItem.item_id);
-        if (images.length > 0) {
-          await supabase.from('product_images').delete().eq('product_id', watchId);
-          const imageRows = images.map((url, i) => ({ product_id: watchId, url, position: i }));
-          await supabase.from('product_images').insert(imageRows);
-          imagesAdded += images.length;
+      // Only fetch images for new items that have no images yet
+      if (watchId && !isExisting) {
+        const { count: imgCount } = await supabase
+          .from('product_images')
+          .select('id', { count: 'exact', head: true })
+          .eq('product_id', watchId);
+
+        if ((imgCount || 0) === 0) {
+          const images = await fetchImagesFromStorePage(zohoItem.item_id);
+          if (images.length > 0) {
+            const imageRows = images.map((url, i) => ({ product_id: watchId, url, position: i }));
+            await supabase.from('product_images').insert(imageRows);
+            imagesAdded += images.length;
+          }
         }
       }
     }
