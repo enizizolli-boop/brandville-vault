@@ -31,6 +31,8 @@ export default function AdminPanel() {
   const [extractError, setExtractError] = useState('')
   const [cronZohoRunning, setCronZohoRunning] = useState(false)
   const [cronZohoResult, setCronZohoResult] = useState(null)
+  const [cronBagsRunning, setCronBagsRunning] = useState(false)
+  const [cronBagsResult, setCronBagsResult] = useState(null)
 
   const fetchUsers = useCallback(async () => {
     const { data } = await supabase.from('profiles').select('*').order('created_at')
@@ -167,6 +169,19 @@ export default function AdminPanel() {
       setCronZohoResult({ error: err.message })
     }
     setCronZohoRunning(false)
+  }
+
+  async function handleTestCronBags() {
+    setCronBagsRunning(true)
+    setCronBagsResult(null)
+    try {
+      const res = await fetch('/api/cron-odoo-bags-sync')
+      const data = await res.json()
+      setCronBagsResult(data)
+    } catch (err) {
+      setCronBagsResult({ error: err.message })
+    }
+    setCronBagsRunning(false)
   }
 
   async function handleOdooSync() {
@@ -448,6 +463,17 @@ export default function AdminPanel() {
             <button className="btn btn-dark btn-full" onClick={handleBagsSync} disabled={bagsSyncing || syncing || odooSyncing}>
               {bagsSyncing ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Syncing...</> : '↻ Sync Bags from Odoo'}
             </button>
+            <button className="btn btn-full" onClick={handleTestCronBags} disabled={cronBagsRunning} style={{ marginTop: 8, background: '#f5f5f5', color: '#333', border: '1px solid #ddd' }}>
+              {cronBagsRunning ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Running...</> : '⏱ Run nightly bags sync now'}
+            </button>
+            {cronBagsResult && (
+              <div style={{ marginTop: 8, fontSize: 12, padding: '8px 10px', borderRadius: 8, background: cronBagsResult.error ? '#fff0f0' : '#f0fff4', color: cronBagsResult.error ? '#c00' : '#1a7a3a' }}>
+                {cronBagsResult.error
+                  ? `Error: ${cronBagsResult.error}`
+                  : `✓ Done — ${cronBagsResult.upserted} updated · ${cronBagsResult.removed} removed · ${cronBagsResult.total} total`
+                }
+              </div>
+            )}
           </div>
 
           {/* Extract types */}
