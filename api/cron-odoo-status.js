@@ -176,13 +176,44 @@ export default async function handler(req, res) {
       }
     }
 
-    console.log(`Cron status sync: ${markedSold} marked sold, ${markedAvailable} restored available`);
+    // Also update jewellery in the watches table (source = 'odoo')
+    const { data: allJewellery } = await supabase
+      .from('watches')
+      .select('id, odoo_product_id, status')
+      .eq('source', 'odoo');
+
+    let jewelleryMarkedSold = 0;
+    let jewelleryMarkedAvailable = 0;
+
+    if (allJewellery && allJewellery.length > 0) {
+      const jewelleryOdooIds = allJewellery.map(w => parseInt(w.odoo_product_id)).filter(Boolean);
+      const qtyMap = await fetchOdooQtyMap(jewelleryOdooIds);
+
+      for (const item of allJewellery) {
+        const onSO = soldIdStrings.includes(item.odoo_product_id);
+        const qty = qtyMap.get(item.odoo_product_id);
+        const isSold = onSO || (qty !== undefined && qty <= 0);
+
+        if (isSold && item.status !== 'sold') {
+          await supabase.from('watches').update({ status: 'sold' }).eq('id', item.id);
+          jewelleryMarkedSold++;
+        } else if (!isSold && item.status === 'sold') {
+          await supabase.from('watches').update({ status: 'available' }).eq('id', item.id);
+          jewelleryMarkedAvailable++;
+        }
+      }
+    }
+
+    console.log(`Cron status sync: ${markedSold} marked sold, ${markedAvailable} restored available | jewellery: ${jewelleryMarkedSold} sold, ${jewelleryMarkedAvailable} restored`);
     return res.status(200).json({
       success: true,
       sold_on_order: soldTemplateIds.size,
       marked_sold: markedSold,
       marked_available: markedAvailable,
       total_checked: allProducts?.length || 0,
+      jewellery_marked_sold: jewelleryMarkedSold,
+      jewellery_marked_available: jewelleryMarkedAvailable,
+      jewellery_checked: allJewellery?.length || 0,
     });
   } catch (err) {
     console.error('Cron status sync error:', err);
