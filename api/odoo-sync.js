@@ -243,7 +243,7 @@ export default async function handler(req, res) {
       if (item.name) {
         const brandMap = {
           'bvlgari': 'Bulgari', 'bulgari': 'Bulgari',
-          'van cleef': 'Van Cleef & Arpels',
+          'van cleef': 'Van Cleef & Arpels', 'vca': 'Van Cleef & Arpels',
           'cartier': 'Cartier',
           'chanel': 'Chanel',
           'chopard': 'Chopard',

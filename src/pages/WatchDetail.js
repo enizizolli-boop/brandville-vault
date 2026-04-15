@@ -9,7 +9,7 @@ import Topbar from '../components/Topbar'
 const WHATSAPP_NUMBERS = {
   Watches: '18488639660',
   Bags: '18254757069',
-  Jewellery: '19702793331',
+  Jewellery: '17325061373',
 }
 const SUPABASE_URL = 'https://tulqgebsvpxgwocptnmy.supabase.co'
 const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1bHFnZWJzdnB4Z3dvY3B0bm15Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MjYzOTEsImV4cCI6MjA5MDIwMjM5MX0.H12dPM59cIxlvpR7jbuDjpX11qNdohvi-nhiMxNheJA'

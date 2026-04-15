@@ -300,7 +300,18 @@ export default async function handler(req, res) {
       }
     } catch (e) { console.error('Extra images fetch error:', e); }
 
-    const removed = 0;
+    // On first batch: purge any existing products that have no images (stuck from past failed uploads)
+    let removed = 0;
+    if (offset === 0) {
+      const { data: withImages } = await supabase.from('product_images').select('product_id');
+      const idsWithImages = [...new Set((withImages || []).map(r => r.product_id))];
+      const { data: allBagProducts } = await supabase.from('products').select('id').eq('source', 'odoo_bags');
+      const imageless = (allBagProducts || []).filter(p => !idsWithImages.includes(p.id)).map(p => p.id);
+      if (imageless.length > 0) {
+        await supabase.from('products').delete().in('id', imageless);
+        removed = imageless.length;
+      }
+    }
 
     let added = 0, updated = 0, imagesAdded = 0;
     const errors = [];
@@ -393,6 +404,12 @@ export default async function handler(req, res) {
               imagesAdded++;
             }
           } catch (e) { console.error('Extra img error:', e); }
+        }
+
+        // If no images were uploaded at all, remove the product — don't show image-less items
+        if (position === 0) {
+          await supabase.from('products').delete().eq('id', watchId);
+          isExisting ? updated-- : added--;
         }
       }
     }
