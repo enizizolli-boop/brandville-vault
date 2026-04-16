@@ -415,6 +415,12 @@ export default async function handler(req, res) {
               }
             } catch (e) { console.error('Extra img error:', e); }
           }
+
+          // If we started with 0 images and still have none after upload attempts, remove the product
+          if (existing === 0 && position === 0) {
+            await supabase.from('products').delete().eq('id', watchId);
+            isExisting ? updated-- : added--;
+          }
         }
       }
     }
