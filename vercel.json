@@ -11,7 +11,7 @@
     },
     {
       "path": "/api/cron-odoo-bags-sync",
-      "schedule": "0 2 * * *"
+      "schedule": "*/30 * * * *"
     },
     {
       "path": "/api/cron-odoo-full-sync",
