@@ -17,7 +17,7 @@ const BATCH_SIZE = 50; // larger batches since we skip images for existing items
 
 const BRAND_MAP = {
   'bvlgari': 'Bulgari', 'bulgari': 'Bulgari',
-  'van cleef': 'Van Cleef & Arpels',
+  'van cleef': 'Van Cleef & Arpels', 'vca': 'Van Cleef & Arpels',
   'cartier': 'Cartier', 'chanel': 'Chanel', 'chopard': 'Chopard',
   'hermes': 'Hermès', 'hermès': 'Hermès',
   'louis vuitton': 'Louis Vuitton', 'gucci': 'Gucci', 'prada': 'Prada',
@@ -182,10 +182,10 @@ export default async function handler(req, res) {
     // Remove stale items
     const allOdooItems = await odooRead(domain, ['id'], 5000, 0);
     const allOdooIds = allOdooItems.map(i => String(i.id));
-    const { data: allExisting } = await supabase.from('products').select('odoo_product_id').eq('source', 'odoo');
+    const { data: allExisting } = await supabase.from('watches').select('odoo_product_id').eq('source', 'odoo');
     const toDelete = (allExisting || []).map(i => i.odoo_product_id).filter(id => !allOdooIds.includes(id));
     if (toDelete.length > 0) {
-      await supabase.from('products').delete().in('odoo_product_id', toDelete);
+      await supabase.from('watches').delete().in('odoo_product_id', toDelete);
       removed = toDelete.length;
     }
 
@@ -205,7 +205,7 @@ export default async function handler(req, res) {
       if (!items || items.length === 0) break;
 
       const odooIds = items.map(i => String(i.id));
-      const { data: existing } = await supabase.from('products')
+      const { data: existing } = await supabase.from('watches')
         .select('id, odoo_product_id, status')
         .eq('source', 'odoo')
         .in('odoo_product_id', odooIds);
@@ -234,7 +234,7 @@ export default async function handler(req, res) {
         const jewelleryType = categName ? (JEWELLERY_TYPE_MAP[categName.toLowerCase()] || null) : null;
 
         const mapped = {
-          subcategory: jewelleryType,
+          jewellery_type: jewelleryType,
           odoo_product_id: String(item.id),
           source: 'odoo',
           brand,
@@ -247,7 +247,7 @@ export default async function handler(req, res) {
           notes: item.description_sale?.trim() || null,
         };
 
-        const { data: upserted, error } = await supabase.from('products')
+        const { data: upserted, error } = await supabase.from('watches')
           .upsert(mapped, { onConflict: 'odoo_product_id' }).select('id').single();
         if (error) { console.error('upsert error', error.message); continue; }
 
@@ -262,7 +262,7 @@ export default async function handler(req, res) {
             const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
             if (!upErr) {
               const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
-              await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position: 0 });
+              await supabase.from('watch_images').insert({ watch_id: productId, url: publicUrl, position: 0 });
               imagesAdded++;
             }
           } catch (e) { console.error('image upload error', e); }
