@@ -370,46 +370,51 @@ export default async function handler(req, res) {
       isExisting ? updated++ : added++;
 
       if (watchId) {
-        await supabase.from('product_images').delete().eq('product_id', watchId);
-        let position = 0;
-
-        // Primary image
-        if (item.image_1920 && item.image_1920 !== false) {
-          try {
-            const buffer = Buffer.from(item.image_1920, 'base64');
-            const path = watchId + '/bag_primary.jpg';
-            const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
-            if (!upErr) {
-              const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
-              await supabase.from('product_images').insert({ product_id: watchId, url: publicUrl, position });
-              position++;
-              imagesAdded++;
-            }
-          } catch (e) { console.error('Primary img error:', e); }
-        }
-
-        // Extra product images
         const extras = extraImagesMap[String(item.id)] || [];
-        for (let i = 0; i < extras.length; i++) {
-          const extraImg = extras[i];
-          if (!extraImg.image_1920 || extraImg.image_1920 === false) continue;
-          try {
-            const buffer = Buffer.from(extraImg.image_1920, 'base64');
-            const path = watchId + '/bag_extra_' + i + '.jpg';
-            const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
-            if (!upErr) {
-              const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
-              await supabase.from('product_images').insert({ product_id: watchId, url: publicUrl, position });
-              position++;
-              imagesAdded++;
-            }
-          } catch (e) { console.error('Extra img error:', e); }
-        }
+        const odooTotal = (item.image_1920 && item.image_1920 !== false ? 1 : 0) + extras.length;
 
-        // If no images were uploaded at all, remove the product — don't show image-less items
-        if (position === 0) {
+        const { count: dbCount } = await supabase.from('product_images')
+          .select('id', { count: 'exact', head: true }).eq('product_id', watchId);
+        const existing = dbCount || 0;
+
+        if (odooTotal === 0 && existing === 0) {
+          // No images at all — remove the product
           await supabase.from('products').delete().eq('id', watchId);
           isExisting ? updated-- : added--;
+        } else if (existing < odooTotal) {
+          // Upload only missing images
+          let position = existing;
+
+          // Primary image (only if none stored yet)
+          if (existing === 0 && item.image_1920 && item.image_1920 !== false) {
+            try {
+              const buffer = Buffer.from(item.image_1920, 'base64');
+              const path = watchId + '/bag_primary.jpg';
+              const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
+              if (!upErr) {
+                const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
+                await supabase.from('product_images').insert({ product_id: watchId, url: publicUrl, position });
+                position++; imagesAdded++;
+              }
+            } catch (e) { console.error('Primary img error:', e); }
+          }
+
+          // Extra images — only upload ones beyond what's already stored
+          const extrasToUpload = extras.slice(Math.max(0, existing - 1));
+          for (let i = 0; i < extrasToUpload.length; i++) {
+            const extraImg = extrasToUpload[i];
+            if (!extraImg.image_1920 || extraImg.image_1920 === false) continue;
+            try {
+              const buffer = Buffer.from(extraImg.image_1920, 'base64');
+              const path = watchId + '/bag_extra_' + position + '.jpg';
+              const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
+              if (!upErr) {
+                const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
+                await supabase.from('product_images').insert({ product_id: watchId, url: publicUrl, position });
+                position++; imagesAdded++;
+              }
+            } catch (e) { console.error('Extra img error:', e); }
+          }
         }
       }
     }

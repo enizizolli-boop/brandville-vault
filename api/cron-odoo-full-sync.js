@@ -87,6 +87,27 @@ function parseVal(raw) {
   return null;
 }
 
+async function odooReadProductImages(productTmplIds) {
+  if (!productTmplIds.length) return [];
+  const idsXml = productTmplIds.map(id => `<value><int>${id}</int></value>`).join('');
+  const domainXml = `<value><array><data><value><string>product_tmpl_id</string></value><value><string>in</string></value><value><array><data>${idsXml}</data></array></value></data></array></value>`;
+  const body = `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>` +
+    `<param><value><string>${ODOO_DB}</string></value></param>` +
+    `<param><value><int>${ODOO_UID}</int></value></param>` +
+    `<param><value><string>${ODOO_API_KEY}</string></value></param>` +
+    `<param><value><string>product.image</string></value></param>` +
+    `<param><value><string>search_read</string></value></param>` +
+    `<param><value><array><data><value><array><data>${domainXml}</data></array></value></data></array></value></param>` +
+    `<param><value><struct>` +
+    `<member><name>fields</name><value><array><data><value><string>product_tmpl_id</string></value><value><string>image_1920</string></value><value><string>sequence</string></value></data></array></value></member>` +
+    `<member><name>limit</name><value><int>500</int></value></member>` +
+    `</struct></value></param></params></methodCall>`;
+  const res = await fetch(ODOO_URL + '/xmlrpc/2/object', { method: 'POST', headers: { 'Content-Type': 'text/xml' }, body });
+  const text = await res.text();
+  if (text.includes('<fault>')) return [];
+  return parseItems(text);
+}
+
 async function odooCount(domain) {
   const body = `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>` +
     `<param><value><string>${ODOO_DB}</string></value></param>` +
@@ -204,6 +225,20 @@ export default async function handler(req, res) {
       );
       if (!items || items.length === 0) break;
 
+      // Fetch extra images for this batch
+      const extraImagesMap = {};
+      try {
+        const extraImgs = await odooReadProductImages(items.map(i => i.id));
+        for (const img of extraImgs) {
+          const tmplId = String(Array.isArray(img.product_tmpl_id) ? img.product_tmpl_id[0] : img.product_tmpl_id);
+          if (!extraImagesMap[tmplId]) extraImagesMap[tmplId] = [];
+          extraImagesMap[tmplId].push(img);
+        }
+        for (const key of Object.keys(extraImagesMap)) {
+          extraImagesMap[key].sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+        }
+      } catch (e) { console.error('Extra images fetch error:', e); }
+
       const odooIds = items.map(i => String(i.id));
       const { data: existing } = await supabase.from('watches')
         .select('id, odoo_product_id, status')
@@ -254,18 +289,47 @@ export default async function handler(req, res) {
         const productId = upserted?.id || existingEntry?.id;
         isExisting ? updated++ : added++;
 
-        // Only upload images for NEW items — existing items keep their current images
-        if (productId && !isExisting && item.image_1920 && item.image_1920 !== false) {
-          try {
-            const buffer = Buffer.from(item.image_1920, 'base64');
-            const path = `${productId}/odoo_primary.jpg`;
-            const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
-            if (!upErr) {
-              const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
-              await supabase.from('watch_images').insert({ watch_id: productId, url: publicUrl, position: 0 });
-              imagesAdded++;
+        // Upload missing images — check how many are in DB vs how many Odoo has
+        if (productId) {
+          const extras = extraImagesMap[String(item.id)] || [];
+          const odooTotal = (item.image_1920 && item.image_1920 !== false ? 1 : 0) + extras.length;
+          if (odooTotal > 0) {
+            const { count: dbCount } = await supabase.from('watch_images')
+              .select('id', { count: 'exact', head: true }).eq('watch_id', productId);
+            const existing = dbCount || 0;
+            if (existing < odooTotal) {
+              let position = existing;
+              // Primary image (position 0)
+              if (existing === 0 && item.image_1920 && item.image_1920 !== false) {
+                try {
+                  const buffer = Buffer.from(item.image_1920, 'base64');
+                  const path = `${productId}/odoo_primary.jpg`;
+                  const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
+                  if (!upErr) {
+                    const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
+                    await supabase.from('watch_images').insert({ watch_id: productId, url: publicUrl, position });
+                    position++; imagesAdded++;
+                  }
+                } catch (e) { console.error('primary img error', e); }
+              }
+              // Extra images — only upload ones beyond what's already stored
+              const extrasToUpload = extras.slice(Math.max(0, existing - 1));
+              for (let i = 0; i < extrasToUpload.length; i++) {
+                const extraImg = extrasToUpload[i];
+                if (!extraImg.image_1920 || extraImg.image_1920 === false) continue;
+                try {
+                  const buffer = Buffer.from(extraImg.image_1920, 'base64');
+                  const path = `${productId}/odoo_extra_${position}.jpg`;
+                  const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
+                  if (!upErr) {
+                    const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
+                    await supabase.from('watch_images').insert({ watch_id: productId, url: publicUrl, position });
+                    position++; imagesAdded++;
+                  }
+                } catch (e) { console.error('extra img error', e); }
+              }
             }
-          } catch (e) { console.error('image upload error', e); }
+          }
         }
       }
     }

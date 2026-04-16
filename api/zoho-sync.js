@@ -225,20 +225,20 @@ export default async function handler(req, res) {
       const watchId = upserted?.id || existingMap[mapped.zoho_item_id];
       isExisting ? updated++ : added++;
 
-      // Only fetch images for new items that have no images yet
-      if (watchId && !isExisting) {
-        const { count: imgCount } = await supabase
+      // Upload missing images — compare DB count vs what the store page has
+      if (watchId) {
+        const { count: dbCount } = await supabase
           .from('product_images')
           .select('id', { count: 'exact', head: true })
           .eq('product_id', watchId);
+        const existing = dbCount || 0;
 
-        if ((imgCount || 0) === 0) {
-          const images = await fetchImagesFromStorePage(zohoItem.item_id);
-          if (images.length > 0) {
-            const imageRows = images.map((url, i) => ({ product_id: watchId, url, position: i }));
-            await supabase.from('product_images').insert(imageRows);
-            imagesAdded += images.length;
-          }
+        const storeImages = await fetchImagesFromStorePage(zohoItem.item_id);
+        if (storeImages.length > existing) {
+          const missing = storeImages.slice(existing);
+          const imageRows = missing.map((url, i) => ({ product_id: watchId, url, position: existing + i }));
+          await supabase.from('product_images').insert(imageRows);
+          imagesAdded += missing.length;
         }
       }
     }
