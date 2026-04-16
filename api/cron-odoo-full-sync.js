@@ -279,7 +279,7 @@ export default async function handler(req, res) {
           condition: 'Fair',
           ...(isSold ? { status: 'sold' } : currentStatus === 'sold' ? { status: 'available' } : isExisting ? {} : { status: 'available' }),
           category: 'Jewellery',
-          notes: item.description_sale?.trim() || null,
+          notes: item.description_sale && typeof item.description_sale === 'string' ? item.description_sale.trim() || null : null,
         };
 
         const { data: upserted, error } = await supabase.from('watches')
