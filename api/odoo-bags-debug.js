@@ -54,7 +54,14 @@ function parseVal(raw) {
 }
 
 async function odooSearchReadBySku(sku) {
-  const domainXml = `<value><array><data><value><array><data><value><string>default_code</string></value><value><string>=</string></value><value><string>${sku}</string></value></data></array></value></data></array></value>`;
+  // Match default_code exact OR contains, OR name contains — covers SKU variations
+  const domainXml = `<value><array><data>` +
+    `<value><string>|</string></value>` +
+    `<value><string>|</string></value>` +
+    `<value><array><data><value><string>default_code</string></value><value><string>=</string></value><value><string>${sku}</string></value></data></array></value>` +
+    `<value><array><data><value><string>default_code</string></value><value><string>ilike</string></value><value><string>${sku}</string></value></data></array></value>` +
+    `<value><array><data><value><string>name</string></value><value><string>ilike</string></value><value><string>${sku}</string></value></data></array></value>` +
+    `</data></array></value>`;
   const fields = ['id', 'name', 'default_code', 'active', 'website_published', 'dr_free_qty', 'categ_id', 'standard_price'];
   const fieldsXml = fields.map(f => `<value><string>${f}</string></value>`).join('');
   const body = `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>` +
@@ -132,12 +139,12 @@ export default async function handler(req, res) {
       });
     }
 
-    // Supabase lookup: by reference (=SKU) or by odoo_product_id
+    // Supabase lookup: by reference, odoo_product_id, or model contains
     const { data: dbByRef } = await supabase
       .from('products')
       .select('id, odoo_product_id, source, brand, model, reference, status, category, subcategory')
       .eq('source', 'odoo_bags')
-      .eq('reference', sku);
+      .or(`reference.eq.${sku},odoo_product_id.eq.${sku},model.ilike.%${sku}%`);
 
     const dbIds = (dbByRef || []).map(r => r.id);
     let imagesByProduct = {};
