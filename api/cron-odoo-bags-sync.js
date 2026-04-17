@@ -160,8 +160,9 @@ export default async function handler(req, res) {
       page++;
     }
 
-    // Only items with images
-    const items = allItems.filter(i => i.image_1920 && i.image_1920 !== false);
+    // Keep every eligible item — bags may only have extra images (product.image)
+    // and no primary image_1920. The webhook sync handles image upload from either source.
+    const items = allItems;
     const liveOdooIds = items.map(i => String(i.id));
 
     // Remove stale items no longer in Odoo

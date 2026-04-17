@@ -264,8 +264,9 @@ export default async function handler(req, res) {
       batch_size,
       offset
     );
-    // Only process items that have an image
-    const items = (allItems || []).filter(i => i.image_1920 && i.image_1920 !== false);
+    // Process every eligible item — items with no primary may still have extra images.
+    // Downstream logic computes primary+extras and removes any that end up truly imageless.
+    const items = allItems || [];
 
     // Sold status is handled by the cron job — skip here to avoid timeout
     const soldTemplateIds = new Set();
