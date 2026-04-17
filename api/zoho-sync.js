@@ -8,6 +8,16 @@ const supabase = createClient(
 const STORE_DOMAIN = 'thewatchstore.zohocommerce.eu';
 const STORE_ID = 'e332ab1967';
 
+async function parseJsonSafe(res, context) {
+  const text = await res.text();
+  if (!text) throw new Error(`${context} returned empty body (status ${res.status})`);
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`${context} returned non-JSON (status ${res.status}): ${text.slice(0, 200)}`);
+  }
+}
+
 async function getAccessToken() {
   const res = await fetch('https://accounts.zoho.eu/oauth/v2/token', {
     method: 'POST',
@@ -19,7 +29,7 @@ async function getAccessToken() {
       grant_type: 'refresh_token',
     }),
   });
-  const data = await res.json();
+  const data = await parseJsonSafe(res, 'Zoho OAuth token');
   if (!data.access_token) throw new Error('Failed to get access token: ' + JSON.stringify(data));
   return data.access_token;
 }
@@ -31,7 +41,7 @@ async function fetchAllItems(accessToken) {
   while (true) {
     const url = `https://www.zohoapis.eu/inventory/v1/items?organization_id=${process.env.ZOHO_ORG_ID}&per_page=${perPage}&page=${page}&status=active`;
     const res = await fetch(url, { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } });
-    const data = await res.json();
+    const data = await parseJsonSafe(res, `Zoho inventory items page ${page}`);
     if (!data.items || data.items.length === 0) break;
     items = items.concat(data.items);
     if (data.items.length < perPage) break;
