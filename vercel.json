@@ -27,6 +27,7 @@
     "api/cron-odoo-full-sync.js": { "maxDuration": 300 },
     "api/zoho-webhook.js": { "maxDuration": 300 },
     "api/zoho-status.js": { "maxDuration": 120 },
-    "api/odoo-bags-debug.js": { "maxDuration": 60 }
+    "api/odoo-bags-debug.js": { "maxDuration": 60 },
+    "api/odoo-bags-sync-missing.js": { "maxDuration": 300 }
   }
 }
