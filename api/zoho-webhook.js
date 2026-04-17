@@ -38,8 +38,9 @@ async function fetchAllItems(accessToken) {
   let page = 1;
   let allItems = [];
   while (true) {
-    const res = await fetch(`https://commerce.zoho.eu/api/v1/items?store_id=${STORE_ID}&page=${page}&per_page=200`, {
-      headers: { Authorization: `Zoho-oauthtoken ${accessToken}`, 'Content-Type': 'application/json' }
+    const url = `https://www.zohoapis.eu/inventory/v1/items?organization_id=${process.env.ZOHO_ORG_ID}&per_page=200&page=${page}&status=active`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }
     });
     const data = await parseJsonSafe(res, `Zoho items page ${page}`);
     const items = data.items || [];
