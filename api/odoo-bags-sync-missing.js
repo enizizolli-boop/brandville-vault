@@ -222,14 +222,26 @@ export default async function handler(req, res) {
     const dbIds = (dbProducts || []).map(p => p.id);
     const imageCountByDbId = new Map();
     if (dbIds.length > 0) {
-      const CHUNK = 1000;
-      for (let i = 0; i < dbIds.length; i += CHUNK) {
-        const { data: imgs } = await supabase
-          .from('product_images')
-          .select('product_id')
-          .in('product_id', dbIds.slice(i, i + CHUNK));
-        for (const r of imgs || []) {
-          imageCountByDbId.set(r.product_id, (imageCountByDbId.get(r.product_id) || 0) + 1);
+      // Supabase returns at most 1000 rows per request. With ~10 images per bag,
+      // a single IN() query covering hundreds of product_ids would truncate.
+      // Small chunks + explicit .range() pagination guarantees a complete count.
+      const ID_CHUNK = 100;
+      for (let i = 0; i < dbIds.length; i += ID_CHUNK) {
+        const chunkIds = dbIds.slice(i, i + ID_CHUNK);
+        const PAGE = 1000;
+        let from = 0;
+        while (true) {
+          const { data: imgs } = await supabase
+            .from('product_images')
+            .select('product_id')
+            .in('product_id', chunkIds)
+            .range(from, from + PAGE - 1);
+          if (!imgs || imgs.length === 0) break;
+          for (const r of imgs) {
+            imageCountByDbId.set(r.product_id, (imageCountByDbId.get(r.product_id) || 0) + 1);
+          }
+          if (imgs.length < PAGE) break;
+          from += PAGE;
         }
       }
     }
