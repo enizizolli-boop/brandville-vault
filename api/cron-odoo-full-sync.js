@@ -190,10 +190,6 @@ async function fetchSoldProductTemplateIds() {
 export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end();
 
-  // Reload PostgREST schema cache so watches table is always visible, then wait for it to apply
-  try { await supabase.rpc('notify_pgrst'); } catch (_) {}
-  await new Promise(r => setTimeout(r, 2000));
-
   const startTime = Date.now();
   let added = 0, updated = 0, imagesAdded = 0, removed = 0;
 
@@ -207,10 +203,10 @@ export default async function handler(req, res) {
     // Remove stale items
     const allOdooItems = await odooRead(domain, ['id'], 5000, 0);
     const allOdooIds = allOdooItems.map(i => String(i.id));
-    const { data: allExisting } = await supabase.from('watches').select('odoo_product_id').eq('source', 'odoo');
+    const { data: allExisting } = await supabase.from('products').select('odoo_product_id').eq('source', 'odoo');
     const toDelete = (allExisting || []).map(i => i.odoo_product_id).filter(id => !allOdooIds.includes(id));
     if (toDelete.length > 0) {
-      await supabase.from('watches').delete().in('odoo_product_id', toDelete);
+      await supabase.from('products').delete().in('odoo_product_id', toDelete);
       removed = toDelete.length;
     }
 
@@ -244,7 +240,7 @@ export default async function handler(req, res) {
       } catch (e) { console.error('Extra images fetch error:', e); }
 
       const odooIds = items.map(i => String(i.id));
-      const { data: existing } = await supabase.from('watches')
+      const { data: existing } = await supabase.from('products')
         .select('id, odoo_product_id, status')
         .eq('source', 'odoo')
         .in('odoo_product_id', odooIds);
@@ -273,7 +269,7 @@ export default async function handler(req, res) {
         const jewelleryType = categName ? (JEWELLERY_TYPE_MAP[categName.toLowerCase()] || null) : null;
 
         const mapped = {
-          jewellery_type: jewelleryType,
+          subcategory: jewelleryType,
           odoo_product_id: String(item.id),
           source: 'odoo',
           brand,
@@ -286,7 +282,7 @@ export default async function handler(req, res) {
           notes: item.description_sale && typeof item.description_sale === 'string' ? item.description_sale.trim() || null : null,
         };
 
-        const { data: upserted, error } = await supabase.from('watches')
+        const { data: upserted, error } = await supabase.from('products')
           .upsert(mapped, { onConflict: 'odoo_product_id' }).select('id').single();
         if (error) { console.error('upsert error', error.message); continue; }
 
@@ -298,8 +294,8 @@ export default async function handler(req, res) {
           const extras = extraImagesMap[String(item.id)] || [];
           const odooTotal = (item.image_1920 && item.image_1920 !== false ? 1 : 0) + extras.length;
           if (odooTotal > 0) {
-            const { count: dbCount } = await supabase.from('watch_images')
-              .select('id', { count: 'exact', head: true }).eq('watch_id', productId);
+            const { count: dbCount } = await supabase.from('product_images')
+              .select('id', { count: 'exact', head: true }).eq('product_id', productId);
             const existing = dbCount || 0;
             if (existing < odooTotal) {
               let position = existing;
@@ -311,7 +307,7 @@ export default async function handler(req, res) {
                   const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
                   if (!upErr) {
                     const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
-                    await supabase.from('watch_images').insert({ watch_id: productId, url: publicUrl, position });
+                    await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position });
                     position++; imagesAdded++;
                   }
                 } catch (e) { console.error('primary img error', e); }
@@ -327,7 +323,7 @@ export default async function handler(req, res) {
                   const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
                   if (!upErr) {
                     const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
-                    await supabase.from('watch_images').insert({ watch_id: productId, url: publicUrl, position });
+                    await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position });
                     position++; imagesAdded++;
                   }
                 } catch (e) { console.error('extra img error', e); }
