@@ -191,7 +191,7 @@ export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end();
 
   // Reload PostgREST schema cache so watches table is always visible, then wait for it to apply
-  await supabase.rpc('notify_pgrst').catch(() => {});
+  try { await supabase.rpc('notify_pgrst'); } catch (_) {}
   await new Promise(r => setTimeout(r, 2000));
 
   const startTime = Date.now();
