@@ -167,6 +167,12 @@ export default async function handler(req, res) {
   try {
     const accessToken = await getAccessToken();
     const allItems = await fetchAllItems(accessToken);
+
+    // Safety guard — if Zoho returns nothing, abort rather than wiping the DB
+    if (!allItems || allItems.length === 0) {
+      return res.status(200).json({ success: false, error: 'Zoho returned 0 items — aborting to prevent accidental deletion', removed: 0 });
+    }
+
     // Filter: must be on storefront AND have stock available
     let zohoItems = allItems.filter(item => {
       if (item.show_in_storefront !== true) return false;
