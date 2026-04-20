@@ -138,6 +138,9 @@ const JEWELLERY_TYPE_MAP = {
 };
 
 export default async function handler(req, res) {
+  // Reload PostgREST schema cache so watches table is always visible
+  await supabase.rpc('notify_pgrst').catch(() => {});
+
   const startTime = Date.now();
   const limit = parseInt(req.query?.limit || '10');
   const dryRun = req.query?.dry_run === '1';
