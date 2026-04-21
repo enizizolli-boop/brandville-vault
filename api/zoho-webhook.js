@@ -106,11 +106,21 @@ export default async function handler(req, res) {
       return Number(stock) > 0;
     });
 
-    // Remove items no longer on storefront or out of stock
+    // Safety guard — if Zoho returned nothing, abort to prevent mass deletion
+    if (allItems.length === 0) {
+      return res.status(200).json({ ok: false, error: 'Zoho returned 0 items — aborting to prevent accidental deletion' });
+    }
+    if (zohoItems.length === 0) {
+      return res.status(200).json({ ok: false, error: 'All Zoho items filtered out — aborting to prevent accidental deletion' });
+    }
+
+    // Mark items no longer on storefront or out of stock as sold (don't delete)
     const allZohoIds = zohoItems.map(i => String(i.item_id));
     const { data: allExisting } = await supabase.from('products').select('zoho_item_id').eq('source', 'zoho');
-    const toDelete = (allExisting || []).map(i => i.zoho_item_id).filter(id => !allZohoIds.includes(id));
-    if (toDelete.length > 0) await supabase.from('products').delete().in('zoho_item_id', toDelete);
+    const toMarkSold = (allExisting || []).map(i => i.zoho_item_id).filter(id => !allZohoIds.includes(id));
+    if (toMarkSold.length > 0) {
+      await supabase.from('products').update({ status: 'sold' }).in('zoho_item_id', toMarkSold).eq('source', 'zoho');
+    }
 
     const zohoIds = zohoItems.map(i => String(i.item_id));
     const { data: existingItems } = await supabase.from('products').select('id, zoho_item_id').eq('source', 'zoho').in('zoho_item_id', zohoIds);
@@ -140,7 +150,7 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ ok: true, added, updated, removed: toDelete.length, images_added: imagesAdded });
+    return res.status(200).json({ ok: true, added, updated, marked_sold: toMarkSold.length, images_added: imagesAdded });
   } catch (err) {
     console.error('Zoho webhook error:', err);
     return res.status(500).json({ error: err.message });

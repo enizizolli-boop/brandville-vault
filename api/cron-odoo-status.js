@@ -176,11 +176,12 @@ export default async function handler(req, res) {
       }
     }
 
-    // Also update jewellery in the watches table (source = 'odoo')
+    // Also update jewellery status (source = 'odoo', category = 'Jewellery')
     const { data: allJewellery } = await supabase
-      .from('watches')
+      .from('products')
       .select('id, odoo_product_id, status')
-      .eq('source', 'odoo');
+      .eq('source', 'odoo')
+      .eq('category', 'Jewellery');
 
     let jewelleryMarkedSold = 0;
     let jewelleryMarkedAvailable = 0;
@@ -195,10 +196,10 @@ export default async function handler(req, res) {
         const isSold = onSO || (qty !== undefined && qty <= 0);
 
         if (isSold && item.status !== 'sold') {
-          await supabase.from('watches').update({ status: 'sold' }).eq('id', item.id);
+          await supabase.from('products').update({ status: 'sold' }).eq('id', item.id);
           jewelleryMarkedSold++;
         } else if (!isSold && item.status === 'sold') {
-          await supabase.from('watches').update({ status: 'available' }).eq('id', item.id);
+          await supabase.from('products').update({ status: 'available' }).eq('id', item.id);
           jewelleryMarkedAvailable++;
         }
       }
