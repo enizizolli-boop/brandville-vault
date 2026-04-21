@@ -143,50 +143,6 @@ async function odooRead(domain, fields, limit, offset) {
   return parseItems(text);
 }
 
-async function fetchSoldProductTemplateIds() {
-  try {
-    const body1 = `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>` +
-      `<param><value><string>${ODOO_DB}</string></value></param>` +
-      `<param><value><int>${ODOO_UID}</int></value></param>` +
-      `<param><value><string>${ODOO_API_KEY}</string></value></param>` +
-      `<param><value><string>sale.order.line</string></value></param>` +
-      `<param><value><string>search_read</string></value></param>` +
-      `<param><value><array><data><value><array><data>` +
-      `<value><array><data><value><string>order_id.state</string></value><value><string>!=</string></value><value><string>cancel</string></value></data></array></value>` +
-      `</data></array></value></data></array></value></param>` +
-      `<param><value><struct><member><name>fields</name><value><array><data><value><string>product_id</string></value></data></array></value></member>` +
-      `<member><name>limit</name><value><int>5000</int></value></member></struct></value></param></params></methodCall>`;
-    const res1 = await fetch(ODOO_URL + '/xmlrpc/2/object', { method: 'POST', headers: { 'Content-Type': 'text/xml' }, body: body1 });
-    const lines = parseItems(await res1.text());
-    const variantIds = [...new Set(lines.map(l => {
-      const pid = Array.isArray(l.product_id) ? l.product_id[0] : l.product_id;
-      return typeof pid === 'number' ? pid : null;
-    }).filter(Boolean))];
-    if (!variantIds.length) return new Set();
-
-    const idsXml = variantIds.map(id => `<value><int>${id}</int></value>`).join('');
-    const body2 = `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>` +
-      `<param><value><string>${ODOO_DB}</string></value></param>` +
-      `<param><value><int>${ODOO_UID}</int></value></param>` +
-      `<param><value><string>${ODOO_API_KEY}</string></value></param>` +
-      `<param><value><string>product.product</string></value></param>` +
-      `<param><value><string>search_read</string></value></param>` +
-      `<param><value><array><data><value><array><data>` +
-      `<value><array><data><value><string>id</string></value><value><string>in</string></value><value><array><data>${idsXml}</data></array></value></data></array></value>` +
-      `</data></array></value></data></array></value></param>` +
-      `<param><value><struct><member><name>fields</name><value><array><data><value><string>product_tmpl_id</string></value></data></array></value></member>` +
-      `<member><name>limit</name><value><int>5000</int></value></member></struct></value></param></params></methodCall>`;
-    const res2 = await fetch(ODOO_URL + '/xmlrpc/2/object', { method: 'POST', headers: { 'Content-Type': 'text/xml' }, body: body2 });
-    const variants = parseItems(await res2.text());
-    const ids = new Set();
-    for (const v of variants) {
-      const tmplId = Array.isArray(v.product_tmpl_id) ? v.product_tmpl_id[0] : v.product_tmpl_id;
-      if (typeof tmplId === 'number') ids.add(tmplId);
-    }
-    return ids;
-  } catch (e) { console.error('fetchSoldIds error:', e); return new Set(); }
-}
-
 export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end();
 
@@ -195,10 +151,7 @@ export default async function handler(req, res) {
 
   try {
     const domain = [['sale_ok', '=', true], ['active', '=', true], ['categ_id', '=', JEWELRY_CATEG_ID]];
-    const [totalCount, soldTemplateIds] = await Promise.all([
-      odooCount(domain),
-      fetchSoldProductTemplateIds(),
-    ]);
+    const totalCount = await odooCount(domain);
 
     // Remove stale items
     const allOdooItems = await odooRead(domain, ['id'], 5000, 0);
@@ -259,11 +212,9 @@ export default async function handler(req, res) {
         const isExisting = !!existingEntry;
         const currentStatus = existingEntry?.status;
 
-        const qtyOnHand = item.qty_available != null ? item.qty_available : null;
-        const qtyForecast = item.virtual_available != null ? item.virtual_available : null;
-        const isSold = soldTemplateIds.has(item.id) ||
-          (qtyOnHand !== null && qtyOnHand <= 0) ||
-          (qtyForecast !== null && qtyForecast <= 0);
+        // virtual_available (forecasted qty) drops to 0 when on a confirmed SO or already sold.
+        // For max-1-stock items this is the single reliable sold signal — no SO lookup needed.
+        const isSold = item.virtual_available == null || item.virtual_available <= 0;
 
         const categName = Array.isArray(item.categ_id) ? item.categ_id[1] : (typeof item.categ_id === 'string' ? item.categ_id : null);
         const jewelleryType = categName ? (JEWELLERY_TYPE_MAP[categName.toLowerCase()] || null) : null;

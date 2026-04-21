@@ -126,14 +126,14 @@ async function fetchOdooQtyMap(odooIds) {
         `<param><value><string>search_read</string></value></param>` +
         `<param><value><array><data><value><array><data>${domainXml}</data></array></value></data></array></value></param>` +
         `<param><value><struct>` +
-        `<member><name>fields</name><value><array><data><value><string>id</string></value><value><string>qty_available</string></value></data></array></value></member>` +
+        `<member><name>fields</name><value><array><data><value><string>id</string></value><value><string>virtual_available</string></value></data></array></value></member>` +
         `<member><name>limit</name><value><int>${CHUNK}</int></value></member>` +
         `</struct></value></param></params></methodCall>`;
       const res = await fetch(ODOO_URL + '/xmlrpc/2/object', { method: 'POST', headers: { 'Content-Type': 'text/xml' }, body });
       const text = await res.text();
       if (!text.includes('<fault>')) {
         for (const item of parseItems(text)) {
-          if (item.id !== undefined) qtyMap.set(String(item.id), item.qty_available ?? 0);
+          if (item.id !== undefined) qtyMap.set(String(item.id), item.virtual_available ?? 0);
         }
       }
     }
@@ -192,10 +192,9 @@ export default async function handler(req, res) {
       const qtyMap = await fetchOdooQtyMap(jewelleryOdooIds);
 
       for (const item of allJewellery) {
-        const onSO = soldIdStrings.includes(item.odoo_product_id);
+        // virtual_available covers both confirmed-SO and already-sold cases for max-1-stock items
         const qty = qtyMap.get(item.odoo_product_id);
-        // If qty is unknown (Odoo didn't return it), treat as sold — safe default
-        const isSold = onSO || qty === undefined || qty <= 0;
+        const isSold = qty === undefined || qty <= 0;
 
         if (isSold && item.status !== 'sold') {
           await supabase.from('products').update({ status: 'sold' }).eq('id', item.id);
