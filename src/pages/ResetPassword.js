@@ -12,14 +12,12 @@ export default function ResetPassword() {
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    // Check if session already exists — PASSWORD_RECOVERY may have fired before this listener registered
+    // Show form immediately if session already exists (redirected here by AuthContext)
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) setReady(true)
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
-        setReady(true)
-      }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') setReady(true)
     })
     return () => subscription.unsubscribe()
   }, [])
