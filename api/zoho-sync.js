@@ -211,10 +211,15 @@ export default async function handler(req, res) {
         const stock = i.actual_available_stock ?? i.available_stock ?? i.stock_on_hand ?? 0;
         return Number(stock) > 0;
       }).map(i => String(i.item_id));
-      const toDelete = allExistingIds.filter(id => !liveZohoIds.includes(id));
-      if (toDelete.length > 0) {
-        await supabase.from('products').delete().in('zoho_item_id', toDelete);
-        removed = toDelete.length;
+      // Safety guard — if no live items, abort cleanup to prevent mass deletion
+      if (liveZohoIds.length === 0) {
+        console.error('All Zoho items filtered out — aborting stale cleanup to prevent mass deletion');
+      } else {
+        const toDelete = allExistingIds.filter(id => !liveZohoIds.includes(id));
+        if (toDelete.length > 0) {
+          await supabase.from('products').delete().in('zoho_item_id', toDelete).eq('source', 'zoho');
+          removed = toDelete.length;
+        }
       }
     }
 

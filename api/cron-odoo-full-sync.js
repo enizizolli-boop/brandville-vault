@@ -203,10 +203,10 @@ export default async function handler(req, res) {
     // Remove stale items
     const allOdooItems = await odooRead(domain, ['id'], 5000, 0);
     const allOdooIds = allOdooItems.map(i => String(i.id));
-    const { data: allExisting } = await supabase.from('products').select('odoo_product_id').eq('source', 'odoo');
-    const toDelete = (allExisting || []).map(i => i.odoo_product_id).filter(id => !allOdooIds.includes(id));
+    const { data: allExisting } = await supabase.from('products').select('odoo_product_id').eq('source', 'odoo').eq('category', 'Jewellery');
+    const toDelete = (allExisting || []).map(i => i.odoo_product_id).filter(id => id && !allOdooIds.includes(id));
     if (toDelete.length > 0) {
-      await supabase.from('products').delete().in('odoo_product_id', toDelete);
+      await supabase.from('products').delete().in('odoo_product_id', toDelete).eq('source', 'odoo').eq('category', 'Jewellery');
       removed = toDelete.length;
     }
 
@@ -282,12 +282,20 @@ export default async function handler(req, res) {
           notes: item.description_sale && typeof item.description_sale === 'string' ? item.description_sale.trim() || null : null,
         };
 
-        const { data: upserted, error } = await supabase.from('products')
-          .upsert(mapped, { onConflict: 'odoo_product_id' }).select('id').single();
-        if (error) { console.error('upsert error', error.message); continue; }
-
-        const productId = upserted?.id || existingEntry?.id;
-        isExisting ? updated++ : added++;
+        let productId;
+        if (isExisting) {
+          const { error } = await supabase.from('products').update(mapped).eq('id', existingEntry.id);
+          if (error) { console.error('update error', error.message); continue; }
+          productId = existingEntry.id;
+          updated++;
+        } else {
+          // Don't insert brand-new products that are already sold — only add available items
+          if (isSold) continue;
+          const { data: inserted, error } = await supabase.from('products').insert(mapped).select('id').single();
+          if (error) { console.error('insert error', error.message); continue; }
+          productId = inserted?.id;
+          added++;
+        }
 
         // Upload missing images — check how many are in DB vs how many Odoo has
         if (productId) {
