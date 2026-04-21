@@ -194,12 +194,14 @@ export default async function handler(req, res) {
       for (const item of allJewellery) {
         const onSO = soldIdStrings.includes(item.odoo_product_id);
         const qty = qtyMap.get(item.odoo_product_id);
-        const isSold = onSO || (qty !== undefined && qty <= 0);
+        // If qty is unknown (Odoo didn't return it), treat as sold — safe default
+        const isSold = onSO || qty === undefined || qty <= 0;
 
         if (isSold && item.status !== 'sold') {
           await supabase.from('products').update({ status: 'sold' }).eq('id', item.id);
           jewelleryMarkedSold++;
         } else if (!isSold && item.status === 'sold') {
+          // Only restore to available if qty is explicitly > 0 and not on SO
           await supabase.from('products').update({ status: 'available' }).eq('id', item.id);
           jewelleryMarkedAvailable++;
         }
