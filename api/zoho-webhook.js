@@ -96,63 +96,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  try {
-    const accessToken = await getAccessToken();
-    const allItems = await fetchAllItems(accessToken);
-    // Live items: in storefront AND with stock
-    const zohoItems = allItems.filter(item => {
-      if (item.show_in_storefront !== true) return false;
-      const stock = item.actual_available_stock ?? item.available_stock ?? item.stock_on_hand ?? 0;
-      return Number(stock) > 0;
-    });
-
-    // Safety guard — if Zoho returned nothing, abort to prevent mass deletion
-    if (allItems.length === 0) {
-      return res.status(200).json({ ok: false, error: 'Zoho returned 0 items — aborting to prevent accidental deletion' });
-    }
-    if (zohoItems.length === 0) {
-      return res.status(200).json({ ok: false, error: 'All Zoho items filtered out — aborting to prevent accidental deletion' });
-    }
-
-    // Mark items no longer on storefront or out of stock as sold (don't delete)
-    const allZohoIds = zohoItems.map(i => String(i.item_id));
-    const { data: allExisting } = await supabase.from('products').select('zoho_item_id').eq('source', 'zoho');
-    const toMarkSold = (allExisting || []).map(i => i.zoho_item_id).filter(id => !allZohoIds.includes(id));
-    if (toMarkSold.length > 0) {
-      await supabase.from('products').update({ status: 'sold' }).in('zoho_item_id', toMarkSold).eq('source', 'zoho');
-    }
-
-    const zohoIds = zohoItems.map(i => String(i.item_id));
-    const { data: existingItems } = await supabase.from('products').select('id, zoho_item_id').eq('source', 'zoho').in('zoho_item_id', zohoIds);
-    const existingMap = {};
-    (existingItems || []).forEach(i => { existingMap[i.zoho_item_id] = i.id; });
-
-    let added = 0, updated = 0, imagesAdded = 0;
-
-    for (const zohoItem of zohoItems) {
-      const mapped = mapZohoItem(zohoItem);
-      const isExisting = !!existingMap[mapped.zoho_item_id];
-      if (isExisting) delete mapped.status; // never override status of existing items
-
-      const { data: upserted, error } = await supabase.from('products').upsert(mapped, { onConflict: 'zoho_item_id' }).select('id').single();
-      if (error) continue;
-
-      const watchId = upserted?.id || existingMap[mapped.zoho_item_id];
-      isExisting ? updated++ : added++;
-
-      if (watchId && !isExisting) {
-        const images = await fetchImagesFromStorePage(zohoItem.item_id);
-        if (images.length > 0) {
-          await supabase.from('product_images').delete().eq('product_id', watchId);
-          await supabase.from('product_images').insert(images.map((url, i) => ({ product_id: watchId, url, position: i })));
-          imagesAdded += images.length;
-        }
-      }
-    }
-
-    return res.status(200).json({ ok: true, added, updated, marked_sold: toMarkSold.length, images_added: imagesAdded });
-  } catch (err) {
-    console.error('Zoho webhook error:', err);
-    return res.status(500).json({ error: err.message });
-  }
+  // Just acknowledge — full sync is handled by cron-zoho-sync every 30 minutes.
+  // Doing a full inventory fetch here caused rate limit errors and mass status changes
+  // when Zoho fires multiple webhook calls in quick succession.
+  console.log('Zoho webhook received:', JSON.stringify(req.body)?.slice(0, 200));
+  return res.status(200).json({ ok: true });
 }
