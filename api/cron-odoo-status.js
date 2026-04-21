@@ -152,11 +152,12 @@ export default async function handler(req, res) {
     const soldTemplateIds = await fetchSoldProductTemplateIds();
     const soldIdStrings = [...soldTemplateIds].map(String);
 
-    // Fetch all Odoo-sourced products with their current status
+    // Fetch all Odoo-sourced products with their current status (exclude Jewellery — handled separately with qty check below)
     const { data: allProducts, error } = await supabase
       .from('products')
       .select('id, odoo_product_id, status')
-      .in('source', ['odoo', 'odoo_bags']);
+      .in('source', ['odoo', 'odoo_bags'])
+      .neq('category', 'Jewellery');
 
     if (error) throw error;
 
