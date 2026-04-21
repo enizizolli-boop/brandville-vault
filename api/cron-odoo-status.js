@@ -10,6 +10,38 @@ const ODOO_DB = process.env.ODOO_DB;
 const ODOO_UID = parseInt(process.env.ODOO_USER_ID);
 const ODOO_API_KEY = process.env.ODOO_API_KEY;
 
+async function getZohoAccessToken() {
+  const res = await fetch('https://accounts.zoho.eu/oauth/v2/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      refresh_token: process.env.ZOHO_REFRESH_TOKEN,
+      client_id: process.env.ZOHO_CLIENT_ID,
+      client_secret: process.env.ZOHO_CLIENT_SECRET,
+      grant_type: 'refresh_token',
+    }),
+  });
+  const data = await res.json();
+  if (!data.access_token) throw new Error('Zoho token failed: ' + JSON.stringify(data));
+  return data.access_token;
+}
+
+async function fetchAllZohoItems(accessToken) {
+  let items = [], page = 1;
+  while (true) {
+    const res = await fetch(
+      `https://www.zohoapis.eu/inventory/v1/items?organization_id=${process.env.ZOHO_ORG_ID}&per_page=200&page=${page}&status=active`,
+      { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+    );
+    const data = await res.json();
+    if (!data.items || data.items.length === 0) break;
+    items = items.concat(data.items);
+    if (data.items.length < 200) break;
+    page++;
+  }
+  return items;
+}
+
 function parseItems(xml) {
   const norm = xml.replace(/>\s+</g, '><');
   const items = [];
@@ -207,7 +239,34 @@ export default async function handler(req, res) {
       }
     }
 
-    console.log(`Cron status sync: ${markedSold} marked sold, ${markedAvailable} restored available | jewellery: ${jewelleryMarkedSold} sold, ${jewelleryMarkedAvailable} restored`);
+    // Check ALL Zoho watches against live Zoho stock every run
+    let zohoMarkedSold = 0, zohoMarkedAvailable = 0;
+    try {
+      const zohoToken = await getZohoAccessToken();
+      const allZohoItems = await fetchAllZohoItems(zohoToken);
+      if (allZohoItems.length > 0) {
+        const liveIds = new Set(
+          allZohoItems
+            .filter(i => i.show_in_storefront === true && Number(i.actual_available_stock ?? i.available_stock ?? i.stock_on_hand ?? 0) > 0)
+            .map(i => String(i.item_id))
+        );
+        const { data: zohoProducts } = await supabase.from('products').select('id, zoho_item_id, status').eq('source', 'zoho');
+        for (const p of zohoProducts || []) {
+          const isLive = liveIds.has(p.zoho_item_id);
+          if (!isLive && p.status !== 'sold') {
+            await supabase.from('products').update({ status: 'sold' }).eq('id', p.id);
+            zohoMarkedSold++;
+          } else if (isLive && p.status === 'sold') {
+            await supabase.from('products').update({ status: 'available' }).eq('id', p.id);
+            zohoMarkedAvailable++;
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Zoho status check error:', e.message);
+    }
+
+    console.log(`Cron status sync: ${markedSold} marked sold, ${markedAvailable} restored available | jewellery: ${jewelleryMarkedSold} sold, ${jewelleryMarkedAvailable} restored | zoho: ${zohoMarkedSold} sold, ${zohoMarkedAvailable} restored`);
     return res.status(200).json({
       success: true,
       sold_on_order: soldTemplateIds.size,
@@ -217,6 +276,8 @@ export default async function handler(req, res) {
       jewellery_marked_sold: jewelleryMarkedSold,
       jewellery_marked_available: jewelleryMarkedAvailable,
       jewellery_checked: allJewellery?.length || 0,
+      zoho_marked_sold: zohoMarkedSold,
+      zoho_marked_available: zohoMarkedAvailable,
     });
   } catch (err) {
     console.error('Cron status sync error:', err);
