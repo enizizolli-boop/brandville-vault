@@ -117,10 +117,13 @@ function CardImages({ watch, brandEmoji }) {
   )
 }
 
-export default function DealerCatalog() {
+const BAGS_CATEGORIES = ['Bags', 'Accessories', 'Shoes']
+
+export default function DealerCatalog({ routeCategory }) {
   const navigate = useNavigate()
   const location = useLocation()
   const urlCategory = new URLSearchParams(location.search).get('category') || ''
+  const lockedCategory = routeCategory || urlCategory
 
   const { currency } = useCurrency()
   const { rate } = useExchangeRate()
@@ -131,7 +134,7 @@ export default function DealerCatalog() {
   const [filterBrand, setFilterBrand] = useState('')
   const [filterCond, setFilterCond] = useState('')
   const [filterStatus, setFilterStatus] = useState('available')
-  const [filterCategory, setFilterCategory] = useState(urlCategory)
+  const [filterCategory, setFilterCategory] = useState(lockedCategory === 'Bags' ? '' : lockedCategory)
   const [filterMetal, setFilterMetal] = useState('')
   const [filterSize, setFilterSize] = useState('')
   const [filterJewelleryType, setFilterJewelleryType] = useState('')
@@ -145,16 +148,22 @@ export default function DealerCatalog() {
     if (filterStatus) {
       q = q.eq('status', filterStatus)
     } else {
-      // Never show sold items even when "All status" is selected
       q = q.neq('status', 'sold')
     }
-    if (filterCategory) q = q.eq('category', filterCategory)
+    if (lockedCategory === 'Bags') {
+      if (filterCategory) q = q.eq('category', filterCategory)
+      else q = q.in('category', BAGS_CATEGORIES)
+    } else if (lockedCategory) {
+      q = q.eq('category', lockedCategory)
+    } else if (filterCategory) {
+      q = q.eq('category', filterCategory)
+    }
     if (filterMetal) q = q.eq('metal_type', filterMetal)
     if (filterSize) q = q.eq('item_size', filterSize)
     const { data } = await q
     setWatches(data || [])
     setLoading(false)
-  }, [filterBrand, filterCond, filterStatus, filterCategory, filterMetal, filterSize, filterJewelleryType])
+  }, [filterBrand, filterCond, filterStatus, filterCategory, filterMetal, filterSize, filterJewelleryType, lockedCategory])
 
   useEffect(() => { fetchWatches() }, [fetchWatches])
 
@@ -199,10 +208,11 @@ export default function DealerCatalog() {
 
   const avail = watches.filter(w => w.status === 'available').length
   const reserved = watches.filter(w => w.status === 'reserved').length
-  const isWatches = filterCategory === 'Watches' || filterCategory === ''
+  const isWatches = lockedCategory === 'Watches' || (!lockedCategory && (filterCategory === 'Watches' || filterCategory === ''))
 
   const activePills = [
-    filterCategory && { label: filterCategory, clear: () => { setFilterCategory(''); setFilterMetal(''); setFilterSize(''); setFilterJewelleryType(''); setFilterCond('') } },
+    !lockedCategory && filterCategory && { label: filterCategory, clear: () => { setFilterCategory(''); setFilterMetal(''); setFilterSize(''); setFilterJewelleryType(''); setFilterCond('') } },
+    lockedCategory === 'Bags' && filterCategory && { label: filterCategory, clear: () => setFilterCategory('') },
     filterBrand && { label: filterBrand, clear: () => setFilterBrand('') },
     filterCond && { label: filterCond.split(' ').slice(0,3).join(' ') + '…', clear: () => setFilterCond('') },
     filterStatus === 'reserved' && { label: 'Reserved', clear: () => setFilterStatus('available') },
@@ -214,17 +224,18 @@ export default function DealerCatalog() {
   ].filter(Boolean)
 
   function clearAllFilters() {
-    setFilterCategory(''); setFilterBrand(''); setFilterCond(''); setFilterStatus('available')
+    if (!lockedCategory) setFilterCategory('')
+    setFilterBrand(''); setFilterCond(''); setFilterStatus('available')
     setFilterMetal(''); setFilterSize(''); setFilterJewelleryType(''); setSearch(''); setSortBy('')
   }
 
   return (
     <div className="page">
       <Topbar />
-      {urlCategory && (
+      {lockedCategory && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px 0' }}>
           <button className="btn btn-sm" onClick={() => navigate('/home')}>← Back</button>
-          <span style={{ fontSize: 14, fontWeight: 600 }}>{urlCategory}</span>
+          <span style={{ fontSize: 14, fontWeight: 600 }}>{lockedCategory}</span>
         </div>
       )}
       <div className="stat-grid">
@@ -233,13 +244,28 @@ export default function DealerCatalog() {
         <div className="stat-card"><div className="stat-val">{watches.length}</div><div className="stat-lbl">Total in stock</div></div>
       </div>
       <div className="filters">
-        <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setFilterBrand(''); setFilterMetal(''); setFilterSize(''); setFilterJewelleryType(''); setFilterCond('') }}>
-          <option value=''>All categories</option>
-          <option>Watches</option><option>Jewellery</option><option>Bags</option><option>Shoes</option><option>Accessories</option>
-        </select>
+        {lockedCategory === 'Bags' ? (
+          <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setFilterBrand('') }}>
+            <option value=''>All</option>
+            <option>Bags</option><option>Accessories</option><option>Shoes</option>
+          </select>
+        ) : !lockedCategory ? (
+          <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setFilterBrand(''); setFilterMetal(''); setFilterSize(''); setFilterJewelleryType(''); setFilterCond('') }}>
+            <option value=''>All categories</option>
+            <option>Watches</option><option>Jewellery</option><option>Bags</option><option>Shoes</option><option>Accessories</option>
+          </select>
+        ) : null}
         <select value={filterBrand} onChange={e => setFilterBrand(e.target.value)}>
           <option value="">All brands</option>
-          {(filterCategory === 'Watches' ? WATCH_BRANDS : filterCategory === 'Jewellery' ? JEWELLERY_BRANDS : filterCategory === 'Bags' ? BAG_BRANDS : filterCategory === 'Shoes' ? SHOES_BRANDS : filterCategory === 'Accessories' ? ACCESSORIES_BRANDS : ALL_BRANDS).map(b => <option key={b}>{b}</option>)}
+          {(
+            (lockedCategory === 'Watches' || (!lockedCategory && filterCategory === 'Watches')) ? WATCH_BRANDS :
+            (lockedCategory === 'Jewellery' || (!lockedCategory && filterCategory === 'Jewellery')) ? JEWELLERY_BRANDS :
+            filterCategory === 'Bags' ? BAG_BRANDS :
+            filterCategory === 'Shoes' ? SHOES_BRANDS :
+            filterCategory === 'Accessories' ? ACCESSORIES_BRANDS :
+            lockedCategory === 'Bags' ? [...new Set([...BAG_BRANDS, ...SHOES_BRANDS, ...ACCESSORIES_BRANDS])].sort() :
+            ALL_BRANDS
+          ).map(b => <option key={b}>{b}</option>)}
         </select>
         {isWatches && (
           <select value={filterCond} onChange={e => setFilterCond(e.target.value)}>

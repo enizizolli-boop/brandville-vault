@@ -36,7 +36,8 @@ export default function Home() {
   const [hovered, setHovered] = useState(null)
 
   function goToCategory(cat) {
-    navigate(`/catalog?category=${cat}`)
+    const route = cat === 'Watches' ? '/watches' : cat === 'Jewellery' ? '/jewellery' : '/bags'
+    navigate(route)
   }
 
   return (
