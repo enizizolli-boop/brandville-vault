@@ -80,6 +80,17 @@ export default async function handler(req, res) {
       status: dbById.get(id)?.status || null,
     }));
 
+    // Show stock fields for items that are active but NOT in liveItems (filtered out)
+    const filteredOut = allItems.filter(i => !liveIds.has(String(i.item_id))).slice(0, 10).map(i => ({
+      item_id: i.item_id,
+      name: i.name,
+      sku: i.sku,
+      show_in_storefront: i.show_in_storefront,
+      actual_available_stock: i.actual_available_stock,
+      available_stock: i.available_stock,
+      stock_on_hand: i.stock_on_hand,
+    }));
+
     return res.status(200).json({
       in_sync: missingInDb.length === 0 && extraInDb.length === 0,
       zoho_live_count: liveItems.length,
@@ -89,6 +100,7 @@ export default async function handler(req, res) {
       extra_in_db_count: extraInDb.length,
       missing_in_db: missingInDb.slice(0, 50),
       extra_in_db: extraInDb.slice(0, 50),
+      filtered_out_sample: filteredOut,
     });
   } catch (err) {
     console.error('Zoho status error:', err);
