@@ -84,7 +84,7 @@ const ALLOWED_CONDITIONS = [
   'pre-owned conditions with MINOR signs of usage',
   'pre-owned conditions with MAJOR signs of usage',
   'Fair', 'Needs Repair', 'Repaired', 'Repaired Albania',
-  'Polished A', 'Polished B',
+  'Polished A', 'Polished B', 'pre-owned'
 ];
 const ALLOWED_SCOPES = ['Watch Only', 'With Card', 'With Box', 'Card & Box'];
 

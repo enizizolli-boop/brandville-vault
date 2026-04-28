@@ -37,7 +37,7 @@ const ALL_BRANDS = [...new Set([...WATCH_BRANDS, ...JEWELLERY_BRANDS, ...BAG_BRA
 const CONDITIONS = [
   'pre-owned conditions with MINOR signs of usage',
   'pre-owned conditions with MAJOR signs of usage',
-  'Fair','Needs Repair','Repaired','Repaired Albania',
+  'Fair','Needs Repair','Repaired','Repaired Albania', 'Pre-owned'
 ]
 
 const BRAND_EMOJI = { 'Rolex': '⌚', 'Patek Philippe': '🕰', 'Audemars Piguet': '⌚', 'Richard Mille': '⌚', 'Omega': '⌚', 'Cartier': '⌚', 'IWC': '⌚', 'Jaeger-LeCoultre': '⌚', 'Vacheron Constantin': '⌚', 'A. Lange & Söhne': '⌚' }
