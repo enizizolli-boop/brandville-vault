@@ -258,7 +258,8 @@ const EMPTY_FORM = {
   notes: '',
   metal_type: '',
   item_size: '',
-  subcategory: ''
+  subcategory: '',
+  is_preorder: false
 }
 
 const SUPABASE_URL = 'https://tulqgebsvpxgwocptnmy.supabase.co'
@@ -379,7 +380,8 @@ export default function AgentListings() {
         item_size: form.category === 'Jewellery' && form.item_size && form.subcategory !== 'Necklaces' ? form.item_size : null,
         posted_by: profile.id,
         source: 'manual',
-        status: 'available'
+        status: 'available',
+        is_preorder: form.is_preorder || false
       }).select().single()
       if (wErr) throw wErr
 
@@ -815,6 +817,12 @@ export default function AgentListings() {
             <div className="form-row">
               <label>Notes</label>
               <textarea value={form.notes} onChange={e => handleField('notes', e.target.value)} rows={3} placeholder="Box & papers, year, condition details..." />
+            </div>
+
+            <div className="form-row" style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <label style={{ margin: 0 }}>Preorder</label>
+              <input type="checkbox" checked={!!form.is_preorder} onChange={e => handleField('is_preorder', e.target.checked)} style={{ width: 18, height: 18, cursor: 'pointer' }} />
+              {form.is_preorder && <span style={{ fontSize: 12, color: '#888' }}>No SKU required — item not yet in stock</span>}
             </div>
 
             <button type="submit" className="btn btn-dark btn-full" disabled={posting}>
