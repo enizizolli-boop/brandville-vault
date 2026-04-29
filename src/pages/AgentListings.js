@@ -794,12 +794,19 @@ export default function AgentListings() {
             </div>
 
             {/* Photos */}
-            <label className="upload-zone" htmlFor="img-upload" style={{ marginBottom: 20 }}>
+            <label htmlFor="img-upload" style={{ display: 'block', marginBottom: 20, borderRadius: 14, border: '1.5px dashed #d9d4cc', background: '#faf9f7', cursor: 'pointer', overflow: 'hidden', minHeight: 90, transition: 'border-color 0.15s' }}>
               {previews.length > 0
-                ? <div className="thumb-row">{previews.map((p, i) => <img key={i} src={p} alt="" className="thumb" />)}</div>
-                : <div>Tap to upload photos<br /><span style={{ fontSize: 11, color: '#bbb' }}>JPG, PNG — multiple allowed</span></div>
+                ? <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: 12 }}>
+                    {previews.map((p, i) => <img key={i} src={p} alt="" style={{ width: 68, height: 68, borderRadius: 10, objectFit: 'cover', border: '1px solid #e8e5e0' }} />)}
+                    <div style={{ width: 68, height: 68, borderRadius: 10, border: '1.5px dashed #ccc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb', fontSize: 22 }}>+</div>
+                  </div>
+                : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 90, gap: 6 }}>
+                    <div style={{ fontSize: 24, lineHeight: 1 }}>&#128247;</div>
+                    <div style={{ fontSize: 13, color: '#888', fontWeight: 500 }}>Tap to upload photos</div>
+                    <div style={{ fontSize: 11, color: '#bbb' }}>JPG, PNG — multiple allowed</div>
+                  </div>
               }
-              <input id="img-upload" type="file" accept="image/*" multiple onChange={handleImages} />
+              <input id="img-upload" type="file" accept="image/*" multiple onChange={handleImages} style={{ display: 'none' }} />
             </label>
 
             {/* Quick Post */}
