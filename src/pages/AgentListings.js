@@ -393,9 +393,19 @@ export default function AgentListings() {
       }
 
       if (form.is_preorder) {
-        console.log('Posting as PREORDER (no images)')
         const { data: preorder, error: pErr } = await supabase.from('preorders').insert(payload).select().single()
         if (pErr) throw pErr
+
+        for (let i = 0; i < images.length; i++) {
+          const file = images[i]
+          const ext = file.name.split('.').pop()
+          const path = `${preorder.id}/${i}.${ext}`
+          const { error: upErr } = await supabase.storage.from('watch-images').upload(path, file)
+          if (upErr) { console.error('Preorder image upload error:', upErr.message); continue }
+          const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path)
+          await supabase.from('preorder_images').insert({ preorder_id: preorder.id, url: publicUrl, position: i })
+        }
+
         setForm(EMPTY_FORM)
         setImages([])
         setPreviews([])
@@ -407,19 +417,15 @@ export default function AgentListings() {
         const { data: watch, error: wErr } = await supabase.from('products').insert({ ...payload, source: 'manual' }).select().single()
         if (wErr) throw wErr
 
-        console.log('Uploading', images.length, 'image(s)')
         for (let i = 0; i < images.length; i++) {
           const file = images[i]
           const ext = file.name.split('.').pop()
-          console.log(`Image ${i}: ${file.name} (${file.type}, ${file.size} bytes)`)
           const path = `${watch.id}/${i}.${ext}`
           const { error: upErr } = await supabase.storage.from('watch-images').upload(path, file)
           if (upErr) { console.error('Storage upload error:', upErr.message); throw new Error(`Image upload failed: ${upErr.message}`) }
-          console.log(`Image ${i} uploaded to storage`)
           const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path)
           const { error: imgErr } = await supabase.from('product_images').insert({ product_id: watch.id, url: publicUrl, position: i })
           if (imgErr) { console.error('product_images insert error:', imgErr.message); throw new Error(`Image save failed: ${imgErr.message}`) }
-          console.log(`Image ${i} saved to DB: ${publicUrl}`)
         }
 
         notifyDealers(watch)
@@ -750,11 +756,6 @@ export default function AgentListings() {
 
           <form onSubmit={handlePost}>
 
-            {form.is_preorder && (
-              <div style={{ background: '#fff8ec', border: '1px solid #e0c899', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#b8965a', fontWeight: 600 }}>
-                Preorder mode is ON — item will be saved to preorders, not products. Images are not saved in this mode.
-              </div>
-            )}
 
             {/* Photos */}
             <label className="upload-zone" htmlFor="img-upload" style={{ marginBottom: 20 }}>
