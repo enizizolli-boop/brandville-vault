@@ -740,11 +740,13 @@ export default function AgentListings() {
       )}
 
       {tab === 'post' && (
-        <div style={{ padding: 16, maxWidth: 600 }}>
-          {error && <div className="error-msg">{error}</div>}
+        <div style={{ padding: '16px 16px 40px', maxWidth: 600 }}>
+          {error && <div className="error-msg" style={{ marginBottom: 16 }}>{error}</div>}
 
           <form onSubmit={handlePost}>
-            <label className="upload-zone" htmlFor="img-upload">
+
+            {/* Photos */}
+            <label className="upload-zone" htmlFor="img-upload" style={{ marginBottom: 20 }}>
               {previews.length > 0
                 ? <div className="thumb-row">{previews.map((p, i) => <img key={i} src={p} alt="" className="thumb" />)}</div>
                 : <div>Tap to upload photos<br /><span style={{ fontSize: 11, color: '#bbb' }}>JPG, PNG — multiple allowed</span></div>
@@ -752,16 +754,16 @@ export default function AgentListings() {
               <input id="img-upload" type="file" accept="image/*" multiple onChange={handleImages} />
             </label>
 
-            <div style={{ marginBottom: 16, background: '#f8f6f2', borderRadius: 12, padding: 16, border: '1px solid #e6e0d8' }}>
-              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Quick Post</div>
-              <div style={{ fontSize: 11, color: '#aaa', marginBottom: 10 }}>Paste all info in one go — brand, model, price, condition — and the form fills automatically.</div>
+            {/* Quick Post */}
+            <div style={{ marginBottom: 20, background: '#f8f6f2', borderRadius: 14, padding: '14px 16px', border: '1px solid #e6e0d8' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4, letterSpacing: '-0.1px' }}>Quick Post</div>
+              <div style={{ fontSize: 11, color: '#b0a898', marginBottom: 10, lineHeight: 1.5 }}>Paste all info — brand, model, price, vendor — and the fields fill automatically.</div>
               <textarea
-                rows={3}
-                placeholder='e.g. Rolex Daytona 116500LN €35,000 minor Card & Box'
-                style={{ width: '100%', boxSizing: 'border-box', fontSize: 13 }}
+                rows={4}
+                placeholder={'Panerai PAM00359\nCard & Box 2014\n3300\n2380\nDingsp'}
+                style={{ width: '100%', boxSizing: 'border-box', fontSize: 13, borderRadius: 8, resize: 'vertical', lineHeight: 1.6 }}
                 onChange={async e => {
                   const parsed = parseQuickPost(e.target.value)
-                  // If reference found but no model from static map, try DB lookup
                   if (parsed.reference && (!parsed.model || parsed.model === parsed.reference)) {
                     const { data } = await supabase.from('products').select('model').ilike('reference', `%${parsed.reference}%`).limit(1).single()
                     if (data?.model) parsed.model = data.model
@@ -770,7 +772,6 @@ export default function AgentListings() {
                     const updated = { ...f }
                     if (parsed.brand !== EMPTY_FORM.brand || !f.brand) updated.brand = parsed.brand
                     if (parsed.model) updated.model = parsed.model
-                    // reference/SKU left empty — agent fills manually if needed
                     if (parsed.price_eur) updated.price_eur = parsed.price_eur
                     if (parsed.condition && parsed.condition !== EMPTY_FORM.condition) updated.condition = parsed.condition
                     if (parsed.category) updated.category = parsed.category
@@ -786,122 +787,137 @@ export default function AgentListings() {
               />
             </div>
 
-            <div className="form-row">
-              <label>Category</label>
-              <select value={form.category} onChange={e => handleField('category', e.target.value)}>
-                {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-              </select>
-            </div>
+            {/* Item details */}
+            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #ede9e3', padding: '16px 16px 4px', marginBottom: 16 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#c0b8ae', textTransform: 'uppercase', letterSpacing: '0.9px', marginBottom: 14 }}>Item details</div>
 
-            <div className="form-2col">
               <div className="form-row">
-                <label>Brand</label>
-                <select value={form.brand} onChange={e => handleField('brand', e.target.value)}>
-                  {BRANDS.map(b => <option key={b}>{b}</option>)}
+                <label>Category</label>
+                <select value={form.category} onChange={e => handleField('category', e.target.value)}>
+                  {CATEGORIES.map(c => <option key={c}>{c}</option>)}
                 </select>
               </div>
-              <div className="form-row">
-                <label>Condition</label>
-                <select value={form.condition} onChange={e => handleField('condition', e.target.value)}>
-                  {CONDITIONS.map(c => <option key={c}>{c}</option>)}
-                </select>
-              </div>
-            </div>
 
-            <div className="form-row">
-              <label>Model name</label>
-              <input value={form.model} onChange={e => handleField('model', e.target.value)} placeholder="e.g. Daytona, Birkin, Love Bracelet" required />
-            </div>
-
-            {form.category === 'Jewellery' && (
-              <>
+              <div className="form-2col">
                 <div className="form-row">
-                  <label>Jewellery type</label>
-                  <select value={form.subcategory} onChange={e => { handleField('subcategory', e.target.value); handleField('item_size', '') }}>
-                    <option value="">Select type</option>
-                    <option>Rings</option>
-                    <option>Bracelets</option>
-                    <option>Necklaces</option>
-                    <option>Earrings</option>
+                  <label>Brand</label>
+                  <select value={form.brand} onChange={e => handleField('brand', e.target.value)}>
+                    {BRANDS.map(b => <option key={b}>{b}</option>)}
                   </select>
                 </div>
                 <div className="form-row">
-                  <label>Metal type</label>
-                  <select value={form.metal_type} onChange={e => handleField('metal_type', e.target.value)}>
-                    <option value="">Select metal</option>
-                    <option>Yellow Gold</option>
-                    <option>Pink Gold</option>
-                    <option>White Gold</option>
-                    <option>Platinum</option>
+                  <label>Condition</label>
+                  <select value={form.condition} onChange={e => handleField('condition', e.target.value)}>
+                    {CONDITIONS.map(c => <option key={c}>{c}</option>)}
                   </select>
                 </div>
-                {form.subcategory === 'Rings' && (
+              </div>
+
+              <div className="form-row">
+                <label>Model name</label>
+                <input value={form.model} onChange={e => handleField('model', e.target.value)} placeholder="e.g. Daytona, Birkin, Love Bracelet" required />
+              </div>
+
+              {form.category === 'Jewellery' && (
+                <>
                   <div className="form-row">
-                    <label>Ring size</label>
-                    <select value={form.item_size} onChange={e => handleField('item_size', e.target.value)}>
-                      <option value="">Select size</option>
-                      {['50','51','52','53','54','55','56','57','58','59','60','61','62','63','64','65'].map(s => <option key={s}>{s}</option>)}
+                    <label>Jewellery type</label>
+                    <select value={form.subcategory} onChange={e => { handleField('subcategory', e.target.value); handleField('item_size', '') }}>
+                      <option value="">Select type</option>
+                      <option>Rings</option>
+                      <option>Bracelets</option>
+                      <option>Necklaces</option>
+                      <option>Earrings</option>
                     </select>
                   </div>
-                )}
-                {form.subcategory === 'Bracelets' && (
                   <div className="form-row">
-                    <label>Bracelet size</label>
-                    <select value={form.item_size} onChange={e => handleField('item_size', e.target.value)}>
-                      <option value="">Select size</option>
-                      {['14','15','16','17','18','19','20','21','22','23','XS','S','M','L','XL','XXL','3XL'].map(s => <option key={s}>{s}</option>)}
+                    <label>Metal type</label>
+                    <select value={form.metal_type} onChange={e => handleField('metal_type', e.target.value)}>
+                      <option value="">Select metal</option>
+                      <option>Yellow Gold</option>
+                      <option>Pink Gold</option>
+                      <option>White Gold</option>
+                      <option>Platinum</option>
                     </select>
                   </div>
-                )}
-              </>
-            )}
+                  {form.subcategory === 'Rings' && (
+                    <div className="form-row">
+                      <label>Ring size</label>
+                      <select value={form.item_size} onChange={e => handleField('item_size', e.target.value)}>
+                        <option value="">Select size</option>
+                        {['50','51','52','53','54','55','56','57','58','59','60','61','62','63','64','65'].map(s => <option key={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  {form.subcategory === 'Bracelets' && (
+                    <div className="form-row">
+                      <label>Bracelet size</label>
+                      <select value={form.item_size} onChange={e => handleField('item_size', e.target.value)}>
+                        <option value="">Select size</option>
+                        {['14','15','16','17','18','19','20','21','22','23','XS','S','M','L','XL','XXL','3XL'].map(s => <option key={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  )}
+                </>
+              )}
 
+              {form.category === 'Watches' && (
+                <div className="form-row">
+                  <label>Scope of Delivery</label>
+                  <select value={form.scope_of_delivery || ''} onChange={e => handleField('scope_of_delivery', e.target.value)} required>
+                    <option value="">Select scope</option>
+                    <option>Watch Only</option>
+                    <option>With Card</option>
+                    <option>With Box</option>
+                    <option>Card & Box</option>
+                  </select>
+                </div>
+              )}
+            </div>
 
-            {form.category === 'Watches' && (
-              <div className="form-row">
-                <label>Scope of Delivery</label>
-                <select value={form.scope_of_delivery || ''} onChange={e => handleField('scope_of_delivery', e.target.value)} required>
-                  <option value="">Select scope</option>
-                  <option>Watch Only</option>
-                  <option>With Card</option>
-                  <option>With Box</option>
-                  <option>Card & Box</option>
-                </select>
+            {/* Pricing & info */}
+            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #ede9e3', padding: '16px 16px 4px', marginBottom: 16 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#c0b8ae', textTransform: 'uppercase', letterSpacing: '0.9px', marginBottom: 14 }}>Pricing & info</div>
+
+              <div className="form-2col">
+                <div className="form-row">
+                  <label>Selling Price (€)</label>
+                  <input type="number" value={form.price_eur} onChange={e => handleField('price_eur', e.target.value)} placeholder="e.g. 35000" required />
+                  {usdPreview && <div style={{ fontSize: 12, color: '#b0a898', marginTop: 4 }}>≈ {usdPreview} USD</div>}
+                </div>
+                <div className="form-row">
+                  <label>Cost Price (€)</label>
+                  <input type="number" value={form.cost_eur} onChange={e => handleField('cost_eur', e.target.value)} placeholder="e.g. 28000" />
+                </div>
               </div>
-            )}
 
-            <div className="form-2col">
               <div className="form-row">
-                <label>Selling Price (€ EUR)</label>
-                <input type="number" value={form.price_eur} onChange={e => handleField('price_eur', e.target.value)} placeholder="e.g. 35000" required />
-                {usdPreview && (
-                  <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>≈ {usdPreview} USD</div>
-                )}
+                <label>Vendor</label>
+                <input value={form.vendor} onChange={e => handleField('vendor', e.target.value)} placeholder="e.g. c713671" />
               </div>
+
               <div className="form-row">
-                <label>Cost Price (€ EUR)</label>
-                <input type="number" value={form.cost_eur} onChange={e => handleField('cost_eur', e.target.value)} placeholder="e.g. 28000" />
+                <label>Notes</label>
+                <textarea value={form.notes} onChange={e => handleField('notes', e.target.value)} rows={3} placeholder="Box & papers, year, condition details..." />
               </div>
             </div>
 
-            <div className="form-row">
-              <label>Vendor</label>
-              <input value={form.vendor} onChange={e => handleField('vendor', e.target.value)} placeholder="e.g. c713671" />
+            {/* Preorder toggle */}
+            <div
+              onClick={() => handleField('is_preorder', !form.is_preorder)}
+              style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', background: form.is_preorder ? '#fdf8f2' : '#fff', borderRadius: 14, border: `1px solid ${form.is_preorder ? '#e0c899' : '#ede9e3'}`, marginBottom: 20, cursor: 'pointer', transition: 'all 0.2s' }}
+            >
+              <div style={{ width: 44, height: 26, borderRadius: 13, background: form.is_preorder ? '#b8965a' : '#ddd', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                <div style={{ position: 'absolute', top: 3, left: form.is_preorder ? 21 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.18s', boxShadow: '0 1px 4px rgba(0,0,0,0.18)' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: form.is_preorder ? '#b8965a' : '#333' }}>Preorder</div>
+                <div style={{ fontSize: 11, color: '#b0a898', marginTop: 1 }}>{form.is_preorder ? 'No SKU required — item not yet in stock' : 'Toggle on if item is not yet in stock'}</div>
+              </div>
             </div>
 
-            <div className="form-row">
-              <label>Notes</label>
-              <textarea value={form.notes} onChange={e => handleField('notes', e.target.value)} rows={3} placeholder="Box & papers, year, condition details..." />
-            </div>
-
-            <div className="form-row" style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <label style={{ margin: 0 }}>Preorder</label>
-              <input type="checkbox" checked={!!form.is_preorder} onChange={e => handleField('is_preorder', e.target.checked)} style={{ width: 18, height: 18, cursor: 'pointer' }} />
-              {form.is_preorder && <span style={{ fontSize: 12, color: '#888' }}>No SKU required — item not yet in stock</span>}
-            </div>
-
-            <button type="submit" className="btn btn-dark btn-full" disabled={posting}>
-              {posting ? <span className="spinner" style={{ width: 16, height: 16 }} /> : 'Post to catalog'}
+            <button type="submit" className="btn btn-dark btn-full" disabled={posting} style={{ height: 48, fontSize: 15, borderRadius: 12 }}>
+              {posting ? <span className="spinner" style={{ width: 18, height: 18 }} /> : form.is_preorder ? 'Post preorder' : 'Post to catalog'}
             </button>
           </form>
         </div>
