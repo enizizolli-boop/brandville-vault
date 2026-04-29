@@ -78,6 +78,7 @@ export default function WatchDetail() {
   const [offerComment, setOfferComment] = useState('')
   const [offerPhone, setOfferPhone] = useState('')
   const [submittingOffer, setSubmittingOffer] = useState(false)
+  const [isPreorder, setIsPreorder] = useState(false)
   const [myOffer, setMyOffer] = useState(null)
 
   const fetchWatch = useCallback(async () => {
@@ -88,13 +89,14 @@ export default function WatchDetail() {
       .single()
     if (data) {
       setWatch(data)
+      setIsPreorder(false)
       setImages([...(data.product_images || [])].sort((a, b) => a.position - b.position))
       setEditForm({
         category: data.category || 'Watches',
         brand: data.brand || '',
         model: data.model || '',
         reference: data.reference || '',
-        condition: data.condition || 'pre-owned conditions with MINOR signs of usage',
+        condition: data.condition || 'Pre-owned',
         price_usd: data.price_usd || '',
         price_eur: data.price_eur || '',
         cost_eur: data.cost_eur || '',
@@ -104,6 +106,30 @@ export default function WatchDetail() {
         subcategory: data.subcategory || '',
         item_size: data.item_size || '',
         scope_of_delivery: data.scope_of_delivery || '',
+      })
+      setLoading(false)
+      return
+    }
+    const { data: preorder } = await supabase.from('preorders').select('*').eq('id', id).single()
+    if (preorder) {
+      setWatch({ ...preorder, product_images: [] })
+      setIsPreorder(true)
+      setImages([])
+      setEditForm({
+        category: preorder.category || 'Watches',
+        brand: preorder.brand || '',
+        model: preorder.model || '',
+        reference: preorder.reference || '',
+        condition: preorder.condition || 'Pre-owned',
+        price_usd: preorder.price_usd || '',
+        price_eur: preorder.price_eur || '',
+        cost_eur: preorder.cost_eur || '',
+        vendor: preorder.vendor || '',
+        notes: preorder.notes || '',
+        metal_type: preorder.metal_type || '',
+        subcategory: preorder.subcategory || '',
+        item_size: preorder.item_size || '',
+        scope_of_delivery: preorder.scope_of_delivery || '',
       })
     }
     setLoading(false)
@@ -151,7 +177,8 @@ export default function WatchDetail() {
 
   async function handleSaveEdit() {
     setSaving(true)
-    const { error } = await supabase.from('products').update({
+    const table = isPreorder ? 'preorders' : 'products'
+    const { error } = await supabase.from(table).update({
       category: editForm.category || 'Watches',
       brand: editForm.brand,
       model: editForm.model,
@@ -167,18 +194,22 @@ export default function WatchDetail() {
       subcategory: editForm.category === 'Jewellery' && editForm.subcategory ? editForm.subcategory : null,
       item_size: editForm.category === 'Jewellery' && editForm.item_size && editForm.subcategory !== 'Necklaces' ? editForm.item_size : null,
     }).eq('id', id)
-    if (!error) { await fetchWatch(); setEditing(false); setMsg('Watch updated successfully.') }
+    if (!error) { await fetchWatch(); setEditing(false); setMsg('Updated successfully.') }
     setSaving(false)
   }
 
   async function handleDeleteListing() {
     if (!window.confirm('Delete this listing permanently? This cannot be undone.')) return
-    for (const img of images) {
-      const path = img.url.split('/object/public/watch-images/')[1]
-      if (path) await supabase.storage.from('watch-images').remove([decodeURIComponent(path)])
+    if (isPreorder) {
+      await supabase.from('preorders').delete().eq('id', id)
+    } else {
+      for (const img of images) {
+        const path = img.url.split('/object/public/watch-images/')[1]
+        if (path) await supabase.storage.from('watch-images').remove([decodeURIComponent(path)])
+      }
+      await supabase.from('product_images').delete().eq('product_id', id)
+      await supabase.from('products').delete().eq('id', id)
     }
-    await supabase.from('product_images').delete().eq('product_id', id)
-    await supabase.from('products').delete().eq('id', id)
     navigate(-1)
   }
 
