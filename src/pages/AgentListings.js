@@ -71,12 +71,13 @@ function parseQuickPost(text) {
   // --- Brand detection (scan all lines) ---
   const sortedBrands = [...BRANDS].sort((a, b) => b.length - a.length)
   const fullLower = fullText.toLowerCase()
+  let brandFoundInText = false
   for (const brand of sortedBrands) {
-    if (fullLower.includes(brand.toLowerCase())) { result.brand = brand; break }
+    if (fullLower.includes(brand.toLowerCase())) { result.brand = brand; brandFoundInText = true; break }
   }
   const abbreviations = { 'Audemars Piguet': /\bAP\b/, 'Patek Philippe': /\bPP\b/, 'Vacheron Constantin': /\bVC\b/i, 'Jaeger-LeCoultre': /\bJLC\b/, 'Richard Mille': /\bRM\b/, 'Van Cleef & Arpels': /\bVCA\b/, 'Louis Vuitton': /\bLV\b/ }
   for (const [brand, re] of Object.entries(abbreviations)) {
-    if (re.test(fullText)) { result.brand = brand; break }
+    if (re.test(fullText)) { result.brand = brand; brandFoundInText = true; break }
   }
 
   // Helper: parse a price string (58'000€, €35,000, 52.320, 13050)
@@ -169,8 +170,8 @@ function parseQuickPost(text) {
     }
     if (matchedMetal) continue
 
-    // First unmatched line → brand + model; second unmatched line → vendor
-    if (!modelLine) modelLine = line
+    // First unmatched line → brand + model only if brand was in text; otherwise → vendor
+    if (!modelLine && brandFoundInText) modelLine = line
     else if (!result.vendor) result.vendor = line
   }
 
@@ -767,7 +768,7 @@ export default function AgentListings() {
                   }
                   setForm(f => {
                     const updated = { ...f }
-                    if (parsed.brand !== 'Rolex' || !f.brand) updated.brand = parsed.brand
+                    if (parsed.brand !== EMPTY_FORM.brand || !f.brand) updated.brand = parsed.brand
                     if (parsed.model) updated.model = parsed.model
                     // reference/SKU left empty — agent fills manually if needed
                     if (parsed.price_eur) updated.price_eur = parsed.price_eur
