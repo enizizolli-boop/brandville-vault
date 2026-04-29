@@ -161,7 +161,7 @@ export default function DealerCatalog({ routeCategory }) {
     if (filterMetal) q = q.eq('metal_type', filterMetal)
     if (filterSize) q = q.eq('item_size', filterSize)
 
-    let pq = supabase.from('preorders').select('*').order('created_at', { ascending: false })
+    let pq = supabase.from('preorders').select('*, preorder_images(url, position)').order('created_at', { ascending: false })
     if (filterBrand) pq = pq.eq('brand', filterBrand)
     if (filterCond) pq = pq.eq('condition', filterCond)
     if (filterStatus) {
@@ -183,7 +183,7 @@ export default function DealerCatalog({ routeCategory }) {
     const [{ data: products }, { data: preorderData }] = await Promise.all([q, pq])
     const merged = [
       ...(products || []),
-      ...(preorderData || []).map(p => ({ ...p, product_images: [] }))
+      ...(preorderData || []).map(p => ({ ...p, product_images: p.preorder_images || [] }))
     ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     setWatches(merged)
     setLoading(false)
