@@ -379,8 +379,8 @@ export default function WatchDetail() {
             )}
           </div>
 
-          {/* Thumbnails */}
-          {images.length > 1 && (
+          {/* Thumbnails — always show strip when editing so + button is always available */}
+          {(images.length > 1 || editing) && images.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
               {images.map((img, i) => (
                 <div
