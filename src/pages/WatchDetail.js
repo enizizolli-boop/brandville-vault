@@ -112,12 +112,15 @@ export default function WatchDetail() {
     }
     const { data: preorder } = await supabase.from('preorders').select('*').eq('id', id).single()
     if (preorder) {
-      const { data: agentProfile } = preorder.posted_by
-        ? await supabase.from('profiles').select('full_name').eq('id', preorder.posted_by).single()
-        : { data: null }
-      setWatch({ ...preorder, product_images: [], profiles: agentProfile || null })
+      const [{ data: agentProfile }, { data: preorderImgs }] = await Promise.all([
+        preorder.posted_by
+          ? supabase.from('profiles').select('full_name').eq('id', preorder.posted_by).single()
+          : Promise.resolve({ data: null }),
+        supabase.from('preorder_images').select('id, url, position').eq('preorder_id', id).order('position')
+      ])
+      setWatch({ ...preorder, product_images: preorderImgs || [], profiles: agentProfile || null })
       setIsPreorder(true)
-      setImages([])
+      setImages([...(preorderImgs || [])].sort((a, b) => a.position - b.position))
       setEditForm({
         category: preorder.category || 'Watches',
         brand: preorder.brand || '',
@@ -223,15 +226,17 @@ export default function WatchDetail() {
     reordered.splice(toIndex, 0, moved)
     setImages(reordered)
     setActiveImg(toIndex)
+    const imgTable = isPreorder ? 'preorder_images' : 'product_images'
     await Promise.all(reordered.map((img, i) =>
-      supabase.from('product_images').update({ position: i }).eq('id', img.id)
+      supabase.from(imgTable).update({ position: i }).eq('id', img.id)
     ))
   }
 
   async function handleDeleteImage(img) {
     const path = img.url.split('/object/public/watch-images/')[1]
     if (path) await supabase.storage.from('watch-images').remove([decodeURIComponent(path)])
-    await supabase.from('product_images').delete().eq('id', img.id)
+    const imgTable = isPreorder ? 'preorder_images' : 'product_images'
+    await supabase.from(imgTable).delete().eq('id', img.id)
     setActiveImg(0)
     await fetchWatch()
   }
@@ -249,7 +254,9 @@ export default function WatchDetail() {
       const { error: upErr } = await supabase.storage.from('watch-images').upload(path, file)
       if (upErr) { setMsg(`Upload failed: ${upErr.message}`); continue }
       const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path)
-      const { error: dbErr } = await supabase.from('product_images').insert({ product_id: id, url: publicUrl, position: images.length + i })
+      const imgTable = isPreorder ? 'preorder_images' : 'product_images'
+      const imgRecord = isPreorder ? { preorder_id: id, url: publicUrl, position: images.length + i } : { product_id: id, url: publicUrl, position: images.length + i }
+      const { error: dbErr } = await supabase.from(imgTable).insert(imgRecord)
       if (dbErr) { setMsg(`Save failed: ${dbErr.message}`); continue }
       uploaded++
     }
