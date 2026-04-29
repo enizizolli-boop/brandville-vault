@@ -406,15 +406,19 @@ export default function AgentListings() {
         const { data: watch, error: wErr } = await supabase.from('products').insert({ ...payload, source: 'manual' }).select().single()
         if (wErr) throw wErr
 
+        console.log('Uploading', images.length, 'image(s)')
         for (let i = 0; i < images.length; i++) {
           const file = images[i]
           const ext = file.name.split('.').pop()
+          console.log(`Image ${i}: ${file.name} (${file.type}, ${file.size} bytes)`)
           const path = `${watch.id}/${i}.${ext}`
           const { error: upErr } = await supabase.storage.from('watch-images').upload(path, file)
           if (upErr) { console.error('Storage upload error:', upErr.message); throw new Error(`Image upload failed: ${upErr.message}`) }
+          console.log(`Image ${i} uploaded to storage`)
           const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path)
           const { error: imgErr } = await supabase.from('product_images').insert({ product_id: watch.id, url: publicUrl, position: i })
           if (imgErr) { console.error('product_images insert error:', imgErr.message); throw new Error(`Image save failed: ${imgErr.message}`) }
+          console.log(`Image ${i} saved to DB: ${publicUrl}`)
         }
 
         notifyDealers(watch)
