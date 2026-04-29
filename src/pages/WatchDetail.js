@@ -240,16 +240,21 @@ export default function WatchDetail() {
     const files = Array.from(e.target.files)
     if (!files.length) return
     setUploadingImg(true)
+    setMsg('')
+    let uploaded = 0
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
       const ext = file.name.split('.').pop()
       const path = `${id}/${Date.now()}_${i}.${ext}`
       const { error: upErr } = await supabase.storage.from('watch-images').upload(path, file)
-      if (upErr) continue
+      if (upErr) { setMsg(`Upload failed: ${upErr.message}`); continue }
       const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path)
-      await supabase.from('product_images').insert({ product_id: id, url: publicUrl, position: images.length + i })
+      const { error: dbErr } = await supabase.from('product_images').insert({ product_id: id, url: publicUrl, position: images.length + i })
+      if (dbErr) { setMsg(`Save failed: ${dbErr.message}`); continue }
+      uploaded++
     }
     setUploadingImg(false)
+    if (uploaded > 0) setMsg('')
     await fetchWatch()
   }
 
