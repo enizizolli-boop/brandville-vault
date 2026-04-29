@@ -327,8 +327,8 @@ export default function AgentListings() {
 
   const fetchPreorders = useCallback(async () => {
     const q = profile?.role === 'admin'
-      ? supabase.from('preorders').select('*').order('created_at', { ascending: false })
-      : supabase.from('preorders').select('*').eq('posted_by', profile?.id).order('created_at', { ascending: false })
+      ? supabase.from('preorders').select('*, preorder_images(url, position)').order('created_at', { ascending: false })
+      : supabase.from('preorders').select('*, preorder_images(url, position)').eq('posted_by', profile?.id).order('created_at', { ascending: false })
     const { data } = await q
     setPreorders(data || [])
   }, [profile])
@@ -505,6 +505,25 @@ export default function AgentListings() {
     fetchPreorders()
   }
 
+  async function markPreorderAvailable(id) {
+    await supabase.from('preorders').update({ status: 'available' }).eq('id', id)
+    fetchPreorders()
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return ''
+    const d = new Date(iso)
+    const dd = String(d.getDate()).padStart(2, '0')
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const yy = String(d.getFullYear()).slice(2)
+    return `${dd}/${mm}/${yy}`
+  }
+
+  function getPreorderThumb(p) {
+    const imgs = [...(p.preorder_images || [])].sort((a, b) => a.position - b.position)
+    return imgs[0]?.url || null
+  }
+
   async function deletePreorder(id) {
     if (!window.confirm('Delete this preorder?')) return
     await supabase.from('preorders').delete().eq('id', id)
@@ -610,17 +629,21 @@ export default function AgentListings() {
               ? <div className="empty-state">{search ? 'No preorders match your search' : 'No preorders yet'}</div>
               : filteredPreorders.map(p => (
               <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid #e8e5e0', borderRadius: 10, marginBottom: 8, background: '#fff' }}>
-                <div style={{ width: 50, height: 50, borderRadius: 8, background: '#f7f6f3', border: '1px solid #e8e5e0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <span style={{ fontSize: 20 }}>🔖</span>
+                <div onClick={() => navigate(`/catalog/${p.id}`)} style={{ width: 50, height: 50, borderRadius: 8, background: '#f7f6f3', border: '1px solid #e8e5e0', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}>
+                  {getPreorderThumb(p) ? <img src={getPreorderThumb(p)} alt={p.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20 }}>🔖</span>}
                 </div>
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => navigate(`/catalog/${p.id}`)}>
                   <div style={{ fontSize: 13, fontWeight: 500 }}>{p.brand} {p.model}</div>
                   <div style={{ fontSize: 11, color: '#aaa' }}>{p.price_eur ? `€${Number(p.price_eur).toLocaleString()}` : '—'} · {p.condition}{p.category ? ` · ${p.category}` : ''}</div>
                 </div>
-                <span className={`badge badge-${p.status}`}>{p.status}</span>
-                {p.status !== 'sold' && (
-                  <button className="btn btn-sm" onClick={() => markPreorderSold(p.id)}>Mark sold</button>
-                )}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                  <span className={`badge badge-${p.status}`}>{p.status}</span>
+                  <span style={{ fontSize: 10, color: '#bbb' }}>Posted {fmtDate(p.created_at)}</span>
+                </div>
+                {p.status === 'sold'
+                  ? <button className="btn btn-sm" onClick={() => markPreorderAvailable(p.id)}>Mark available</button>
+                  : <button className="btn btn-sm" onClick={() => markPreorderSold(p.id)}>Mark sold</button>
+                }
                 {(profile?.role === 'admin' || p.posted_by === profile?.id) && (
                   <button className="btn btn-sm btn-danger" onClick={() => deletePreorder(p.id)}>Delete</button>
                 )}
