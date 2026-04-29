@@ -112,7 +112,10 @@ export default function WatchDetail() {
     }
     const { data: preorder } = await supabase.from('preorders').select('*').eq('id', id).single()
     if (preorder) {
-      setWatch({ ...preorder, product_images: [] })
+      const { data: agentProfile } = preorder.posted_by
+        ? await supabase.from('profiles').select('full_name').eq('id', preorder.posted_by).single()
+        : { data: null }
+      setWatch({ ...preorder, product_images: [], profiles: agentProfile || null })
       setIsPreorder(true)
       setImages([])
       setEditForm({
