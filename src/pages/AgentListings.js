@@ -393,6 +393,7 @@ export default function AgentListings() {
       }
 
       if (form.is_preorder) {
+        console.log('Posting as PREORDER (no images)')
         const { data: preorder, error: pErr } = await supabase.from('preorders').insert(payload).select().single()
         if (pErr) throw pErr
         setForm(EMPTY_FORM)
@@ -748,6 +749,12 @@ export default function AgentListings() {
           {error && <div className="error-msg" style={{ marginBottom: 16 }}>{error}</div>}
 
           <form onSubmit={handlePost}>
+
+            {form.is_preorder && (
+              <div style={{ background: '#fff8ec', border: '1px solid #e0c899', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#b8965a', fontWeight: 600 }}>
+                Preorder mode is ON — item will be saved to preorders, not products. Images are not saved in this mode.
+              </div>
+            )}
 
             {/* Photos */}
             <label className="upload-zone" htmlFor="img-upload" style={{ marginBottom: 20 }}>
