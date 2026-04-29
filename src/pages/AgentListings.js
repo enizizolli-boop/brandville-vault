@@ -314,6 +314,8 @@ export default function AgentListings() {
   const [agentComments, setAgentComments] = useState({})
   const [counterOpen, setCounterOpen] = useState({})
   const [offerStatusTab, setOfferStatusTab] = useState('pending')
+  const [preorders, setPreorders] = useState([])
+  const [listingType, setListingType] = useState('instock')
 
   const fetchMyWatches = useCallback(async () => {
     const q = profile?.role === 'admin'
@@ -322,6 +324,14 @@ export default function AgentListings() {
     const { data } = await q
     setWatches(data || [])
     setLoading(false)
+  }, [profile])
+
+  const fetchPreorders = useCallback(async () => {
+    const q = profile?.role === 'admin'
+      ? supabase.from('preorders').select('*').order('created_at', { ascending: false })
+      : supabase.from('preorders').select('*').eq('posted_by', profile?.id).order('created_at', { ascending: false })
+    const { data } = await q
+    setPreorders(data || [])
   }, [profile])
 
   const fetchOffers = useCallback(async () => {
@@ -335,7 +345,7 @@ export default function AgentListings() {
     setOffersLoading(false)
   }, [])
 
-  useEffect(() => { if (profile) fetchMyWatches() }, [profile, fetchMyWatches])
+  useEffect(() => { if (profile) { fetchMyWatches(); fetchPreorders() } }, [profile, fetchMyWatches, fetchPreorders])
   useEffect(() => { if (profile && tab === 'offers') fetchOffers() }, [profile, tab, fetchOffers])
 
   function handleField(k, v) { setForm(f => ({ ...f, [k]: v })) }
@@ -364,7 +374,7 @@ export default function AgentListings() {
     setPosting(true)
     try {
       const priceUsd = rate ? Math.round(Number(form.price_eur) * rate) : null
-      const { data: watch, error: wErr } = await supabase.from('products').insert({
+      const payload = {
         category: form.category,
         brand: form.brand,
         model: form.model,
@@ -380,30 +390,42 @@ export default function AgentListings() {
         subcategory: form.category === 'Jewellery' && form.subcategory ? form.subcategory : null,
         item_size: form.category === 'Jewellery' && form.item_size && form.subcategory !== 'Necklaces' ? form.item_size : null,
         posted_by: profile.id,
-        source: 'manual',
         status: 'available',
-        is_preorder: form.is_preorder || false
-      }).select().single()
-      if (wErr) throw wErr
-
-      for (let i = 0; i < images.length; i++) {
-        const file = images[i]
-        const ext = file.name.split('.').pop()
-        const path = `${watch.id}/${i}.${ext}`
-        const { error: upErr } = await supabase.storage.from('watch-images').upload(path, file)
-        if (upErr) continue
-        const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path)
-        await supabase.from('product_images').insert({ product_id: watch.id, url: publicUrl, position: i })
       }
 
-      notifyDealers(watch)
+      if (form.is_preorder) {
+        const { data: preorder, error: pErr } = await supabase.from('preorders').insert(payload).select().single()
+        if (pErr) throw pErr
+        notifyDealers(preorder)
+        setForm(EMPTY_FORM)
+        setImages([])
+        setPreviews([])
+        setMsg('Preorder posted — dealers will be notified.')
+        setTab('listings')
+        setListingType('preorders')
+        fetchPreorders()
+      } else {
+        const { data: watch, error: wErr } = await supabase.from('products').insert({ ...payload, source: 'manual' }).select().single()
+        if (wErr) throw wErr
 
-      setForm(EMPTY_FORM)
-      setImages([])
-      setPreviews([])
-      setMsg('Item posted — now live in the dealer catalog.')
-      setTab('listings')
-      fetchMyWatches()
+        for (let i = 0; i < images.length; i++) {
+          const file = images[i]
+          const ext = file.name.split('.').pop()
+          const path = `${watch.id}/${i}.${ext}`
+          const { error: upErr } = await supabase.storage.from('watch-images').upload(path, file)
+          if (upErr) continue
+          const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path)
+          await supabase.from('product_images').insert({ product_id: watch.id, url: publicUrl, position: i })
+        }
+
+        notifyDealers(watch)
+        setForm(EMPTY_FORM)
+        setImages([])
+        setPreviews([])
+        setMsg('Item posted — now live in the dealer catalog.')
+        setTab('listings')
+        fetchMyWatches()
+      }
     } catch (err) {
       console.error('Post error:', err)
       setError(err?.message || 'Something went wrong. Please try again.')
@@ -468,6 +490,17 @@ export default function AgentListings() {
     fetchMyWatches()
   }
 
+  async function markPreorderSold(id) {
+    await supabase.from('preorders').update({ status: 'sold' }).eq('id', id)
+    fetchPreorders()
+  }
+
+  async function deletePreorder(id) {
+    if (!window.confirm('Delete this preorder?')) return
+    await supabase.from('preorders').delete().eq('id', id)
+    fetchPreorders()
+  }
+
   async function deleteWatch(id) {
     if (!window.confirm('Delete this item?')) return
     await supabase.from('products').delete().eq('id', id)
@@ -493,6 +526,9 @@ export default function AgentListings() {
   const filteredWatches = watches.filter(w =>
     !search || w.brand?.toLowerCase().includes(q) || w.model?.toLowerCase().includes(q) || w.reference?.toLowerCase().includes(q)
   )
+  const filteredPreorders = preorders.filter(p =>
+    !search || p.brand?.toLowerCase().includes(q) || p.model?.toLowerCase().includes(q)
+  )
 
   return (
     <div className="page">
@@ -512,36 +548,75 @@ export default function AgentListings() {
       {tab === 'listings' && (
         <div style={{ padding: 16 }}>
           {msg && <div className="success-msg" style={{ marginBottom: 12 }}>{msg}</div>}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+            <button
+              className={`btn btn-sm${listingType === 'instock' ? ' btn-dark' : ''}`}
+              onClick={() => setListingType('instock')}
+            >
+              In stock {watches.length > 0 && `(${watches.length})`}
+            </button>
+            <button
+              className={`btn btn-sm${listingType === 'preorders' ? ' btn-dark' : ''}`}
+              onClick={() => setListingType('preorders')}
+            >
+              Preorders {preorders.length > 0 && `(${preorders.length})`}
+            </button>
+          </div>
           <input
             placeholder="Search brand, model or reference..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={{ width: '100%', marginBottom: 12, boxSizing: 'border-box' }}
           />
-          {loading
-            ? <div className="loading-page" style={{ minHeight: 200 }}><div className="spinner" /></div>
-            : filteredWatches.length === 0
-              ? <div className="empty-state">{search ? 'No items match your search' : 'No items posted yet'}</div>
-              : filteredWatches.map(w => (
-              <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid #e8e5e0', borderRadius: 10, marginBottom: 8, background: '#fff' }}>
-                <div onClick={() => navigate(`/catalog/${w.id}`)} style={{ width: 50, height: 50, borderRadius: 8, background: '#f7f6f3', border: '1px solid #e8e5e0', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}>
-                  {getThumb(w) ? <img src={getThumb(w)} alt={w.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20 }}>⌚</span>}
+
+          {listingType === 'instock' && (
+            loading
+              ? <div className="loading-page" style={{ minHeight: 200 }}><div className="spinner" /></div>
+              : filteredWatches.length === 0
+                ? <div className="empty-state">{search ? 'No items match your search' : 'No items posted yet'}</div>
+                : filteredWatches.map(w => (
+                <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid #e8e5e0', borderRadius: 10, marginBottom: 8, background: '#fff' }}>
+                  <div onClick={() => navigate(`/catalog/${w.id}`)} style={{ width: 50, height: 50, borderRadius: 8, background: '#f7f6f3', border: '1px solid #e8e5e0', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}>
+                    {getThumb(w) ? <img src={getThumb(w)} alt={w.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20 }}>⌚</span>}
+                  </div>
+                  <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => navigate(`/catalog/${w.id}`)}>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>{w.brand} {w.model}</div>
+                    <div style={{ fontSize: 11, color: '#aaa' }}>{fmtPrice(w)} · {w.condition}{w.reference ? ` · ${w.reference}` : ''}{w.category ? ` · ${w.category}` : ''}</div>
+                  </div>
+                  <span className={`badge badge-${w.status}`}>{w.status}</span>
+                  <button className="btn btn-sm" onClick={() => navigate(`/catalog/${w.id}`)}>Edit</button>
+                  {w.status !== 'sold' && (
+                    <button className="btn btn-sm" onClick={() => markSold(w.id)}>Mark sold</button>
+                  )}
+                  {(profile?.role === 'admin' || w.posted_by === profile?.id) && (
+                    <button className="btn btn-sm btn-danger" onClick={() => deleteWatch(w.id)}>Delete</button>
+                  )}
                 </div>
-                <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => navigate(`/catalog/${w.id}`)}>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>{w.brand} {w.model}</div>
-                  <div style={{ fontSize: 11, color: '#aaa' }}>{fmtPrice(w)} · {w.condition}{w.reference ? ` · ${w.reference}` : ''}{w.category ? ` · ${w.category}` : ''}</div>
+              ))
+          )}
+
+          {listingType === 'preorders' && (
+            filteredPreorders.length === 0
+              ? <div className="empty-state">{search ? 'No preorders match your search' : 'No preorders yet'}</div>
+              : filteredPreorders.map(p => (
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid #e8e5e0', borderRadius: 10, marginBottom: 8, background: '#fff' }}>
+                <div style={{ width: 50, height: 50, borderRadius: 8, background: '#f7f6f3', border: '1px solid #e8e5e0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <span style={{ fontSize: 20 }}>🔖</span>
                 </div>
-                <span className={`badge badge-${w.status}`}>{w.status}</span>
-                <button className="btn btn-sm" onClick={() => navigate(`/catalog/${w.id}`)}>Edit</button>
-                {w.status !== 'sold' && (
-                  <button className="btn btn-sm" onClick={() => markSold(w.id)}>Mark sold</button>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500 }}>{p.brand} {p.model}</div>
+                  <div style={{ fontSize: 11, color: '#aaa' }}>{p.price_eur ? `€${Number(p.price_eur).toLocaleString()}` : '—'} · {p.condition}{p.category ? ` · ${p.category}` : ''}</div>
+                </div>
+                <span className={`badge badge-${p.status}`}>{p.status}</span>
+                {p.status !== 'sold' && (
+                  <button className="btn btn-sm" onClick={() => markPreorderSold(p.id)}>Mark sold</button>
                 )}
-                {(profile?.role === 'admin' || w.posted_by === profile?.id) && (
-                  <button className="btn btn-sm btn-danger" onClick={() => deleteWatch(w.id)}>Delete</button>
+                {(profile?.role === 'admin' || p.posted_by === profile?.id) && (
+                  <button className="btn btn-sm btn-danger" onClick={() => deletePreorder(p.id)}>Delete</button>
                 )}
               </div>
             ))
-          }
+          )}
         </div>
       )}
 
