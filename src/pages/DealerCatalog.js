@@ -160,8 +160,32 @@ export default function DealerCatalog({ routeCategory }) {
     }
     if (filterMetal) q = q.eq('metal_type', filterMetal)
     if (filterSize) q = q.eq('item_size', filterSize)
-    const { data } = await q
-    setWatches(data || [])
+
+    let pq = supabase.from('preorders').select('*').order('created_at', { ascending: false })
+    if (filterBrand) pq = pq.eq('brand', filterBrand)
+    if (filterCond) pq = pq.eq('condition', filterCond)
+    if (filterStatus) {
+      pq = pq.eq('status', filterStatus)
+    } else {
+      pq = pq.neq('status', 'sold')
+    }
+    if (lockedCategory === 'Bags') {
+      if (filterCategory) pq = pq.eq('category', filterCategory)
+      else pq = pq.in('category', BAGS_CATEGORIES)
+    } else if (lockedCategory) {
+      pq = pq.eq('category', lockedCategory)
+    } else if (filterCategory) {
+      pq = pq.eq('category', filterCategory)
+    }
+    if (filterMetal) pq = pq.eq('metal_type', filterMetal)
+    if (filterSize) pq = pq.eq('item_size', filterSize)
+
+    const [{ data: products }, { data: preorderData }] = await Promise.all([q, pq])
+    const merged = [
+      ...(products || []),
+      ...(preorderData || []).map(p => ({ ...p, product_images: [] }))
+    ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    setWatches(merged)
     setLoading(false)
   }, [filterBrand, filterCond, filterStatus, filterCategory, filterMetal, filterSize, filterJewelleryType, lockedCategory])
 
