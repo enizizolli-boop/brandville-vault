@@ -638,7 +638,9 @@ export default function AgentListings() {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
                   <span className={`badge badge-${p.status}`}>{p.status}</span>
-                  <span style={{ fontSize: 10, color: '#bbb' }}>Posted {fmtDate(p.created_at)}</span>
+                  {p.status === 'posted' && p.posted_at && (
+                    <span style={{ fontSize: 10, color: '#bbb' }}>Posted {fmtDate(p.posted_at)}</span>
+                  )}
                 </div>
                 {p.status === 'sold'
                   ? <button className="btn btn-sm" onClick={() => markPreorderAvailable(p.id)}>Mark available</button>
