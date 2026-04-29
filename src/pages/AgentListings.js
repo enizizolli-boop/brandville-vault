@@ -151,7 +151,7 @@ function parseQuickPost(text) {
       }
     }
     if (matchedScope) {
-      const yearMatch = line.match(/\b(20[12]\d)\b/)
+      const yearMatch = line.match(/\b(20\d{2})\b/)
       if (yearMatch) noteLines.push(yearMatch[1])
       continue
     }
