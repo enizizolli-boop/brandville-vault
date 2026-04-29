@@ -121,13 +121,10 @@ function parseQuickPost(text) {
     // Price line: has € or $ or apostrophe-separated number, or just digits
     const hasPrice = /[€$]/.test(line) || /\d[']\d/.test(line) || /^[\d',.€$\s\-]+$/.test(line.trim())
     if (hasPrice && /\d{3,}/.test(line.replace(/'/g, ''))) {
-      // If line has both € and $, extract the EUR part
       const eurMatch = line.match(/([\d]['\d,.\s]*[\d])\s*€/)
-      if (eurMatch) {
-        result.price_eur = parsePrice(eurMatch[0])
-      } else {
-        result.price_eur = parsePrice(line)
-      }
+      const parsed = eurMatch ? parsePrice(eurMatch[0]) : parsePrice(line)
+      if (!result.price_eur) result.price_eur = parsed
+      else if (!result.cost_eur) result.cost_eur = parsed
       continue
     }
 
@@ -172,8 +169,9 @@ function parseQuickPost(text) {
     }
     if (matchedMetal) continue
 
-    // Otherwise this is likely the brand + model line (take the first unmatched line)
+    // First unmatched line → brand + model; second unmatched line → vendor
     if (!modelLine) modelLine = line
+    else if (!result.vendor) result.vendor = line
   }
 
   // Combine note lines into notes
@@ -251,7 +249,7 @@ const EMPTY_FORM = {
   brand: 'Rolex',
   model: '',
   reference: '',
-  condition: 'pre-owned conditions with MINOR signs of usage',
+  condition: 'Pre-owned',
   scope_of_delivery: '',
   price_eur: '',
   cost_eur: '',
@@ -773,7 +771,7 @@ export default function AgentListings() {
                     if (parsed.model) updated.model = parsed.model
                     // reference/SKU left empty — agent fills manually if needed
                     if (parsed.price_eur) updated.price_eur = parsed.price_eur
-                    if (parsed.condition !== EMPTY_FORM.condition) updated.condition = parsed.condition
+                    if (parsed.condition && parsed.condition !== EMPTY_FORM.condition) updated.condition = parsed.condition
                     if (parsed.category) updated.category = parsed.category
                     if (parsed.scope_of_delivery) updated.scope_of_delivery = parsed.scope_of_delivery
                     if (parsed.metal_type) updated.metal_type = parsed.metal_type
