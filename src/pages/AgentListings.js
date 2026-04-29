@@ -156,8 +156,8 @@ function parseQuickPost(text) {
       continue
     }
 
-    // Vendor line → vendor field (Vendor:, WeChat:, or after | on net line)
-    if (/\bvendor\b/i.test(lineLower) || /\bwechat\b/i.test(lineLower)) {
+    // Vendor line → only treat as keyword if followed by colon (e.g. "Vendor: John", "WeChat: c713671")
+    if (/\b(?:vendor|wechat):/i.test(lineLower)) {
       const vendorMatch = line.match(/(?:vendor|wechat)[:\s]*(.+)/i)
       if (vendorMatch) result.vendor = vendorMatch[1].trim()
       continue
