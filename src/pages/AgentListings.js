@@ -395,7 +395,6 @@ export default function AgentListings() {
       if (form.is_preorder) {
         const { data: preorder, error: pErr } = await supabase.from('preorders').insert(payload).select().single()
         if (pErr) throw pErr
-        notifyDealers(preorder)
         setForm(EMPTY_FORM)
         setImages([])
         setPreviews([])
