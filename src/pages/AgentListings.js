@@ -795,20 +795,6 @@ export default function AgentListings() {
 
           <form onSubmit={handlePost}>
 
-            {/* Preorder toggle */}
-            <div
-              onClick={() => handleField('is_preorder', !form.is_preorder)}
-              style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', background: form.is_preorder ? '#fdf8f2' : '#fff', borderRadius: 14, border: `1px solid ${form.is_preorder ? '#e0c899' : '#ede9e3'}`, marginBottom: 20, cursor: 'pointer', transition: 'all 0.2s' }}
-            >
-              <div style={{ width: 44, height: 26, borderRadius: 13, background: form.is_preorder ? '#b8965a' : '#ddd', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
-                <div style={{ position: 'absolute', top: 3, left: form.is_preorder ? 21 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.18s', boxShadow: '0 1px 4px rgba(0,0,0,0.18)' }} />
-              </div>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: form.is_preorder ? '#b8965a' : '#333' }}>Preorder</div>
-                <div style={{ fontSize: 11, color: '#b0a898', marginTop: 1 }}>{form.is_preorder ? 'No SKU required — item not yet in stock' : 'Toggle on if item is not yet in stock'}</div>
-              </div>
-            </div>
-
             {/* Photos */}
             <label htmlFor="img-upload" style={{ display: 'block', marginBottom: 20, borderRadius: 14, border: '1.5px dashed #d9d4cc', background: '#faf9f7', cursor: 'pointer', overflow: 'hidden', minHeight: 90, transition: 'border-color 0.15s' }}>
               {previews.length > 0
@@ -970,6 +956,20 @@ export default function AgentListings() {
               <div className="form-row">
                 <label>Notes</label>
                 <textarea value={form.notes} onChange={e => handleField('notes', e.target.value)} rows={3} placeholder="Box & papers, year, condition details..." />
+              </div>
+            </div>
+
+            {/* Preorder toggle */}
+            <div
+              onClick={() => handleField('is_preorder', !form.is_preorder)}
+              style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', background: form.is_preorder ? '#fdf8f2' : '#fff', borderRadius: 14, border: `1px solid ${form.is_preorder ? '#e0c899' : '#ede9e3'}`, marginBottom: 20, cursor: 'pointer', transition: 'all 0.2s' }}
+            >
+              <div style={{ width: 44, height: 26, borderRadius: 13, background: form.is_preorder ? '#b8965a' : '#ddd', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                <div style={{ position: 'absolute', top: 3, left: form.is_preorder ? 21 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.18s', boxShadow: '0 1px 4px rgba(0,0,0,0.18)' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: form.is_preorder ? '#b8965a' : '#333' }}>Preorder</div>
+                <div style={{ fontSize: 11, color: '#b0a898', marginTop: 1 }}>{form.is_preorder ? 'No SKU required — item not yet in stock' : 'Toggle on if item is not yet in stock'}</div>
               </div>
             </div>
 
