@@ -315,6 +315,8 @@ export default function AgentListings() {
   const [offerStatusTab, setOfferStatusTab] = useState('pending')
   const [preorders, setPreorders] = useState([])
   const [listingType, setListingType] = useState('instock')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
 
   const fetchMyWatches = useCallback(async () => {
     const q = profile?.role === 'admin'
@@ -553,9 +555,12 @@ export default function AgentListings() {
   const filteredWatches = watches.filter(w =>
     !search || w.brand?.toLowerCase().includes(q) || w.model?.toLowerCase().includes(q) || w.reference?.toLowerCase().includes(q)
   )
-  const filteredPreorders = preorders.filter(p =>
-    !search || p.brand?.toLowerCase().includes(q) || p.model?.toLowerCase().includes(q)
-  )
+  const filteredPreorders = preorders.filter(p => {
+    if (search && !p.brand?.toLowerCase().includes(q) && !p.model?.toLowerCase().includes(q)) return false
+    if (dateFrom && new Date(p.created_at) < new Date(dateFrom)) return false
+    if (dateTo && new Date(p.created_at) > new Date(dateTo + 'T23:59:59')) return false
+    return true
+  })
 
   return (
     <div className="page">
@@ -595,6 +600,17 @@ export default function AgentListings() {
             onChange={e => setSearch(e.target.value)}
             style={{ width: '100%', marginBottom: 12, boxSizing: 'border-box' }}
           />
+
+          {listingType === 'preorders' && (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ flex: 1, fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid #e0dbd4', background: '#faf9f7' }} />
+              <span style={{ color: '#bbb', fontSize: 13 }}>—</span>
+              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ flex: 1, fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid #e0dbd4', background: '#faf9f7' }} />
+              {(dateFrom || dateTo) && (
+                <button className="btn btn-sm" onClick={() => { setDateFrom(''); setDateTo('') }} style={{ whiteSpace: 'nowrap' }}>Clear</button>
+              )}
+            </div>
+          )}
 
           {listingType === 'instock' && (
             loading
