@@ -328,7 +328,7 @@ export default function AgentListings() {
   }, [profile])
 
   const fetchPreorders = useCallback(async () => {
-    const q = supabase.from('preorders').select('*, preorder_images(url, position)').order('created_at', { ascending: false })
+    const q = supabase.from('preorders').select('*, preorder_images(url, position), profiles(full_name)').order('created_at', { ascending: false })
     const { data } = await q
     setPreorders(data || [])
   }, [profile])
@@ -650,6 +650,7 @@ export default function AgentListings() {
                   <div style={{ fontSize: 13, fontWeight: 500 }}>{p.brand} {p.model}</div>
                   <div style={{ fontSize: 11, color: '#aaa' }}>{p.price_eur ? `€${Number(p.price_eur).toLocaleString()}` : '—'} · {p.condition}{p.category ? ` · ${p.category}` : ''}</div>
                 </div>
+                <div style={{ fontSize: 12, color: '#888', minWidth: 90, textAlign: 'right' }}>{p.profiles?.full_name || '—'}</div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
                   <span className={`badge badge-${p.status}`}>{p.status}</span>
                   {p.status === 'posted' && p.posted_at && (
