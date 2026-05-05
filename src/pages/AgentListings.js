@@ -326,9 +326,7 @@ export default function AgentListings() {
   }, [profile])
 
   const fetchPreorders = useCallback(async () => {
-    const q = profile?.role === 'admin'
-      ? supabase.from('preorders').select('*, preorder_images(url, position)').order('created_at', { ascending: false })
-      : supabase.from('preorders').select('*, preorder_images(url, position)').eq('posted_by', profile?.id).order('created_at', { ascending: false })
+    const q = supabase.from('preorders').select('*, preorder_images(url, position)').order('created_at', { ascending: false })
     const { data } = await q
     setPreorders(data || [])
   }, [profile])
