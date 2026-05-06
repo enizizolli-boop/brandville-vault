@@ -428,7 +428,6 @@ export default function AgentListings() {
           if (imgErr) { console.error('product_images insert error:', imgErr.message); throw new Error(`Image save failed: ${imgErr.message}`) }
         }
 
-        notifyDealers(watch)
         setForm(EMPTY_FORM)
         setImages([])
         setPreviews([])
