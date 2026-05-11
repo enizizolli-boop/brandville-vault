@@ -391,9 +391,6 @@ export default function DealerCatalog({ routeCategory }) {
               <div className="watch-card" onClick={() => navigate(`/catalog/${w.id}`)}>
                 <div className="watch-card-img">
                   <CardImages watch={w} brandEmoji={BRAND_EMOJI[w.brand] || '⌚'} />
-                  <div className="watch-card-badge">
-                    <span className={`badge badge-${w.status}`}>{w.status}</span>
-                  </div>
                   {w.notes && <div className="watch-card-year">{w.notes}</div>}
                 </div>
                 <div className="watch-card-body">
@@ -410,6 +407,7 @@ export default function DealerCatalog({ routeCategory }) {
                     <div className="watch-card-cond">{w.condition}</div>
                   </div>
                 </div>
+                <div className={`watch-card-status ${w.status}`}>{w.status}</div>
               </div>
             </React.Fragment>)}
           )}
