@@ -391,12 +391,11 @@ export default function DealerCatalog({ routeCategory }) {
               <div className="watch-card" onClick={() => navigate(`/catalog/${w.id}`)}>
                 <div className="watch-card-img">
                   <CardImages watch={w} brandEmoji={BRAND_EMOJI[w.brand] || '⌚'} />
-                  {w.notes && <div className="watch-card-year">{w.notes}</div>}
                 </div>
                 <div className="watch-card-body">
                   <div className="watch-card-brand">{w.category ? w.category + ' · ' : ''}{w.brand}</div>
                   <div className="watch-card-model">{w.model}</div>
-                  <div className="watch-card-ref">{cleanRef(w.reference) || '—'}</div>
+                  <div className="watch-card-ref">{cleanRef(w.reference) || '—'}{w.notes ? ` · ${w.notes}` : ''}</div>
                   <div className="watch-card-foot">
                     <div>
                       <div className="watch-card-price">{fmtPrice(w, currency, rate)}</div>
@@ -404,10 +403,15 @@ export default function DealerCatalog({ routeCategory }) {
                         {currency === 'EUR' && rate ? '$' + Math.round(Number(w.price_eur) * rate).toLocaleString() : w.price_eur ? '€' + Number(w.price_eur).toLocaleString() : ''}
                       </div>
                     </div>
-                    <div className="watch-card-cond">{w.condition}</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                      <div className="watch-card-cond">{w.condition}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <div className={`watch-card-status-dot ${w.status}`} />
+                        <span style={{ fontSize: 9, color: '#bbb', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{w.status}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className={`watch-card-status ${w.status}`}>{w.status}</div>
               </div>
             </React.Fragment>)}
           )}
