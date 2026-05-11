@@ -264,8 +264,10 @@ export default function DealerCatalog({ routeCategory }) {
       )}
       <div className="stat-grid">
         <div className="stat-card"><div className="stat-val">{avail}</div><div className="stat-lbl">Available</div></div>
+        <div className="stat-divider" />
         <div className="stat-card"><div className="stat-val">{reserved}</div><div className="stat-lbl">Reserved</div></div>
-        <div className="stat-card"><div className="stat-val">{watches.length}</div><div className="stat-lbl">Total in stock</div></div>
+        <div className="stat-divider" />
+        <div className="stat-card"><div className="stat-val">{watches.length}</div><div className="stat-lbl">Total</div></div>
       </div>
       <div className="filters">
         {lockedCategory === 'Bags' ? (
@@ -389,14 +391,23 @@ export default function DealerCatalog({ routeCategory }) {
               <div className="watch-card" onClick={() => navigate(`/catalog/${w.id}`)}>
                 <div className="watch-card-img">
                   <CardImages watch={w} brandEmoji={BRAND_EMOJI[w.brand] || '⌚'} />
+                  <div className="watch-card-badge">
+                    <span className={`badge badge-${w.status}`}>{w.status}</span>
+                  </div>
+                  {w.notes && <div className="watch-card-year">{w.notes}</div>}
                 </div>
                 <div className="watch-card-body">
                   <div className="watch-card-brand">{w.category ? w.category + ' · ' : ''}{w.brand}</div>
                   <div className="watch-card-model">{w.model}</div>
                   <div className="watch-card-ref">{cleanRef(w.reference) || '—'}</div>
                   <div className="watch-card-foot">
-                    <span className="watch-card-price">{fmtPrice(w, currency, rate)}</span>
-                    <span className={`badge badge-${w.status}`}>{w.status}</span>
+                    <div>
+                      <div className="watch-card-price">{fmtPrice(w, currency, rate)}</div>
+                      <div className="watch-card-price-alt">
+                        {currency === 'EUR' && rate ? '$' + Math.round(Number(w.price_eur) * rate).toLocaleString() : w.price_eur ? '€' + Number(w.price_eur).toLocaleString() : ''}
+                      </div>
+                    </div>
+                    <div className="watch-card-cond">{w.condition}</div>
                   </div>
                 </div>
               </div>
