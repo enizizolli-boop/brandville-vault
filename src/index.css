@@ -183,7 +183,6 @@ button { font-family: inherit; cursor: pointer; }
   gap: 6px;
 }
 .stat-val {
-  font-family: 'Cormorant Garamond', Georgia, serif;
   font-size: 22px;
   font-weight: 600;
   color: var(--text);
@@ -262,8 +261,7 @@ button { font-family: inherit; cursor: pointer; }
   margin-bottom: 4px;
 }
 .watch-card-model {
-  font-family: 'Cormorant Garamond', Georgia, serif;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   margin-bottom: 3px;
   line-height: 1.2;
@@ -408,17 +406,15 @@ button { font-family: inherit; cursor: pointer; }
 .detail-images .no-img { height: 240px; width: 240px; background: var(--bg); border-radius: var(--radius-lg); border: 1px solid var(--border-light); display: flex; align-items: center; justify-content: center; font-size: 60px; flex-shrink: 0; }
 .detail-brand { font-size: 10px; font-weight: 700; color: var(--gold); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 6px; }
 .detail-model {
-  font-family: 'Cormorant Garamond', Georgia, serif;
-  font-size: 28px;
-  font-weight: 600;
+  font-size: 26px;
+  font-weight: 700;
   margin-bottom: 4px;
   line-height: 1.2;
 }
 .detail-ref { font-size: 14px; font-weight: 500; color: var(--muted); letter-spacing: 0.06em; margin-bottom: 16px; }
 .detail-price {
-  font-family: 'Cormorant Garamond', Georgia, serif;
-  font-size: 30px;
-  font-weight: 600;
+  font-size: 28px;
+  font-weight: 700;
   margin-bottom: 4px;
 }
 .detail-price-secondary { font-size: 16px; color: var(--muted); margin-bottom: 20px; }
