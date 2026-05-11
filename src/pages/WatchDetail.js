@@ -491,27 +491,35 @@ export default function WatchDetail() {
             </div>
           ) : (
             <>
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14, gap: 12 }}>
-                <div>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: '#b8b0a5', textTransform: 'uppercase', letterSpacing: '1.2px', marginBottom: 4 }}>{watch.category || 'Watches'}</div>
-                  <div className="detail-brand">{watch.brand}</div>
-                  <div className="detail-model">{watch.model}</div>
-                  <div className="watch-card-ref" style={{marginTop: 6}}>{cleanRef(watch.reference) || '—'}</div>
-                </div>
-                <span className={`badge badge-${watch.status}`} style={{ flexShrink: 0, marginTop: 4 }}>{watch.status}</span>
+              {/* Header */}
+              <div style={{ marginBottom: 20 }}>
+                <div className="detail-category">{watch.category || 'Watches'}</div>
+                <div className="detail-brand">{watch.brand}</div>
+                <div className="detail-model">{watch.model}</div>
+                {watch.reference && <div className="detail-ref" style={{ marginTop: 6 }}>{cleanRef(watch.reference)}</div>}
               </div>
 
-              <div className="detail-price">{priceMain}</div>
-              {priceSecondary && <div className="detail-price-secondary">≈ {priceSecondary}</div>}
-              {canEdit && (watch.cost_eur || watch.vendor) && (
-                <div style={{ fontSize: 13, color: '#b8965a', marginTop: 4 }}>
-                  {watch.cost_eur && <>Cost: €{Number(watch.cost_eur).toLocaleString()}</>}
-                  {watch.cost_eur && watch.vendor && ' · '}
-                  {watch.vendor && <>Vendor: {watch.vendor}</>}
-                </div>
-              )}
+              {/* Status */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 24, paddingBottom: 24, borderBottom: '1px solid var(--border-light)' }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: watch.status === 'available' ? '#16a34a' : watch.status === 'reserved' ? '#d97706' : '#dc2626', flexShrink: 0 }} />
+                <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: watch.status === 'available' ? '#16a34a' : watch.status === 'reserved' ? '#d97706' : '#dc2626' }}>{watch.status}</span>
+              </div>
 
-              <div className="detail-meta">
+              {/* Price */}
+              <div style={{ marginBottom: 24, paddingBottom: 24, borderBottom: '1px solid var(--border-light)' }}>
+                <div className="detail-price">{priceMain}</div>
+                {priceSecondary && <div className="detail-price-secondary">≈ {priceSecondary}</div>}
+                {canEdit && (watch.cost_eur || watch.vendor) && (
+                  <div style={{ fontSize: 12, color: 'var(--gold)', marginTop: 8, fontWeight: 500 }}>
+                    {watch.cost_eur && <>Cost: €{Number(watch.cost_eur).toLocaleString()}</>}
+                    {watch.cost_eur && watch.vendor && '  ·  '}
+                    {watch.vendor && <>Vendor: {watch.vendor}</>}
+                  </div>
+                )}
+              </div>
+
+              {/* Specs */}
+              <div className="detail-meta" style={{ marginBottom: 28 }}>
                 <div className="detail-meta-row"><span>Condition</span><span>{watch.condition}</span></div>
                 {watch.scope_of_delivery && <div className="detail-meta-row"><span>Scope of delivery</span><span>{watch.scope_of_delivery}</span></div>}
                 {watch.subcategory && <div className="detail-meta-row"><span>Type</span><span>{watch.subcategory}</span></div>}
@@ -522,6 +530,7 @@ export default function WatchDetail() {
                 <div className="detail-meta-row"><span>Posted</span><span>{new Date(watch.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span></div>
               </div>
 
+              {/* Actions */}
               <div className="detail-actions">
                 <button className="btn btn-green" onClick={handleWhatsApp}>WhatsApp</button>
                 {watch.status === 'available' && (
