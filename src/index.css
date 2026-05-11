@@ -415,9 +415,9 @@ button { font-family: inherit; cursor: pointer; }
 }
 .detail-ref { font-size: 13px; font-weight: 400; color: var(--faint); letter-spacing: 0.04em; margin-bottom: 0; }
 .detail-price {
-  font-size: 32px;
+  font-size: 22px;
   font-weight: 700;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.3px;
   margin-bottom: 4px;
 }
 .detail-price-secondary { font-size: 14px; color: var(--faint); margin-bottom: 0; }
