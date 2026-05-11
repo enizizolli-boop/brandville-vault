@@ -414,7 +414,7 @@ button { font-family: inherit; cursor: pointer; }
   margin-bottom: 4px;
   line-height: 1.2;
 }
-.detail-ref { font-size: 18px; font-weight: 700; color: var(--text); font-family: 'SF Mono', monospace; margin-bottom: 16px; }
+.detail-ref { font-size: 14px; font-weight: 500; color: var(--muted); letter-spacing: 0.06em; margin-bottom: 16px; }
 .detail-price {
   font-family: 'Cormorant Garamond', Georgia, serif;
   font-size: 30px;
