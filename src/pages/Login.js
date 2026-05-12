@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 
@@ -111,7 +111,8 @@ export default function Login() {
           )}
         </div>
         <div style={{ textAlign: 'center', marginTop: 16, fontSize: 12, color: '#bbb' }}>
-          Don't have access? Contact your Brandville representative.
+          Don't have an account?{' '}
+          <Link to="/signup" style={{ color: '#b8965a', textDecoration: 'none' }}>Create one</Link>
         </div>
       </div>
     </div>
