@@ -7,17 +7,16 @@ export function useExchangeRate() {
 
   useEffect(() => {
     async function fetchRate() {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('exchange_rates')
-        .select('rate, fetched_at')
+        .select('rate')
         .eq('from_currency', 'EUR')
         .eq('to_currency', 'USD')
         .order('fetched_at', { ascending: false })
         .limit(1)
-        .single()
 
-      if (data?.rate) {
-        setRate(Number(data.rate))
+      if (!error && data && data.length > 0) {
+        setRate(Number(data[0].rate))
         setLoading(false)
         return
       }
