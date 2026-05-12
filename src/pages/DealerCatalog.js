@@ -52,8 +52,8 @@ function cleanRef(ref) {
 
 function fmtPrice(watch, currency, rate) {
   if (currency === 'USD') {
-    if (watch.price_usd) return '$' + Number(watch.price_usd).toLocaleString()
     if (watch.price_eur && rate) return '$' + Math.round(Number(watch.price_eur) * rate).toLocaleString()
+    if (watch.price_usd) return '$' + Number(watch.price_usd).toLocaleString()
     return '—'
   }
   if (watch.price_eur) return '€' + Number(watch.price_eur).toLocaleString()

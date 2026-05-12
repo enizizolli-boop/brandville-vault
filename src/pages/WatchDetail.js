@@ -321,11 +321,9 @@ export default function WatchDetail() {
   if (!watch) return <div className="page"><div className="empty-state">Item not found</div></div>
 
   const priceMain = currency === 'USD'
-    ? (watch.price_usd
-        ? `$${Number(watch.price_usd).toLocaleString()}`
-        : watch.price_eur && rate
-          ? `$${Math.round(Number(watch.price_eur) * rate).toLocaleString()}`
-          : '—')
+    ? (watch.price_eur && rate
+        ? `$${Math.round(Number(watch.price_eur) * rate).toLocaleString()}`
+        : watch.price_usd ? `$${Number(watch.price_usd).toLocaleString()}` : '—')
     : (watch.price_eur ? `€${Number(watch.price_eur).toLocaleString()}` : '—')
 
   const priceSecondary = currency === 'USD' && watch.price_eur
