@@ -119,6 +119,16 @@ function CardImages({ watch, brandEmoji }) {
 
 const BAGS_CATEGORIES = ['Bags', 'Accessories', 'Shoes']
 
+const WA_NUMBERS = { Watches: '18488639660', Bags: '18254757069', Jewellery: '17325061373' }
+const WA_SVG = <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+
+function shortenCond(cond) {
+  if (!cond) return 'Pre-owned'
+  if (cond.toLowerCase().includes('minor')) return 'Minor wear'
+  if (cond.toLowerCase().includes('major')) return 'Major wear'
+  return cond.split(' ').slice(0, 2).join(' ')
+}
+
 export default function DealerCatalog({ routeCategory }) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -142,6 +152,10 @@ export default function DealerCatalog({ routeCategory }) {
   const [filterSize, setFilterSize] = useState('')
   const [filterJewelleryType, setFilterJewelleryType] = useState(urlType && lockedCategory === 'Jewellery' ? urlType : '')
   const [search, setSearch] = useState('')
+  const [filterPriceMin, setFilterPriceMin] = useState('')
+  const [filterPriceMax, setFilterPriceMax] = useState('')
+  const [page, setPage] = useState(0)
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const [sortBy, setSortBy] = useState('')
 
   const fetchWatches = useCallback(async () => {
@@ -202,6 +216,8 @@ export default function DealerCatalog({ routeCategory }) {
   const filtered = watches
     .filter(w => {
       if (filterJewelleryType && inferJewelleryType(w) !== filterJewelleryType) return false
+      if (filterPriceMin && Number(w.price_eur) < Number(filterPriceMin)) return false
+      if (filterPriceMax && Number(w.price_eur) > Number(filterPriceMax)) return false
       if (!search) return true
       return w.model?.toLowerCase().includes(search.toLowerCase()) || w.reference?.toLowerCase().includes(search.toLowerCase())
     })
@@ -212,6 +228,12 @@ export default function DealerCatalog({ routeCategory }) {
       if (sortBy === 'sku_desc') return (parseInt(cleanRef(b.reference), 10) || 0) - (parseInt(cleanRef(a.reference), 10) || 0)
       return 0
     })
+
+  const PAGE_SIZE = 40
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
+  const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+
+  useEffect(() => setPage(0), [filterBrand, filterCond, filterStatus, search, sortBy, filterPriceMin, filterPriceMax, filterJewelleryType, filterMetal, filterSize])
 
   useEffect(() => {
     function measureCols() {
@@ -253,90 +275,151 @@ export default function DealerCatalog({ routeCategory }) {
   function clearAllFilters() {
     if (!lockedCategory) setFilterCategory('')
     setFilterBrand(''); setFilterCond(''); setFilterStatus('available')
-    setFilterMetal(''); setFilterSize(''); setFilterJewelleryType(''); setSearch(''); setSortBy('')
+    setFilterMetal(''); setFilterSize(''); setFilterJewelleryType('')
+    setSearch(''); setSortBy(''); setFilterPriceMin(''); setFilterPriceMax('')
   }
+
+  const brandOptions = (
+    lockedCategory === 'Watches' ? WATCH_BRANDS :
+    lockedCategory === 'Jewellery' ? JEWELLERY_BRANDS :
+    lockedCategory === 'Bags' ? [...new Set([...BAG_BRANDS, ...SHOES_BRANDS, ...ACCESSORIES_BRANDS])].sort() :
+    ALL_BRANDS
+  )
 
   return (
     <div className="page">
       <Topbar />
+
+      {/* Stats bar */}
       <div className="stat-grid">
         <div className="stat-card"><div className="stat-val">{avail}</div><div className="stat-lbl">Available</div></div>
         <div className="stat-divider" />
-        <div className="stat-card"><div className="stat-val">{reserved}</div><div className="stat-lbl">Reserved</div></div>
-        <div className="stat-divider" />
+        {reserved > 0 && <><div className="stat-card"><div className="stat-val">{reserved}</div><div className="stat-lbl">Reserved</div></div><div className="stat-divider" /></>}
         <div className="stat-card"><div className="stat-val">{watches.length}</div><div className="stat-lbl">Total</div></div>
       </div>
-      <div className="filters">
-        {lockedCategory === 'Bags' && (
-          <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setFilterBrand('') }}>
-            <option value=''>All</option>
-            <option>Bags</option><option>Accessories</option><option>Shoes</option>
+
+      {/* Desktop filter bar */}
+      <div className="filter-bar">
+        <div className="filter-group">
+          {lockedCategory === 'Bags' && (
+            <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setFilterBrand('') }}>
+              <option value=''>All</option><option>Bags</option><option>Accessories</option><option>Shoes</option>
+            </select>
+          )}
+          <select value={filterBrand} onChange={e => setFilterBrand(e.target.value)}>
+            <option value="">All brands</option>
+            {brandOptions.map(b => <option key={b}>{b}</option>)}
           </select>
-        )}
-        <select value={filterBrand} onChange={e => setFilterBrand(e.target.value)}>
-          <option value="">All brands</option>
-          {(
-            (lockedCategory === 'Watches' || (!lockedCategory && filterCategory === 'Watches')) ? WATCH_BRANDS :
-            (lockedCategory === 'Jewellery' || (!lockedCategory && filterCategory === 'Jewellery')) ? JEWELLERY_BRANDS :
-            filterCategory === 'Bags' ? BAG_BRANDS :
-            filterCategory === 'Shoes' ? SHOES_BRANDS :
-            filterCategory === 'Accessories' ? ACCESSORIES_BRANDS :
-            lockedCategory === 'Bags' ? [...new Set([...BAG_BRANDS, ...SHOES_BRANDS, ...ACCESSORIES_BRANDS])].sort() :
-            ALL_BRANDS
-          ).map(b => <option key={b}>{b}</option>)}
-        </select>
-        {isWatches && (
-          <select value={filterCond} onChange={e => setFilterCond(e.target.value)}>
-            <option value="">All conditions</option>
-            {CONDITIONS.map(c => <option key={c}>{c}</option>)}
+          {isWatches && (
+            <select value={filterCond} onChange={e => setFilterCond(e.target.value)}>
+              <option value="">All conditions</option>
+              {CONDITIONS.map(c => <option key={c}>{c}</option>)}
+            </select>
+          )}
+          {lockedCategory === 'Jewellery' && (
+            <select value={filterJewelleryType} onChange={e => { setFilterJewelleryType(e.target.value); setFilterSize('') }}>
+              <option value="">All types</option>
+              <option>Rings</option><option>Bracelets</option><option>Necklaces</option><option>Earrings</option>
+            </select>
+          )}
+          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+            <option value="available">Available</option>
+            <option value="reserved">Reserved</option>
+            <option value="">All status</option>
           </select>
-        )}
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-          <option value="available">Available</option>
-          <option value="reserved">Reserved</option>
-          <option value="">All status</option>
-        </select>
-        <input placeholder="Search model or ref..." value={search} onChange={e => setSearch(e.target.value)} style={{ width: 180 }} />
-        {filterCategory === 'Jewellery' && (
-          <select value={filterMetal} onChange={e => setFilterMetal(e.target.value)}>
-            <option value="">All metals</option>
-            <option>Yellow Gold</option><option>Pink Gold</option><option>White Gold</option><option>Platinum</option>
+        </div>
+        <div className="filter-divider" />
+        <div className="price-range-group">
+          <span className="price-label">€</span>
+          <input className="price-input" type="number" placeholder="Min" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} />
+          <span className="price-sep">—</span>
+          <input className="price-input" type="number" placeholder="Max" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} />
+        </div>
+        <div className="filter-divider" />
+        <div className="search-wrap">
+          <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input className="search-input" placeholder="Search model or ref…" value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        <div className="filter-right">
+          <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
+            <option value="">Newest First</option>
+            <option value="price_asc">Price: Low → High</option>
+            <option value="price_desc">Price: High → Low</option>
+            <option value="sku_asc">SKU: Old → New</option>
+            <option value="sku_desc">SKU: New → Old</option>
           </select>
-        )}
-        {filterCategory === 'Jewellery' && (
-          <select value={filterJewelleryType} onChange={e => { setFilterJewelleryType(e.target.value); setFilterSize('') }}>
-            <option value="">All types</option>
-            <option>Rings</option><option>Bracelets</option><option>Necklaces</option><option>Earrings</option>
-          </select>
-        )}
-        {filterCategory === 'Jewellery' && filterJewelleryType === 'Rings' && (
-          <select value={filterSize} onChange={e => setFilterSize(e.target.value)}>
-            <option value="">All sizes</option>
-            {['50','51','52','53','54','55','56','57','58','59','60','61','62','63','64','65'].map(s => <option key={s}>{s}</option>)}
-          </select>
-        )}
-        {filterCategory === 'Jewellery' && filterJewelleryType === 'Bracelets' && (
-          <select value={filterSize} onChange={e => setFilterSize(e.target.value)}>
-            <option value="">All sizes</option>
-            {['14','15','16','17','18','19','20','21','22','23','XS','S','M','L','XL','XXL','3XL'].map(s => <option key={s}>{s}</option>)}
-          </select>
-        )}
-        <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
-          <option value="">Sort: Default</option>
-          <option value="price_asc">Price: Low → High</option>
-          <option value="price_desc">Price: High → Low</option>
-          <option value="sku_asc">SKU: Old → New</option>
-          <option value="sku_desc">SKU: New → Old</option>
-        </select>
-        <span className="filter-count">{filtered.length} items</span>
+          <span className="results-count"><strong>{filtered.length}</strong> items</span>
+        </div>
       </div>
 
+      {/* Mobile filter bar */}
+      <div className="mobile-filter-bar">
+        <button className="filter-trigger-btn" onClick={() => setDrawerOpen(true)}>
+          <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+          Filters
+        </button>
+        <input className="mobile-search" placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)} />
+        <span className="results-count"><strong>{filtered.length}</strong></span>
+      </div>
+
+      {/* Mobile filter drawer */}
+      {drawerOpen && (
+        <div className="filter-drawer-bg" onClick={() => setDrawerOpen(false)}>
+          <div className="filter-drawer" onClick={e => e.stopPropagation()}>
+            <div className="drawer-header">
+              <span className="drawer-title">Filters</span>
+              <button className="drawer-close" onClick={() => setDrawerOpen(false)}>✕</button>
+            </div>
+            <div className="drawer-section">
+              <div className="drawer-label">Brand</div>
+              <select value={filterBrand} onChange={e => setFilterBrand(e.target.value)}>
+                <option value="">All brands</option>
+                {brandOptions.map(b => <option key={b}>{b}</option>)}
+              </select>
+            </div>
+            {isWatches && (
+              <div className="drawer-section">
+                <div className="drawer-label">Condition</div>
+                <select value={filterCond} onChange={e => setFilterCond(e.target.value)}>
+                  <option value="">All conditions</option>
+                  {CONDITIONS.map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+            )}
+            <div className="drawer-section">
+              <div className="drawer-label">Availability</div>
+              <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+                <option value="available">Available</option>
+                <option value="reserved">Reserved</option>
+                <option value="">All status</option>
+              </select>
+            </div>
+            <div className="drawer-section">
+              <div className="drawer-label">Price range (EUR)</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4 }}>
+                <input type="number" placeholder="Min" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} />
+                <span className="price-sep">—</span>
+                <input type="number" placeholder="Max" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} />
+              </div>
+            </div>
+            <div className="drawer-section">
+              <div className="drawer-label">Sort</div>
+              <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
+                <option value="">Newest First</option>
+                <option value="price_asc">Price: Low → High</option>
+                <option value="price_desc">Price: High → Low</option>
+              </select>
+            </div>
+            <button className="drawer-apply" onClick={() => setDrawerOpen(false)}>Apply Filters</button>
+          </div>
+        </div>
+      )}
+
+      {/* Active filter pills */}
       {activePills.length > 0 && (
         <div className="filter-pills">
           {activePills.map((p, i) => (
-            <span key={i} className="filter-pill" onClick={p.clear}>
-              {p.label} <span className="filter-pill-x">×</span>
-            </span>
+            <span key={i} className="filter-pill" onClick={p.clear}>{p.label} <span className="filter-pill-x">×</span></span>
           ))}
           {activePills.length > 1 && (
             <span className="filter-clear-all" onClick={clearAllFilters}>Clear all</span>
@@ -352,7 +435,6 @@ export default function DealerCatalog({ routeCategory }) {
               <div className="sk-body">
                 <div className="sk-brand skeleton" />
                 <div className="sk-model skeleton" />
-                <div className="sk-model2 skeleton" />
                 <div className="sk-ref skeleton" />
                 <div className="sk-foot">
                   <div className="sk-price skeleton" />
@@ -369,45 +451,69 @@ export default function DealerCatalog({ routeCategory }) {
           {activePills.length > 0 && <span className="filter-clear-all" onClick={clearAllFilters} style={{ fontSize: 13 }}>Clear all filters</span>}
         </div>
       ) : (
-        <div className="watch-grid" ref={gridRef}>
-          {filtered.map((w, idx) => {
-            const bannerAt = cols * 4
-            return (<React.Fragment key={w.id}>
-              {idx === bannerAt && bannerAt > 0 && (
-                <div data-banner="1" style={{ gridColumn: '1 / -1', margin: '4px 0' }}>
-                  <a href="https://chasovnikari.com/checkout/" target="_blank" rel="noopener noreferrer" className="catalog-banner">
-                    <img src="/banner-repair.png" alt="KK Time Studio — Watchmaking repair service" />
-                  </a>
-                </div>
-              )}
-              <div className="watch-card" onClick={() => navigate(`/catalog/${w.id}`)}>
-                <div className="watch-card-img">
-                  <CardImages watch={w} brandEmoji={BRAND_EMOJI[w.brand] || '⌚'} />
-                </div>
-                <div className="watch-card-body">
-                  <div className="watch-card-brand">{w.category ? w.category + ' · ' : ''}{w.brand}</div>
-                  <div className="watch-card-model">{w.model}</div>
-                  <div className="watch-card-ref">{cleanRef(w.reference) || '—'}{w.notes ? ` · ${w.notes}` : ''}</div>
-                  <div className="watch-card-foot">
-                    <div>
-                      <div className="watch-card-price">{fmtPrice(w, currency, rate)}</div>
-                      <div className="watch-card-price-alt">
-                        {currency === 'EUR' && rate ? '$' + Math.round(Number(w.price_eur) * rate).toLocaleString() : w.price_eur ? '€' + Number(w.price_eur).toLocaleString() : ''}
+        <>
+          <div className="watch-grid" ref={gridRef}>
+            {paginated.map((w, idx) => {
+              const bannerAt = cols * 4
+              const waMsg = encodeURIComponent(`Hi, I'm interested in the ${w.brand} ${w.model}${w.reference ? ` (Ref. ${cleanRef(w.reference)})` : ''}. Is it still available?`)
+              const waNum = WA_NUMBERS[w.category] || '18488639660'
+              return (
+                <React.Fragment key={w.id}>
+                  {idx === bannerAt && bannerAt > 0 && (
+                    <div data-banner="1" style={{ gridColumn: '1 / -1', margin: '4px 0' }}>
+                      <a href="https://chasovnikari.com/checkout/" target="_blank" rel="noopener noreferrer" className="catalog-banner">
+                        <img src="/banner-repair.png" alt="KK Time Studio — Watchmaking repair service" />
+                      </a>
+                    </div>
+                  )}
+                  <div className="watch-card">
+                    <div className="card-img-wrap" onClick={() => navigate(`/catalog/${w.id}`)}>
+                      <CardImages watch={w} brandEmoji={BRAND_EMOJI[w.brand] || '⌚'} />
+                      <div className={`card-status-dot ${w.status}`} />
+                    </div>
+                    <div className="card-body" onClick={() => navigate(`/catalog/${w.id}`)}>
+                      <div className="card-brand">{w.brand}</div>
+                      <div className="card-model">{w.model}</div>
+                      <div className="card-ref">{cleanRef(w.reference) || '—'}</div>
+                      <div className="card-meta">
+                        {w.notes && <><span className="card-year">{w.notes}</span><div className="card-dot" /></>}
+                        <span className="card-cond-pill">{shortenCond(w.condition)}</span>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                      <div className="watch-card-cond">{w.condition}</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <div className={`watch-card-status-dot ${w.status}`} />
-                        <span style={{ fontSize: 9, color: '#bbb', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{w.status}</span>
+                    <div className="card-price-row">
+                      <div className="card-price-block">
+                        <div className="card-price">{fmtPrice(w, currency, rate)}</div>
+                        <div className="card-price-label">Asking price</div>
+                      </div>
+                      <div className="card-cta">
+                        <a className="btn-wa" href={`https://wa.me/${waNum}?text=${waMsg}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
+                          {WA_SVG}
+                        </a>
+                        <button className="btn-inquire" onClick={() => navigate(`/catalog/${w.id}`)}>
+                          Inquire
+                        </button>
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            </React.Fragment>)}
+                </React.Fragment>
+              )
+            })}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="pagination">
+              <button className="page-btn arrow" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}>‹</button>
+              {Array.from({ length: totalPages }, (_, i) => {
+                if (totalPages <= 7 || i === 0 || i === totalPages - 1 || Math.abs(i - page) <= 1) {
+                  return <button key={i} className={`page-btn ${i === page ? 'active' : ''}`} onClick={() => { setPage(i); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>{i + 1}</button>
+                }
+                if (Math.abs(i - page) === 2) return <span key={i} className="page-ellipsis">…</span>
+                return null
+              })}
+              <button className="page-btn arrow" onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1}>›</button>
+            </div>
           )}
-        </div>
+        </>
       )}
     </div>
   )
