@@ -19,7 +19,7 @@ export default function Footer() {
             Brandville <span>Vault</span>
           </div>
           <div className="footer-tagline">
-            A private curated catalog of luxury timepieces, fine jewellery &amp; designer accessories. Access by invitation only.
+            Curated timepieces. Trusted worldwide.
           </div>
         </div>
 
