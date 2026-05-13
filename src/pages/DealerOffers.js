@@ -110,11 +110,11 @@ export default function DealerOffers() {
               const watch = offer.products
               const thumb = getThumb(watch)
               return (
-                <div key={offer.id} style={{ border: '1px solid #e8e5e0', borderRadius: 12, padding: 16, marginBottom: 12, background: '#fff' }}>
+                <div key={offer.id} style={{ border: '1px solid var(--border-light)', borderRadius: 12, padding: 16, marginBottom: 12, background: 'var(--surface)' }}>
                   <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                     <div
                       onClick={() => navigate(`/catalog/${watch.id}`)}
-                      style={{ width: 56, height: 56, borderRadius: 8, background: '#f7f6f3', border: '1px solid #e8e5e0', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}
+                      style={{ width: 56, height: 56, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}
                     >
                       {thumb
                         ? <img src={thumb} alt={watch.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -138,7 +138,7 @@ export default function DealerOffers() {
                       <div style={{ marginTop: 10, display: 'flex', gap: 20, flexWrap: 'wrap' }}>
                         <div>
                           <div style={{ fontSize: 10, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Your offer</div>
-                          <div style={{ fontSize: 15, fontWeight: 600, color: '#333' }}>{fmtPrice(offer.offer_price)}</div>
+                          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>{fmtPrice(offer.offer_price)}</div>
                         </div>
                         {offer.counter_price && (
                           <div>
@@ -149,14 +149,14 @@ export default function DealerOffers() {
                       </div>
 
                       {offer.dealer_comment && (
-                        <div style={{ marginTop: 8, fontSize: 12, color: '#555', background: '#f8f6f2', borderRadius: 6, padding: '6px 10px' }}>
-                          <span style={{ color: '#aaa', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Your note · </span>
+                        <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)', background: 'var(--surface2)', borderRadius: 6, padding: '6px 10px' }}>
+                          <span style={{ color: 'var(--faint)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Your note · </span>
                           {offer.dealer_comment}
                         </div>
                       )}
                       {offer.agent_comment && (
-                        <div style={{ marginTop: 6, fontSize: 12, color: '#555', background: '#f0efe9', borderRadius: 6, padding: '6px 10px' }}>
-                          <span style={{ color: '#aaa', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Agent · </span>
+                        <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-muted)', background: 'rgba(184,150,106,0.08)', borderRadius: 6, padding: '6px 10px' }}>
+                          <span style={{ color: 'var(--faint)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Agent · </span>
                           {offer.agent_comment}
                         </div>
                       )}

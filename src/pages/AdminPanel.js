@@ -353,9 +353,9 @@ export default function AdminPanel() {
         <div className="admin-section" style={{ maxWidth: 520 }}>
 
           {/* Zoho sync */}
-          <div style={{ background: '#fff', border: '1px solid var(--border-light)', borderRadius: 14, padding: 20, marginBottom: 16, boxShadow: 'var(--shadow-xs)' }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 14, padding: 20, marginBottom: 16, boxShadow: 'var(--shadow-xs)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: '#e8f5e9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🛍</div>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(22,163,74,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🛍</div>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 600 }}>Zoho Commerce</div>
                 <div style={{ fontSize: 11, color: 'var(--faint)' }}>Watches & Bags</div>
@@ -384,11 +384,11 @@ export default function AdminPanel() {
             <button className="btn btn-dark btn-full" onClick={handleSync} disabled={syncing}>
               {syncing ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Syncing...</> : '↻ Sync now'}
             </button>
-            <button className="btn btn-full" onClick={handleTestCronZoho} disabled={cronZohoRunning} style={{ marginTop: 8, background: '#f5f5f5', color: '#333', border: '1px solid #ddd' }}>
+            <button className="btn btn-full" onClick={handleTestCronZoho} disabled={cronZohoRunning} style={{ marginTop: 8 }}>
               {cronZohoRunning ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Running cron...</> : '⏱ Test auto-sync cron'}
             </button>
             {cronZohoResult && (
-              <div style={{ marginTop: 8, fontSize: 12, padding: '8px 10px', borderRadius: 8, background: cronZohoResult.error ? '#fff0f0' : '#f0fff4', color: cronZohoResult.error ? '#c00' : '#1a7a3a' }}>
+              <div style={{ marginTop: 8, fontSize: 12, padding: '8px 10px', borderRadius: 8, background: cronZohoResult.error ? 'rgba(220,38,38,0.1)' : 'rgba(22,163,74,0.1)', color: cronZohoResult.error ? '#f87171' : '#4ade80' }}>
                 {cronZohoResult.error
                   ? `Error: ${cronZohoResult.error}`
                   : `✓ Cron OK — ${cronZohoResult.upserted} updated · ${cronZohoResult.marked_sold} marked sold · ${cronZohoResult.total_recent} recent changes`
@@ -398,9 +398,9 @@ export default function AdminPanel() {
           </div>
 
           {/* Odoo sync */}
-          <div style={{ background: '#fff', border: '1px solid var(--border-light)', borderRadius: 14, padding: 20, marginBottom: 16, boxShadow: 'var(--shadow-xs)' }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 14, padding: 20, marginBottom: 16, boxShadow: 'var(--shadow-xs)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: '#fff3e0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>💎</div>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--gold-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>💎</div>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 600 }}>Odoo</div>
                 <div style={{ fontSize: 11, color: 'var(--faint)' }}>Jewellery</div>
@@ -432,9 +432,9 @@ export default function AdminPanel() {
           </div>
 
           {/* Bags sync */}
-          <div style={{ background: '#fff', border: '1px solid var(--border-light)', borderRadius: 14, padding: 20, marginBottom: 16, boxShadow: 'var(--shadow-xs)' }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 14, padding: 20, marginBottom: 16, boxShadow: 'var(--shadow-xs)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: '#fce4ec', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>👜</div>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(220,38,38,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>👜</div>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 600 }}>Odoo — Bags</div>
                 <div style={{ fontSize: 11, color: 'var(--faint)' }}>Handbags · Totes · Backpacks · Pouches</div>
@@ -463,11 +463,11 @@ export default function AdminPanel() {
             <button className="btn btn-dark btn-full" onClick={handleBagsSync} disabled={bagsSyncing || syncing || odooSyncing}>
               {bagsSyncing ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Syncing...</> : '↻ Sync Bags from Odoo'}
             </button>
-            <button className="btn btn-full" onClick={handleTestCronBags} disabled={cronBagsRunning} style={{ marginTop: 8, background: '#f5f5f5', color: '#333', border: '1px solid #ddd' }}>
+            <button className="btn btn-full" onClick={handleTestCronBags} disabled={cronBagsRunning} style={{ marginTop: 8 }}>
               {cronBagsRunning ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Running...</> : '⏱ Run nightly bags sync now'}
             </button>
             {cronBagsResult && (
-              <div style={{ marginTop: 8, fontSize: 12, padding: '8px 10px', borderRadius: 8, background: cronBagsResult.error ? '#fff0f0' : '#f0fff4', color: cronBagsResult.error ? '#c00' : '#1a7a3a' }}>
+              <div style={{ marginTop: 8, fontSize: 12, padding: '8px 10px', borderRadius: 8, background: cronBagsResult.error ? 'rgba(220,38,38,0.1)' : 'rgba(22,163,74,0.1)', color: cronBagsResult.error ? '#f87171' : '#4ade80' }}>
                 {cronBagsResult.error
                   ? `Error: ${cronBagsResult.error}`
                   : `✓ Done — ${cronBagsResult.upserted} updated · ${cronBagsResult.removed} removed · ${cronBagsResult.total} total`
@@ -477,9 +477,9 @@ export default function AdminPanel() {
           </div>
 
           {/* Extract types */}
-          <div style={{ background: '#fff', border: '1px solid var(--border-light)', borderRadius: 14, padding: 20, boxShadow: 'var(--shadow-xs)' }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 14, padding: 20, boxShadow: 'var(--shadow-xs)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: '#f3e8ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>✨</div>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(99,102,241,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>✨</div>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 600 }}>Extract Jewellery Types</div>
                 <div style={{ fontSize: 11, color: 'var(--faint)' }}>Rings · Bracelets · Necklaces · Earrings</div>
@@ -538,7 +538,7 @@ export default function AdminPanel() {
               {inviting ? <span className="spinner" style={{ width: 16, height: 16 }} /> : 'Send invitation'}
             </button>
           </form>
-          <div style={{ marginTop: 16, padding: 14, background: '#f7f6f3', borderRadius: 10, fontSize: 12, color: '#888', lineHeight: 1.6 }}>
+          <div style={{ marginTop: 16, padding: 14, background: 'var(--surface2)', borderRadius: 10, fontSize: 12, color: 'var(--muted)', lineHeight: 1.6 }}>
             They will receive an email with a link to set their password and access Brandville Vault immediately.
           </div>
         </div>

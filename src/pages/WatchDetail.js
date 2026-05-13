@@ -355,7 +355,7 @@ export default function WatchDetail() {
 
         {/* LEFT — images */}
         <div className="detail-left">
-          <div style={{ position: 'relative', background: '#f8f6f2', borderRadius: 16, overflow: 'hidden', aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #eeebe5' }}>
+          <div style={{ position: 'relative', background: '#1a1a1a', borderRadius: 16, overflow: 'hidden', aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)' }}>
             {images.length > 0 ? (
               <>
                 <img
@@ -394,7 +394,7 @@ export default function WatchDetail() {
                     src={img.url}
                     alt=""
                     onClick={() => !editing && setActiveImg(i)}
-                    style={{ width: 58, height: 58, objectFit: 'cover', borderRadius: 10, border: i === activeImg ? '2px solid #b8965a' : '2px solid #eeebe5', pointerEvents: editing ? 'none' : 'auto', transition: 'border-color 0.15s' }}
+                    style={{ width: 58, height: 58, objectFit: 'cover', borderRadius: 10, border: i === activeImg ? '2px solid var(--gold)' : '2px solid var(--border)', pointerEvents: editing ? 'none' : 'auto', transition: 'border-color 0.15s' }}
                   />
                   {editing && (
                     <button onClick={() => handleDeleteImage(img)} style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', background: '#e00', color: '#fff', border: 'none', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
@@ -402,7 +402,7 @@ export default function WatchDetail() {
                 </div>
               ))}
               {editing && (
-                <label style={{ width: 58, height: 58, borderRadius: 10, border: '2px dashed #b8965a', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 22, color: '#b8965a', background: '#faf3e5' }}>
+                <label style={{ width: 58, height: 58, borderRadius: 10, border: '2px dashed var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 22, color: 'var(--gold)', background: 'var(--gold-light)' }}>
                   {uploadingImg ? <span className="spinner" style={{ width: 16, height: 16 }} /> : '+'}
                   <input type="file" accept="image/*" multiple onChange={handleAddImages} style={{ display: 'none' }} />
                 </label>
@@ -420,7 +420,7 @@ export default function WatchDetail() {
         {/* RIGHT — info */}
         <div className="detail-right">
           {editing ? (
-            <div style={{ background: '#f8f6f2', borderRadius: 12, padding: 16, marginBottom: 20, border: '1px solid #eeebe5' }}>
+            <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 16, marginBottom: 20, border: '1px solid var(--border)' }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#8a8078', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 14 }}>Edit details</div>
               <div className="form-row"><label>Category</label>
                 <select value={editForm.category || 'Watches'} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}>
@@ -543,7 +543,7 @@ export default function WatchDetail() {
               {profile?.role === 'dealer' && watch.status === 'available' && (
                 <div style={{ marginTop: 12 }}>
                   {myOffer ? (
-                    <div style={{ fontSize: 13, color: '#b8965a', padding: '8px 12px', background: '#faf3e5', borderRadius: 8, border: '1px solid #e8d9b5' }}>
+                    <div style={{ fontSize: 13, color: 'var(--gold)', padding: '8px 12px', background: 'var(--gold-light)', borderRadius: 8, border: '1px solid rgba(184,150,106,0.3)' }}>
                       Offer pending — <strong>€{Number(myOffer.offer_price).toLocaleString()}</strong>
                       {myOffer.status === 'countered' && ` · Counter: €${Number(myOffer.counter_price).toLocaleString()}`}
                     </div>
@@ -561,7 +561,7 @@ export default function WatchDetail() {
       {/* Offer Modal */}
       {offerModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setOfferModal(false)}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 420, boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }} onClick={e => e.stopPropagation()}>
+          <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 420, boxShadow: '0 8px 40px rgba(0,0,0,0.6)', border: '1px solid var(--border)' }} onClick={e => e.stopPropagation()}>
             <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>Make an Offer</div>
             <div style={{ fontSize: 12, color: '#aaa', marginBottom: 20 }}>{watch.brand} {watch.model} · Listed at {priceMain}</div>
 

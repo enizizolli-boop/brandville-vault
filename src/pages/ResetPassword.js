@@ -39,10 +39,10 @@ export default function ResetPassword() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f7f6f3', padding: 16 }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', padding: 16 }}>
       <div style={{ width: '100%', maxWidth: 360 }}>
         <div style={{ marginBottom: 32, textAlign: 'center' }}>
-          <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: -0.5, marginBottom: 4 }}>Brandville <span style={{ color: '#aaa', fontWeight: 400 }}>Vault</span></div>
+          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 22, fontWeight: 400, letterSpacing: 0.2, marginBottom: 4, color: 'var(--text)' }}>Brandville <span style={{ color: 'var(--gold)', fontStyle: 'italic' }}>Vault</span></div>
           <div style={{ fontSize: 13, color: '#aaa' }}>Set your password to access the catalog</div>
         </div>
         <div className="card" style={{ padding: '28px 24px' }}>

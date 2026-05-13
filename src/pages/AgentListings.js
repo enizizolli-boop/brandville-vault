@@ -602,9 +602,9 @@ export default function AgentListings() {
 
           {listingType === 'preorders' && (
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
-              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ flex: 1, fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid #e0dbd4', background: '#faf9f7' }} />
-              <span style={{ color: '#bbb', fontSize: 13 }}>—</span>
-              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ flex: 1, fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid #e0dbd4', background: '#faf9f7' }} />
+              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ flex: 1, fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)' }} />
+              <span style={{ color: 'var(--faint)', fontSize: 13 }}>—</span>
+              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ flex: 1, fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)' }} />
               {(dateFrom || dateTo) && (
                 <button className="btn btn-sm" onClick={() => { setDateFrom(''); setDateTo('') }} style={{ whiteSpace: 'nowrap' }}>Clear</button>
               )}
@@ -617,8 +617,8 @@ export default function AgentListings() {
               : filteredWatches.length === 0
                 ? <div className="empty-state">{search ? 'No items match your search' : 'No items posted yet'}</div>
                 : filteredWatches.map(w => (
-                <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid #e8e5e0', borderRadius: 10, marginBottom: 8, background: '#fff' }}>
-                  <div onClick={() => navigate(`/catalog/${w.id}`)} style={{ width: 50, height: 50, borderRadius: 8, background: '#f7f6f3', border: '1px solid #e8e5e0', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}>
+                <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid var(--border-light)', borderRadius: 10, marginBottom: 8, background: 'var(--surface)' }}>
+                  <div onClick={() => navigate(`/catalog/${w.id}`)} style={{ width: 50, height: 50, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}>
                     {getThumb(w) ? <img src={getThumb(w)} alt={w.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20 }}>⌚</span>}
                   </div>
                   <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => navigate(`/catalog/${w.id}`)}>
@@ -641,8 +641,8 @@ export default function AgentListings() {
             filteredPreorders.length === 0
               ? <div className="empty-state">{search ? 'No preorders match your search' : 'No preorders yet'}</div>
               : filteredPreorders.map(p => (
-              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid #e8e5e0', borderRadius: 10, marginBottom: 8, background: '#fff' }}>
-                <div onClick={() => navigate(`/catalog/${p.id}`)} style={{ width: 50, height: 50, borderRadius: 8, background: '#f7f6f3', border: '1px solid #e8e5e0', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}>
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid var(--border-light)', borderRadius: 10, marginBottom: 8, background: 'var(--surface)' }}>
+                <div onClick={() => navigate(`/catalog/${p.id}`)} style={{ width: 50, height: 50, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}>
                   {getPreorderThumb(p) ? <img src={getPreorderThumb(p)} alt={p.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20 }}>🔖</span>}
                 </div>
                 <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => navigate(`/catalog/${p.id}`)}>
@@ -692,11 +692,11 @@ export default function AgentListings() {
                 const thumb = imgs[0]?.url || null
                 const STATUS_COLOR = { pending: '#e6a817', countered: '#b8965a', accepted: '#2e7d32', rejected: '#c62828' }
                 return (
-                  <div key={offer.id} style={{ border: '1px solid #e8e5e0', borderRadius: 12, padding: 16, marginBottom: 12, background: '#fff' }}>
+                  <div key={offer.id} style={{ border: '1px solid var(--border-light)', borderRadius: 12, padding: 16, marginBottom: 12, background: 'var(--surface)' }}>
                     <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                       <div
                         onClick={() => navigate(`/catalog/${watch.id}`)}
-                        style={{ width: 52, height: 52, borderRadius: 8, background: '#f7f6f3', border: '1px solid #e8e5e0', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}
+                        style={{ width: 52, height: 52, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}
                       >
                         {thumb ? <img src={thumb} alt={watch.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20 }}>⌚</span>}
                       </div>
@@ -716,11 +716,11 @@ export default function AgentListings() {
                         <div style={{ marginTop: 10, display: 'flex', gap: 20, flexWrap: 'wrap' }}>
                           <div>
                             <div style={{ fontSize: 10, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Listing price</div>
-                            <div style={{ fontSize: 15, fontWeight: 600, color: '#888' }}>{watch?.price_eur ? `€${Number(watch.price_eur).toLocaleString()}` : '—'}</div>
+                            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--muted)' }}>{watch?.price_eur ? `€${Number(watch.price_eur).toLocaleString()}` : '—'}</div>
                           </div>
                           <div>
                             <div style={{ fontSize: 10, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Offer</div>
-                            <div style={{ fontSize: 15, fontWeight: 600, color: '#333' }}>€{Number(offer.offer_price).toLocaleString()}</div>
+                            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>€{Number(offer.offer_price).toLocaleString()}</div>
                           </div>
                           {offer.counter_price && (
                             <div>
@@ -731,14 +731,14 @@ export default function AgentListings() {
                         </div>
 
                         {offer.dealer_comment && (
-                          <div style={{ marginTop: 8, fontSize: 12, color: '#555', background: '#f8f6f2', borderRadius: 6, padding: '6px 10px' }}>
-                            <span style={{ color: '#aaa', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Dealer · </span>
+                          <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)', background: 'var(--surface2)', borderRadius: 6, padding: '6px 10px' }}>
+                            <span style={{ color: 'var(--faint)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Dealer · </span>
                             {offer.dealer_comment}
                           </div>
                         )}
                         {offer.agent_comment && (
-                          <div style={{ marginTop: 6, fontSize: 12, color: '#555', background: '#f0efe9', borderRadius: 6, padding: '6px 10px' }}>
-                            <span style={{ color: '#aaa', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Your note · </span>
+                          <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-muted)', background: 'rgba(184,150,106,0.08)', borderRadius: 6, padding: '6px 10px' }}>
+                            <span style={{ color: 'var(--faint)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Your note · </span>
                             {offer.agent_comment}
                           </div>
                         )}
@@ -795,7 +795,7 @@ export default function AgentListings() {
           <form onSubmit={handlePost}>
 
             {/* Photos */}
-            <label htmlFor="img-upload" style={{ display: 'block', marginBottom: 20, borderRadius: 14, border: '1.5px dashed #d9d4cc', background: '#faf9f7', cursor: 'pointer', overflow: 'hidden', minHeight: 90, transition: 'border-color 0.15s' }}>
+            <label htmlFor="img-upload" style={{ display: 'block', marginBottom: 20, borderRadius: 14, border: '1.5px dashed var(--border)', background: 'var(--surface)', cursor: 'pointer', overflow: 'hidden', minHeight: 90, transition: 'border-color 0.15s' }}>
               {previews.length > 0
                 ? <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: 12 }}>
                     {previews.map((p, i) => <img key={i} src={p} alt="" style={{ width: 68, height: 68, borderRadius: 10, objectFit: 'cover', border: '1px solid #e8e5e0' }} />)}
@@ -811,9 +811,9 @@ export default function AgentListings() {
             </label>
 
             {/* Quick Post */}
-            <div style={{ marginBottom: 20, background: '#f8f6f2', borderRadius: 14, padding: '14px 16px', border: '1px solid #e6e0d8' }}>
+            <div style={{ marginBottom: 20, background: 'var(--surface)', borderRadius: 14, padding: '14px 16px', border: '1px solid var(--border)' }}>
               <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4, letterSpacing: '-0.1px' }}>Quick Post</div>
-              <div style={{ fontSize: 11, color: '#b0a898', marginBottom: 10, lineHeight: 1.5 }}>Paste all info — brand, model, price, vendor — and the fields fill automatically.</div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 10, lineHeight: 1.5 }}>Paste all info — brand, model, price, vendor — and the fields fill automatically.</div>
               <textarea
                 rows={4}
                 placeholder={'Panerai PAM00359\nCard & Box 2014\n3300\n2380\nDingsp'}
@@ -844,8 +844,8 @@ export default function AgentListings() {
             </div>
 
             {/* Item details */}
-            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #ede9e3', padding: '16px 16px 4px', marginBottom: 16 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: '#c0b8ae', textTransform: 'uppercase', letterSpacing: '0.9px', marginBottom: 14 }}>Item details</div>
+            <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', padding: '16px 16px 4px', marginBottom: 16 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.9px', marginBottom: 14 }}>Item details</div>
 
               <div className="form-row">
                 <label>Category</label>
@@ -932,8 +932,8 @@ export default function AgentListings() {
             </div>
 
             {/* Pricing & info */}
-            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #ede9e3', padding: '16px 16px 4px', marginBottom: 16 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: '#c0b8ae', textTransform: 'uppercase', letterSpacing: '0.9px', marginBottom: 14 }}>Pricing & info</div>
+            <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', padding: '16px 16px 4px', marginBottom: 16 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.9px', marginBottom: 14 }}>Pricing & info</div>
 
               <div className="form-2col">
                 <div className="form-row">
@@ -961,13 +961,13 @@ export default function AgentListings() {
             {/* Preorder toggle */}
             <div
               onClick={() => handleField('is_preorder', !form.is_preorder)}
-              style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', background: form.is_preorder ? '#fdf8f2' : '#fff', borderRadius: 14, border: `1px solid ${form.is_preorder ? '#e0c899' : '#ede9e3'}`, marginBottom: 20, cursor: 'pointer', transition: 'all 0.2s' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', background: form.is_preorder ? 'var(--gold-light)' : 'var(--surface)', borderRadius: 14, border: `1px solid ${form.is_preorder ? 'rgba(184,150,106,0.4)' : 'var(--border)'}`, marginBottom: 20, cursor: 'pointer', transition: 'all 0.2s' }}
             >
               <div style={{ width: 44, height: 26, borderRadius: 13, background: form.is_preorder ? '#b8965a' : '#ddd', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
                 <div style={{ position: 'absolute', top: 3, left: form.is_preorder ? 21 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.18s', boxShadow: '0 1px 4px rgba(0,0,0,0.18)' }} />
               </div>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: form.is_preorder ? '#b8965a' : '#333' }}>Preorder</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: form.is_preorder ? 'var(--gold)' : 'var(--text)' }}>Preorder</div>
                 <div style={{ fontSize: 11, color: '#b0a898', marginTop: 1 }}>{form.is_preorder ? 'No SKU required — item not yet in stock' : 'Toggle on if item is not yet in stock'}</div>
               </div>
             </div>
