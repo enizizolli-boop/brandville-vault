@@ -122,7 +122,10 @@ const BAGS_CATEGORIES = ['Bags', 'Accessories', 'Shoes']
 export default function DealerCatalog({ routeCategory }) {
   const navigate = useNavigate()
   const location = useLocation()
-  const urlCategory = new URLSearchParams(location.search).get('category') || ''
+  const params = new URLSearchParams(location.search)
+  const urlCategory = params.get('category') || ''
+  const urlBrand = params.get('brand') || ''
+  const urlType = params.get('type') || ''
   const lockedCategory = routeCategory || urlCategory
 
   const { currency } = useCurrency()
@@ -131,13 +134,13 @@ export default function DealerCatalog({ routeCategory }) {
   const [cols, setCols] = useState(5)
   const [watches, setWatches] = useState([])
   const [loading, setLoading] = useState(true)
-  const [filterBrand, setFilterBrand] = useState('')
+  const [filterBrand, setFilterBrand] = useState(urlBrand)
   const [filterCond, setFilterCond] = useState('')
   const [filterStatus, setFilterStatus] = useState('available')
-  const [filterCategory, setFilterCategory] = useState(lockedCategory === 'Bags' ? '' : lockedCategory)
+  const [filterCategory, setFilterCategory] = useState(lockedCategory === 'Bags' ? (urlType || '') : lockedCategory)
   const [filterMetal, setFilterMetal] = useState('')
   const [filterSize, setFilterSize] = useState('')
-  const [filterJewelleryType, setFilterJewelleryType] = useState('')
+  const [filterJewelleryType, setFilterJewelleryType] = useState(urlType && lockedCategory === 'Jewellery' ? urlType : '')
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState('')
 
@@ -232,7 +235,7 @@ export default function DealerCatalog({ routeCategory }) {
 
   const avail = watches.filter(w => w.status === 'available').length
   const reserved = watches.filter(w => w.status === 'reserved').length
-  const isWatches = lockedCategory === 'Watches' || (!lockedCategory && (filterCategory === 'Watches' || filterCategory === ''))
+  const isWatches = lockedCategory === 'Watches'
 
   const activePills = [
     !lockedCategory && filterCategory && { label: filterCategory, clear: () => { setFilterCategory(''); setFilterMetal(''); setFilterSize(''); setFilterJewelleryType(''); setFilterCond('') } },
@@ -270,17 +273,12 @@ export default function DealerCatalog({ routeCategory }) {
         <div className="stat-card"><div className="stat-val">{watches.length}</div><div className="stat-lbl">Total</div></div>
       </div>
       <div className="filters">
-        {lockedCategory === 'Bags' ? (
+        {lockedCategory === 'Bags' && (
           <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setFilterBrand('') }}>
             <option value=''>All</option>
             <option>Bags</option><option>Accessories</option><option>Shoes</option>
           </select>
-        ) : !lockedCategory ? (
-          <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setFilterBrand(''); setFilterMetal(''); setFilterSize(''); setFilterJewelleryType(''); setFilterCond('') }}>
-            <option value=''>All categories</option>
-            <option>Watches</option><option>Jewellery</option><option>Bags</option><option>Shoes</option><option>Accessories</option>
-          </select>
-        ) : null}
+        )}
         <select value={filterBrand} onChange={e => setFilterBrand(e.target.value)}>
           <option value="">All brands</option>
           {(

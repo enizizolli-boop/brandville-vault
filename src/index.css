@@ -153,6 +153,102 @@ button { font-family: inherit; cursor: pointer; }
 }
 .topbar-right { display: flex; align-items: center; gap: 10px; }
 
+/* ── Topbar nav + mega menu ───────────────────── */
+.topbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.nav-item {
+  position: relative;
+}
+.nav-link {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+.nav-link:hover, .nav-link.active {
+  color: var(--text);
+  background: var(--bg-soft);
+}
+.mega-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fff;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.10);
+  min-width: 480px;
+  z-index: 200;
+  overflow: hidden;
+}
+.mega-inner {
+  display: flex;
+  gap: 0;
+  padding: 24px 28px 20px;
+}
+.mega-section {
+  flex: 1;
+  min-width: 120px;
+  padding-right: 24px;
+}
+.mega-section:last-child { padding-right: 0; }
+.mega-heading {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #bbb;
+  margin-bottom: 10px;
+}
+.mega-link {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 5px 0;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.12s;
+}
+.mega-link:hover { color: var(--gold); }
+.mega-link-type { font-weight: 500; }
+.mega-footer {
+  border-top: 1px solid var(--border-light);
+  padding: 12px 28px;
+  background: var(--bg-soft);
+}
+.mega-view-all {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gold);
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  padding: 0;
+}
+.mega-view-all:hover { text-decoration: underline; }
+
 /* ── Avatar ───────────────────────────────────── */
 .avatar {
   width: 32px; height: 32px;
