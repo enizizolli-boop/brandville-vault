@@ -292,7 +292,7 @@ export default function DealerCatalog({ routeCategory }) {
 
       {/* Stats bar */}
       <div className="stat-grid">
-        <div className="stat-card"><div className="stat-val">{avail}</div><div className="stat-lbl">Available</div></div>
+        <div className="stat-card"><div className="stat-val" style={{ color: 'var(--gold)' }}>{avail}</div><div className="stat-lbl">Available</div></div>
         <div className="stat-divider" />
         {reserved > 0 && <><div className="stat-card"><div className="stat-val">{reserved}</div><div className="stat-lbl">Reserved</div></div><div className="stat-divider" /></>}
         <div className="stat-card"><div className="stat-val">{watches.length}</div><div className="stat-lbl">Total</div></div>

@@ -272,9 +272,9 @@ button { font-family: inherit; cursor: pointer; }
   display: flex;
   align-items: center;
   gap: 20px;
-  padding: 10px 20px;
-  border-bottom: 1px solid var(--border-light);
-  background: var(--surface);
+  padding: 14px 24px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  background: #111111;
 }
 .stat-card {
   display: flex;
@@ -282,21 +282,21 @@ button { font-family: inherit; cursor: pointer; }
   gap: 6px;
 }
 .stat-val {
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 600;
-  color: var(--text);
+  color: #F0EDE8;
   line-height: 1;
 }
 .stat-lbl {
   font-size: 10px;
   font-weight: 600;
-  color: var(--faint);
+  color: rgba(255,255,255,0.3);
   text-transform: uppercase;
   letter-spacing: 0.8px;
 }
 .stat-divider {
-  width: 1px; height: 16px;
-  background: var(--border-light);
+  width: 1px; height: 20px;
+  background: rgba(255,255,255,0.1);
 }
 
 /* ── Filters (legacy) ─────────────────────────── */
