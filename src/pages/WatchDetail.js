@@ -355,7 +355,7 @@ export default function WatchDetail() {
 
         {/* LEFT — images */}
         <div className="detail-left">
-          <div style={{ position: 'relative', background: '#1a1a1a', borderRadius: 16, overflow: 'hidden', aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)' }}>
+          <div style={{ position: 'relative', background: '#f8f6f2', borderRadius: 16, overflow: 'hidden', aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)' }}>
             {images.length > 0 ? (
               <>
                 <img

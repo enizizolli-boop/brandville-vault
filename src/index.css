@@ -2,27 +2,27 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #111111;
-  --surface: #1a1a1a;
-  --surface2: #222222;
-  --border: rgba(255,255,255,0.1);
-  --border-light: rgba(255,255,255,0.07);
-  --text: #F0EDE8;
-  --text-muted: #999;
-  --muted: #888;
-  --faint: #555;
+  --bg: #f8f6f2;
+  --surface: #ffffff;
+  --surface2: #f2efea;
+  --border: rgba(0,0,0,0.1);
+  --border-light: rgba(0,0,0,0.07);
+  --text: #1c1814;
+  --text-muted: #666;
+  --muted: #8a8078;
+  --faint: #bbb;
   --gold: #B8966A;
-  --gold-light: rgba(184,150,106,0.15);
+  --gold-light: rgba(184,150,106,0.12);
   --gold-dark: #8A6D45;
-  --dark: #111111;
+  --dark: #1c1814;
   --radius-sm: 6px;
   --radius: 10px;
   --radius-lg: 12px;
   --radius-xl: 16px;
-  --shadow-xs: 0 1px 3px rgba(0,0,0,0.3);
-  --shadow-sm: 0 2px 8px rgba(0,0,0,0.4);
-  --shadow: 0 4px 20px rgba(0,0,0,0.5);
-  --shadow-lg: 0 8px 40px rgba(0,0,0,0.6);
+  --shadow-xs: 0 1px 3px rgba(0,0,0,0.07);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.1);
+  --shadow: 0 4px 20px rgba(0,0,0,0.12);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,0.18);
 }
 
 body {
@@ -47,13 +47,13 @@ input, select, textarea {
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
   width: 100%;
-  color-scheme: dark;
+  color-scheme: light;
 }
 input:focus, select:focus, textarea:focus {
   border-color: var(--gold);
   box-shadow: 0 0 0 3px rgba(184,150,106,0.15);
 }
-select option { background: #222; color: var(--text); }
+select option { background: #fff; color: var(--text); }
 textarea { resize: vertical; }
 button { font-family: inherit; cursor: pointer; }
 
@@ -75,8 +75,8 @@ button { font-family: inherit; cursor: pointer; }
   box-shadow: var(--shadow-xs);
 }
 .btn:hover { background: #2a2a2a; border-color: rgba(255,255,255,0.2); box-shadow: var(--shadow-sm); }
-.btn-dark { background: var(--text); color: #111; border-color: var(--text); box-shadow: none; }
-.btn-dark:hover { background: #d0cdc8; border-color: #d0cdc8; }
+.btn-dark { background: #1c1814; color: #fff; border-color: #1c1814; box-shadow: none; }
+.btn-dark:hover { background: #2e2825; border-color: #2e2825; }
 .btn-green { background: #25D366; color: #fff; border-color: #25D366; box-shadow: none; }
 .btn-green:hover { background: #1fb355; border-color: #1fb355; }
 .btn-warning { background: #fef3cd; color: #856404; border-color: #f0d060; box-shadow: none; }
@@ -130,8 +130,8 @@ button { font-family: inherit; cursor: pointer; }
 
 /* ── Topbar ───────────────────────────────────── */
 .topbar {
-  background: #0d0d0d;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  background: #ffffff;
+  border-bottom: 1px solid rgba(0,0,0,0.08);
   padding: 0 28px;
   height: 62px;
   display: flex;
@@ -140,14 +140,14 @@ button { font-family: inherit; cursor: pointer; }
   position: sticky;
   top: 0;
   z-index: 50;
-  box-shadow: 0 1px 0 rgba(255,255,255,0.04);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 .topbar-logo {
   font-family: 'Playfair Display', Georgia, serif;
   font-size: 20px;
   font-weight: 400;
   letter-spacing: 0.03em;
-  color: #fff;
+  color: var(--text);
   user-select: none;
 }
 .topbar-logo span {
@@ -175,7 +175,7 @@ button { font-family: inherit; cursor: pointer; }
   font-family: inherit;
   font-size: 11px;
   font-weight: 500;
-  color: rgba(255,255,255,0.5);
+  color: var(--muted);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   padding: 6px 14px;
@@ -191,10 +191,10 @@ button { font-family: inherit; cursor: pointer; }
   top: calc(100% + 10px);
   left: 50%;
   transform: translateX(-50%);
-  background: #161616;
-  border: 1px solid rgba(255,255,255,0.08);
+  background: #ffffff;
+  border: 1px solid rgba(0,0,0,0.08);
   border-radius: 6px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.15);
   min-width: 480px;
   z-index: 200;
   overflow: hidden;
@@ -215,7 +215,7 @@ button { font-family: inherit; cursor: pointer; }
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #bbb;
+  color: var(--muted);
   margin-bottom: 10px;
 }
 .mega-link {
@@ -226,18 +226,18 @@ button { font-family: inherit; cursor: pointer; }
   border: none;
   font-family: inherit;
   font-size: 13px;
-  color: rgba(255,255,255,0.5);
+  color: var(--muted);
   padding: 5px 0;
   cursor: pointer;
   white-space: nowrap;
   transition: color 0.12s;
 }
 .mega-link:hover { color: var(--gold); }
-.mega-link-type { font-weight: 500; color: rgba(255,255,255,0.7); }
+.mega-link-type { font-weight: 500; color: var(--text); }
 .mega-footer {
-  border-top: 1px solid rgba(255,255,255,0.06);
+  border-top: 1px solid rgba(0,0,0,0.06);
   padding: 12px 28px;
-  background: rgba(255,255,255,0.03);
+  background: var(--bg);
 }
 .mega-view-all {
   background: none;
@@ -317,7 +317,7 @@ button { font-family: inherit; cursor: pointer; }
   gap: 8px;
   padding: 10px 20px;
   border-bottom: 1px solid var(--border-light);
-  background: #141414;
+  background: #ffffff;
   flex-wrap: nowrap;
   overflow-x: auto;
   scrollbar-width: none;
@@ -370,7 +370,7 @@ button { font-family: inherit; cursor: pointer; }
   gap: 8px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border-light);
-  background: #141414;
+  background: #ffffff;
   position: sticky;
   top: 62px;
   z-index: 40;
@@ -402,7 +402,7 @@ button { font-family: inherit; cursor: pointer; }
   position: fixed;
   left: 0; top: 0; bottom: 0;
   width: min(300px, 90vw);
-  background: #161616;
+  background: #ffffff;
   border-right: 1px solid var(--border);
   z-index: 251;
   display: flex;
@@ -484,7 +484,7 @@ button { font-family: inherit; cursor: pointer; }
   position: relative;
   width: 100%;
   aspect-ratio: 1 / 1;
-  background: #1e1e1e;
+  background: var(--bg);
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -589,8 +589,8 @@ button { font-family: inherit; cursor: pointer; }
 }
 .btn-wa:hover { background: #1aad52; }
 .btn-inquire {
-  background: var(--text);
-  color: #111;
+  background: #1c1814;
+  color: #fff;
   border: none;
   border-radius: 8px;
   padding: 7px 12px;
@@ -609,7 +609,7 @@ button { font-family: inherit; cursor: pointer; }
 .watch-card-img {
   position: relative;
   height: 210px;
-  background: #1e1e1e;
+  background: var(--bg);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -809,8 +809,8 @@ button { font-family: inherit; cursor: pointer; }
 .back-btn:hover { color: var(--text); }
 
 /* ── Currency toggle ──────────────────────────── */
-.currency-toggle { display: flex; gap: 0; background: rgba(255,255,255,0.06); padding: 3px; border-radius: var(--radius-sm); border: 1px solid rgba(255,255,255,0.1); }
-.currency-btn { padding: 4px 11px; font-size: 11px; border-radius: 4px; border: none; background: transparent; color: rgba(255,255,255,0.45); cursor: pointer; font-weight: 600; letter-spacing: 0.06em; transition: all 0.15s; }
+.currency-toggle { display: flex; gap: 0; background: rgba(0,0,0,0.05); padding: 3px; border-radius: var(--radius-sm); border: 1px solid rgba(0,0,0,0.1); }
+.currency-btn { padding: 4px 11px; font-size: 11px; border-radius: 4px; border: none; background: transparent; color: var(--muted); cursor: pointer; font-weight: 600; letter-spacing: 0.06em; transition: all 0.15s; }
 .currency-btn.active { background: var(--gold); color: #fff; }
 
 /* ── Spinner ──────────────────────────────────── */
@@ -825,7 +825,7 @@ button { font-family: inherit; cursor: pointer; }
 /* ── Skeleton shimmer ─────────────────────────────────────────────────────── */
 @keyframes shimmer { 0% { background-position: -600px 0; } 100% { background-position: 600px 0; } }
 .skeleton {
-  background: linear-gradient(90deg, #1e1e1e 25%, #2a2a2a 50%, #1e1e1e 75%);
+  background: linear-gradient(90deg, #f0ede8 25%, #e8e4de 50%, #f0ede8 75%);
   background-size: 600px 100%;
   animation: shimmer 1.4s infinite;
   border-radius: var(--radius);
@@ -899,7 +899,7 @@ button { font-family: inherit; cursor: pointer; }
   right: 0;
   width: min(320px, 100vw);
   height: 100vh;
-  background: #161616;
+  background: #ffffff;
   border-left: 1px solid var(--border);
   overflow-y: auto;
   display: flex;
@@ -933,7 +933,7 @@ button { font-family: inherit; cursor: pointer; }
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
-  color: var(--text);
+  color: #1c1814;
 }
 .mobile-nav-items {
   padding: 4px 20px 12px;
