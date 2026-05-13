@@ -130,8 +130,8 @@ button { font-family: inherit; cursor: pointer; }
 
 /* ── Topbar ───────────────────────────────────── */
 .topbar {
-  background: #ffffff;
-  border-bottom: 1px solid rgba(0,0,0,0.08);
+  background: #0d0d0d;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
   padding: 0 28px;
   height: 62px;
   display: flex;
@@ -140,14 +140,14 @@ button { font-family: inherit; cursor: pointer; }
   position: sticky;
   top: 0;
   z-index: 50;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04);
 }
 .topbar-logo {
   font-family: 'Playfair Display', Georgia, serif;
   font-size: 20px;
   font-weight: 400;
   letter-spacing: 0.03em;
-  color: var(--text);
+  color: #fff;
   user-select: none;
 }
 .topbar-logo span {
@@ -175,7 +175,7 @@ button { font-family: inherit; cursor: pointer; }
   font-family: inherit;
   font-size: 11px;
   font-weight: 500;
-  color: var(--muted);
+  color: rgba(255,255,255,0.5);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   padding: 6px 14px;
@@ -191,10 +191,10 @@ button { font-family: inherit; cursor: pointer; }
   top: calc(100% + 10px);
   left: 50%;
   transform: translateX(-50%);
-  background: #ffffff;
-  border: 1px solid rgba(0,0,0,0.08);
+  background: #161616;
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 6px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.7);
   min-width: 480px;
   z-index: 200;
   overflow: hidden;
@@ -215,7 +215,7 @@ button { font-family: inherit; cursor: pointer; }
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: #bbb;
   margin-bottom: 10px;
 }
 .mega-link {
@@ -226,18 +226,18 @@ button { font-family: inherit; cursor: pointer; }
   border: none;
   font-family: inherit;
   font-size: 13px;
-  color: var(--muted);
+  color: rgba(255,255,255,0.5);
   padding: 5px 0;
   cursor: pointer;
   white-space: nowrap;
   transition: color 0.12s;
 }
 .mega-link:hover { color: var(--gold); }
-.mega-link-type { font-weight: 500; color: var(--text); }
+.mega-link-type { font-weight: 500; color: rgba(255,255,255,0.7); }
 .mega-footer {
-  border-top: 1px solid rgba(0,0,0,0.06);
+  border-top: 1px solid rgba(255,255,255,0.06);
   padding: 12px 28px;
-  background: var(--bg);
+  background: rgba(255,255,255,0.03);
 }
 .mega-view-all {
   background: none;
@@ -809,8 +809,8 @@ button { font-family: inherit; cursor: pointer; }
 .back-btn:hover { color: var(--text); }
 
 /* ── Currency toggle ──────────────────────────── */
-.currency-toggle { display: flex; gap: 0; background: rgba(0,0,0,0.05); padding: 3px; border-radius: var(--radius-sm); border: 1px solid rgba(0,0,0,0.1); }
-.currency-btn { padding: 4px 11px; font-size: 11px; border-radius: 4px; border: none; background: transparent; color: var(--muted); cursor: pointer; font-weight: 600; letter-spacing: 0.06em; transition: all 0.15s; }
+.currency-toggle { display: flex; gap: 0; background: rgba(255,255,255,0.06); padding: 3px; border-radius: var(--radius-sm); border: 1px solid rgba(255,255,255,0.1); }
+.currency-btn { padding: 4px 11px; font-size: 11px; border-radius: 4px; border: none; background: transparent; color: rgba(255,255,255,0.45); cursor: pointer; font-weight: 600; letter-spacing: 0.06em; transition: all 0.15s; }
 .currency-btn.active { background: var(--gold); color: #fff; }
 
 /* ── Spinner ──────────────────────────────────── */
@@ -899,8 +899,8 @@ button { font-family: inherit; cursor: pointer; }
   right: 0;
   width: min(320px, 100vw);
   height: 100vh;
-  background: #ffffff;
-  border-left: 1px solid var(--border);
+  background: #161616;
+  border-left: 1px solid rgba(255,255,255,0.08);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -933,7 +933,7 @@ button { font-family: inherit; cursor: pointer; }
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
-  color: #1c1814;
+  color: #fff;
 }
 .mobile-nav-items {
   padding: 4px 20px 12px;
@@ -947,12 +947,12 @@ button { font-family: inherit; cursor: pointer; }
   text-align: left;
   font-family: inherit;
   font-size: 13px;
-  color: var(--text-muted);
+  color: rgba(255,255,255,0.5);
   padding: 6px 0;
   cursor: pointer;
 }
 .mobile-nav-link:hover { color: var(--gold); }
-.mobile-nav-link-all { font-weight: 600; color: var(--text); }
+.mobile-nav-link-all { font-weight: 600; color: #fff; }
 .mobile-nav-link-type { font-weight: 500; }
 .mobile-nav-actions {
   margin-top: auto;
