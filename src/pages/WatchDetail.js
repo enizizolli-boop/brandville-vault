@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { useExchangeRate } from '../hooks/useExchangeRate'
 import { useCurrency } from '../context/CurrencyContext'
 import Topbar from '../components/Topbar'
+import Footer from '../components/Footer'
 
 const WHATSAPP_NUMBERS = {
   Watches: '18488639660',
@@ -605,6 +606,8 @@ export default function WatchDetail() {
           </div>
         </div>
       )}
+
+      <Footer />
 
       {/* Lightbox */}
       {lightbox !== null && (

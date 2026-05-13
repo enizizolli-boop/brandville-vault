@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { useExchangeRate } from '../hooks/useExchangeRate'
 import { useCurrency } from '../context/CurrencyContext'
 import Topbar from '../components/Topbar'
+import Footer from '../components/Footer'
 import WATCH_REFS from '../data/watchRefs'
 
 const CATEGORIES = ['Watches', 'Jewellery', 'Bags']
@@ -978,6 +979,7 @@ export default function AgentListings() {
           </form>
         </div>
       )}
+      <Footer />
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useCurrency } from '../context/CurrencyContext'
 import { useExchangeRate } from '../hooks/useExchangeRate'
 import Topbar from '../components/Topbar'
+import Footer from '../components/Footer'
 
 const WATCH_BRANDS = [
   'A. Lange & Söhne','Audemars Piguet','Blancpain','Breguet','Breitling','Cartier',
@@ -186,8 +187,6 @@ export default function DealerCatalog({ routeCategory }) {
 
   const { currency } = useCurrency()
   const { rate } = useExchangeRate()
-  const gridRef = useRef(null)
-  const [cols, setCols] = useState(5)
   const [watches, setWatches] = useState([])
   const [loading, setLoading] = useState(true)
   const [filterBrand, setFilterBrand] = useState(urlBrand)
@@ -280,26 +279,6 @@ export default function DealerCatalog({ routeCategory }) {
   const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
   useEffect(() => setPage(0), [filterBrand, filterCond, filterStatus, search, sortBy, filterPriceMin, filterPriceMax, filterJewelleryType, filterMetal, filterSize])
-
-  useEffect(() => {
-    function measureCols() {
-      const grid = gridRef.current
-      if (!grid) return
-      const items = Array.from(grid.children).filter(el => !el.dataset.banner)
-      if (items.length < 2) return
-      const firstTop = items[0].getBoundingClientRect().top
-      let count = 0
-      for (const el of items) {
-        if (Math.abs(el.getBoundingClientRect().top - firstTop) < 5) count++
-        else break
-      }
-      if (count > 0) setCols(count)
-    }
-    const observer = new ResizeObserver(measureCols)
-    if (gridRef.current) observer.observe(gridRef.current)
-    const t = setTimeout(measureCols, 100)
-    return () => { observer.disconnect(); clearTimeout(t) }
-  }, [filtered.length])
 
   const avail = watches.filter(w => w.status === 'available').length
   const reserved = watches.filter(w => w.status === 'reserved').length
@@ -498,20 +477,12 @@ export default function DealerCatalog({ routeCategory }) {
         </div>
       ) : (
         <>
-          <div className="watch-grid" ref={gridRef}>
-            {paginated.map((w, idx) => {
-              const bannerAt = cols * 4
+          <div className="watch-grid">
+            {paginated.map((w) => {
               const waMsg = encodeURIComponent(`Hi, I'm interested in the ${w.brand} ${w.model}${w.reference ? ` (Ref. ${cleanRef(w.reference)})` : ''}. Is it still available?`)
               const waNum = WA_NUMBERS[w.category] || '18488639660'
               return (
                 <React.Fragment key={w.id}>
-                  {idx === bannerAt && bannerAt > 0 && (
-                    <div data-banner="1" style={{ gridColumn: '1 / -1', margin: '4px 0' }}>
-                      <a href="https://chasovnikari.com/checkout/" target="_blank" rel="noopener noreferrer" className="catalog-banner">
-                        <img src="/banner-repair.png" alt="KK Time Studio — Watchmaking repair service" />
-                      </a>
-                    </div>
-                  )}
                   <div className="watch-card">
                     <div className="card-img-wrap" onClick={() => navigate(`/catalog/${w.id}`)}>
                       <CardImages watch={w} />
@@ -561,6 +532,7 @@ export default function DealerCatalog({ routeCategory }) {
           )}
         </>
       )}
+      <Footer />
     </div>
   )
 }
