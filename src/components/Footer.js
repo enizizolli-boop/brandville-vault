@@ -32,9 +32,9 @@ export default function Footer() {
 
         <div className="footer-col">
           <div className="footer-heading">Inquiries</div>
-          <a href={`https://wa.me/${WA_NUMBERS.Watches}`} target="_blank" rel="noopener noreferrer">Watches — WhatsApp</a>
-          <a href={`https://wa.me/${WA_NUMBERS.Jewellery}`} target="_blank" rel="noopener noreferrer">Jewellery — WhatsApp</a>
-          <a href={`https://wa.me/${WA_NUMBERS.Bags}`} target="_blank" rel="noopener noreferrer">Bags — WhatsApp</a>
+          <a href={`https://wa.me/${WA_NUMBERS.Watches}`} target="_blank" rel="noopener noreferrer">Watches - WhatsApp</a>
+          <a href={`https://wa.me/${WA_NUMBERS.Jewellery}`} target="_blank" rel="noopener noreferrer">Jewellery - WhatsApp</a>
+          <a href={`https://wa.me/${WA_NUMBERS.Bags}`} target="_blank" rel="noopener noreferrer">Bags - WhatsApp</a>
         </div>
 
         <div className="footer-col">
@@ -48,7 +48,7 @@ export default function Footer() {
 
       <div className="footer-bottom">
         <span>© {year} Brandville Vault. All rights reserved.</span>
-        <span className="footer-disclaimer">Private access — not for public distribution</span>
+        <span className="footer-disclaimer">Private access - not for public distribution</span>
       </div>
     </footer>
   )

@@ -335,8 +335,13 @@ export default function WatchDetail() {
 
   const canEdit = profile?.role === 'admin' || profile?.role === 'agent'
 
+  function handleBrandClick() {
+    const route = watch.category === 'Jewellery' ? '/jewellery' : watch.category === 'Bags' ? '/bags' : '/watches'
+    navigate(`${route}?brand=${encodeURIComponent(watch.brand)}`)
+  }
+
   return (
-    <div className="page">
+    <div className="page" style={{ background: '#ffffff' }}>
       <Topbar />
 
       {/* Back + Edit bar */}
@@ -356,7 +361,7 @@ export default function WatchDetail() {
 
         {/* LEFT — images */}
         <div className="detail-left">
-          <div style={{ position: 'relative', background: '#f8f6f2', borderRadius: 16, overflow: 'hidden', aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)' }}>
+          <div style={{ position: 'relative', background: '#f5f2ed', borderRadius: 16, overflow: 'hidden', aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 20px rgba(0,0,0,0.06)' }}>
             {images.length > 0 ? (
               <>
                 <img
@@ -491,11 +496,19 @@ export default function WatchDetail() {
           ) : (
             <>
               {/* Header */}
-              <div style={{ marginBottom: 20 }}>
+              <div style={{ marginBottom: 24 }}>
                 <div className="detail-category">{watch.category || 'Watches'}</div>
-                <div className="detail-brand">{watch.brand}</div>
+                <div className="detail-brand" onClick={handleBrandClick} title={`View all ${watch.brand}`}>
+                  {watch.brand}
+                  <span className="detail-brand-arrow">↗</span>
+                </div>
                 <div className="detail-model">{watch.model}</div>
-                {watch.reference && <div className="detail-ref" style={{ marginTop: 6 }}>{cleanRef(watch.reference)}</div>}
+                {(cleanRef(watch.reference) || watch.reference) && (
+                  <div className="detail-ref">
+                    <span className="detail-ref-label">Ref</span>
+                    {cleanRef(watch.reference) || watch.reference}
+                  </div>
+                )}
               </div>
 
               {/* Status */}

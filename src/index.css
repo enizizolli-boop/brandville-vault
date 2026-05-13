@@ -767,31 +767,56 @@ button { font-family: inherit; cursor: pointer; }
 .detail-images::-webkit-scrollbar { display: none; }
 .detail-images img { height: 240px; border-radius: var(--radius-lg); border: 1px solid var(--border-light); flex-shrink: 0; box-shadow: var(--shadow-sm); }
 .detail-images .no-img { height: 240px; width: 240px; background: var(--bg); border-radius: var(--radius-lg); border: 1px solid var(--border-light); display: flex; align-items: center; justify-content: center; font-size: 60px; flex-shrink: 0; }
-.detail-category { font-size: 10px; font-weight: 600; color: var(--faint); text-transform: uppercase; letter-spacing: 1.6px; margin-bottom: 4px; }
-.detail-brand { font-size: 11px; font-weight: 700; color: var(--gold); text-transform: uppercase; letter-spacing: 1.6px; margin-bottom: 10px; }
+.detail-category { font-size: 10px; font-weight: 600; color: var(--faint); text-transform: uppercase; letter-spacing: 1.8px; margin-bottom: 8px; }
+.detail-brand {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 700; color: var(--gold);
+  text-transform: uppercase; letter-spacing: 1.6px;
+  margin-bottom: 12px; cursor: pointer;
+  background: rgba(184,150,106,0.1); border: 1px solid rgba(184,150,106,0.25);
+  border-radius: 20px; padding: 4px 12px;
+  transition: background 0.15s, color 0.15s;
+  user-select: none;
+}
+.detail-brand:hover { background: rgba(184,150,106,0.18); color: #9a7a52; }
+.detail-brand-arrow { font-size: 11px; opacity: 0.7; }
 .detail-model {
-  font-size: 28px;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 30px;
   font-weight: 700;
   margin-bottom: 4px;
   line-height: 1.15;
   letter-spacing: -0.3px;
+  color: var(--text);
 }
-.detail-ref { font-size: 13px; font-weight: 400; color: var(--faint); letter-spacing: 0.04em; margin-bottom: 0; }
+.detail-ref {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 10px;
+  background: #f0ede8; border: 1px solid rgba(0,0,0,0.07);
+  border-radius: 20px; padding: 5px 14px;
+  font-size: 13px; font-weight: 600; color: #2a2520;
+  letter-spacing: 0.04em;
+}
+.detail-ref-label {
+  font-size: 9px; font-weight: 700; color: #aaa;
+  text-transform: uppercase; letter-spacing: 0.12em;
+}
 .detail-price {
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 700;
   letter-spacing: -0.3px;
   margin-bottom: 4px;
+  color: var(--text);
 }
 .detail-price-secondary { font-size: 14px; color: var(--faint); margin-bottom: 0; }
 .detail-meta { display: grid; gap: 0; margin-bottom: 28px; }
 .detail-meta-row {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 11px 0; border-bottom: 1px solid var(--border-light);
+  padding: 12px 0; border-bottom: 1px solid var(--border-light);
   font-size: 13px; gap: 16px;
 }
 .detail-meta-row:last-child { border-bottom: none; }
-.detail-meta-row span:first-child { color: var(--faint); flex-shrink: 0; font-weight: 400; }
+.detail-meta-row span:first-child { color: #aaa; flex-shrink: 0; font-weight: 400; font-size: 12px; }
 .detail-meta-row span:last-child { text-align: right; font-weight: 500; color: var(--text); }
 .detail-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .detail-actions .btn { flex: 1; min-width: 80px; }
@@ -1014,8 +1039,8 @@ button { font-family: inherit; cursor: pointer; }
 
 /* ── Footer ───────────────────────────────────── */
 .site-footer {
-  border-top: 1px solid var(--border-light);
-  background: #fff;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  background: #0d0d0d;
   margin-top: 40px;
 }
 .footer-inner {
@@ -1030,13 +1055,13 @@ button { font-family: inherit; cursor: pointer; }
   font-family: 'Playfair Display', Georgia, serif;
   font-size: 18px;
   font-weight: 400;
-  color: var(--text);
+  color: #fff;
   margin-bottom: 10px;
 }
 .footer-logo span { color: var(--gold); font-style: italic; }
 .footer-tagline {
   font-size: 12px;
-  color: var(--muted);
+  color: rgba(255,255,255,0.35);
   line-height: 1.65;
   max-width: 220px;
 }
@@ -1045,7 +1070,7 @@ button { font-family: inherit; cursor: pointer; }
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: rgba(255,255,255,0.3);
   margin-bottom: 14px;
 }
 .footer-col {
@@ -1059,7 +1084,7 @@ button { font-family: inherit; cursor: pointer; }
   border: none;
   font-family: inherit;
   font-size: 13px;
-  color: var(--text);
+  color: rgba(255,255,255,0.6);
   text-align: left;
   cursor: pointer;
   padding: 0;
@@ -1070,15 +1095,15 @@ button { font-family: inherit; cursor: pointer; }
 .footer-col button:hover,
 .footer-col a:hover { color: var(--gold); }
 .footer-bottom {
-  border-top: 1px solid var(--border-light);
+  border-top: 1px solid rgba(255,255,255,0.06);
   padding: 14px 32px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   font-size: 11px;
-  color: var(--muted);
+  color: rgba(255,255,255,0.25);
 }
-.footer-disclaimer { opacity: 0.6; }
+.footer-disclaimer { opacity: 0.7; }
 @media (max-width: 768px) {
   .footer-inner { grid-template-columns: 1fr 1fr; gap: 28px; padding: 32px 16px 24px; }
   .footer-brand { grid-column: 1 / -1; }
