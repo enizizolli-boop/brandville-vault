@@ -71,7 +71,53 @@ function inferJewelleryType(item) {
   return ''
 }
 
-function CardImages({ watch, brandEmoji }) {
+const PLACEHOLDERS = {
+  Watches: (
+    <svg width="72" height="72" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="30" y="6" width="20" height="13" rx="3" stroke="#C9A87A" strokeWidth="1.5"/>
+      <rect x="30" y="61" width="20" height="13" rx="3" stroke="#C9A87A" strokeWidth="1.5"/>
+      <circle cx="40" cy="40" r="21" stroke="#C9A87A" strokeWidth="1.5"/>
+      <circle cx="40" cy="40" r="2" fill="#C9A87A"/>
+      <line x1="40" y1="38" x2="40" y2="25" stroke="#C9A87A" strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="40" y1="40" x2="53" y2="46" stroke="#C9A87A" strokeWidth="1.5" strokeLinecap="round"/>
+      <circle cx="40" cy="22" r="1" fill="#C9A87A"/>
+      <circle cx="40" cy="58" r="1" fill="#C9A87A"/>
+      <circle cx="22" cy="40" r="1" fill="#C9A87A"/>
+      <circle cx="58" cy="40" r="1" fill="#C9A87A"/>
+    </svg>
+  ),
+  Jewellery: (
+    <svg width="72" height="72" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="40,12 58,28 51,62 29,62 22,28" stroke="#C9A87A" strokeWidth="1.5" fill="none" strokeLinejoin="round"/>
+      <line x1="22" y1="28" x2="40" y2="38" stroke="#C9A87A" strokeWidth="1.2"/>
+      <line x1="58" y1="28" x2="40" y2="38" stroke="#C9A87A" strokeWidth="1.2"/>
+      <line x1="40" y1="38" x2="29" y2="62" stroke="#C9A87A" strokeWidth="1.2"/>
+      <line x1="40" y1="38" x2="51" y2="62" stroke="#C9A87A" strokeWidth="1.2"/>
+      <line x1="22" y1="28" x2="58" y2="28" stroke="#C9A87A" strokeWidth="1.2"/>
+      <line x1="40" y1="12" x2="22" y2="28" stroke="#C9A87A" strokeWidth="1.2"/>
+      <line x1="40" y1="12" x2="58" y2="28" stroke="#C9A87A" strokeWidth="1.2"/>
+    </svg>
+  ),
+  Bags: (
+    <svg width="72" height="72" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M29 32 Q29 20 40 20 Q51 20 51 32" stroke="#C9A87A" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+      <rect x="16" y="32" width="48" height="30" rx="6" stroke="#C9A87A" strokeWidth="1.5" fill="none"/>
+      <line x1="16" y1="44" x2="64" y2="44" stroke="#C9A87A" strokeWidth="1.2"/>
+      <circle cx="40" cy="38" r="2.5" fill="#C9A87A"/>
+    </svg>
+  ),
+}
+
+function CategoryPlaceholder({ category }) {
+  const svg = PLACEHOLDERS[category] || PLACEHOLDERS.Watches
+  return (
+    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f2ed' }}>
+      {svg}
+    </div>
+  )
+}
+
+function CardImages({ watch }) {
   const [idx, setIdx] = useState(0)
   const imgs = [...(watch.product_images || [])].sort((a, b) => a.position - b.position)
   const touchStartX = useRef(null)
@@ -93,7 +139,7 @@ function CardImages({ watch, brandEmoji }) {
     touchStartX.current = null
   }
 
-  if (!imgs.length) return <span>{brandEmoji}</span>
+  if (!imgs.length) return <CategoryPlaceholder category={watch.category} />
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}
@@ -468,13 +514,13 @@ export default function DealerCatalog({ routeCategory }) {
                   )}
                   <div className="watch-card">
                     <div className="card-img-wrap" onClick={() => navigate(`/catalog/${w.id}`)}>
-                      <CardImages watch={w} brandEmoji={BRAND_EMOJI[w.brand] || '⌚'} />
+                      <CardImages watch={w} />
                       <div className={`card-status-dot ${w.status}`} />
                     </div>
                     <div className="card-body" onClick={() => navigate(`/catalog/${w.id}`)}>
                       <div className="card-brand">{w.brand}</div>
                       <div className="card-model">{w.model}</div>
-                      <div className="card-ref">{cleanRef(w.reference) || '—'}</div>
+                      <div className="card-ref">{cleanRef(w.reference) ? `Ref. ${cleanRef(w.reference)}` : '—'}</div>
                       <div className="card-meta">
                         {w.notes && <><span className="card-year">{w.notes}</span><div className="card-dot" /></>}
                         <span className="card-cond-pill">{shortenCond(w.condition)}</span>
