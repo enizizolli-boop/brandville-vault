@@ -76,11 +76,66 @@ function MegaMenu({ category, data, onNavigate, onClose }) {
   )
 }
 
+function MobileMenu({ profile, currency, setCurrency, onNavigate, onSignOut, onClose }) {
+  const [expanded, setExpanded] = useState(null)
+
+  function go(route, value, type) {
+    onClose()
+    if (!value) { onNavigate(route); return }
+    if (type === 'brand') onNavigate(`${route}?brand=${encodeURIComponent(value)}`)
+    else onNavigate(`${route}?type=${encodeURIComponent(value)}`)
+  }
+
+  return (
+    <div className="mobile-menu-overlay" onClick={onClose}>
+      <div className="mobile-menu" onClick={e => e.stopPropagation()}>
+        <div className="mobile-menu-header">
+          <div className="currency-toggle">
+            <button className={`currency-btn ${currency === 'USD' ? 'active' : ''}`} onClick={() => setCurrency('USD')}>USD</button>
+            <button className={`currency-btn ${currency === 'EUR' ? 'active' : ''}`} onClick={() => setCurrency('EUR')}>EUR</button>
+          </div>
+          <button className="mobile-menu-close" onClick={onClose}>✕</button>
+        </div>
+
+        {Object.entries(MEGA).map(([cat, data]) => (
+          <div key={cat} className="mobile-nav-group">
+            <div className="mobile-nav-cat" onClick={() => setExpanded(expanded === cat ? null : cat)}>
+              <span>{cat}</span>
+              <span style={{ fontSize: 10, color: '#bbb' }}>{expanded === cat ? '▲' : '▼'}</span>
+            </div>
+            {expanded === cat && (
+              <div className="mobile-nav-items">
+                <button className="mobile-nav-link mobile-nav-link-all" onClick={() => go(data.route)}>
+                  All {cat}
+                </button>
+                {data.types?.map(t => (
+                  <button key={t} className="mobile-nav-link mobile-nav-link-type" onClick={() => go(data.route, t, 'type')}>{t}</button>
+                ))}
+                {data.cols.flat().map(brand => (
+                  <button key={brand} className="mobile-nav-link" onClick={() => go(data.route, brand, 'brand')}>{brand}</button>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+
+        <div className="mobile-nav-actions">
+          {profile?.role === 'admin' && <button className="btn btn-sm" onClick={() => { onClose(); onNavigate('/admin') }}>Admin</button>}
+          {profile?.role !== 'dealer' && <button className="btn btn-sm" onClick={() => { onClose(); onNavigate('/agent') }}>Agent</button>}
+          {profile?.role === 'dealer' && <button className="btn btn-sm" onClick={() => { onClose(); onNavigate('/offers') }}>My Offers</button>}
+          <button className="btn btn-sm" onClick={onSignOut}>Sign out</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Topbar() {
   const { profile, signOut } = useAuth()
   const { currency, setCurrency } = useCurrency()
   const navigate = useNavigate()
   const [openMenu, setOpenMenu] = useState(null)
+  const [mobileOpen, setMobileOpen] = useState(false)
   const closeTimer = useRef(null)
 
   function handleSignOut() {
@@ -104,52 +159,68 @@ export default function Topbar() {
   }
 
   return (
-    <div className="topbar">
-      <div className="topbar-logo" onClick={() => navigate('/home')} style={{ cursor: 'pointer' }}>
-        Brandville <span>Vault</span>
-      </div>
+    <>
+      <div className="topbar">
+        <div className="topbar-logo" onClick={() => navigate('/home')} style={{ cursor: 'pointer' }}>
+          Brandville <span>Vault</span>
+        </div>
 
-      <nav className="topbar-nav">
-        {Object.entries(MEGA).map(([cat, data]) => (
-          <div key={cat} className="nav-item"
-            onMouseEnter={() => openNav(cat)}
-            onMouseLeave={closeNav}>
-            <button className={`nav-link ${openMenu === cat ? 'active' : ''}`}
-              onClick={() => navigate(data.route)}>
-              {cat}
-            </button>
-            {openMenu === cat && (
-              <MegaMenu
-                category={cat}
-                data={data}
-                onNavigate={handleMegaNavigate}
-                onClose={() => setOpenMenu(null)}
-              />
-            )}
+        <nav className="topbar-nav">
+          {Object.entries(MEGA).map(([cat, data]) => (
+            <div key={cat} className="nav-item"
+              onMouseEnter={() => openNav(cat)}
+              onMouseLeave={closeNav}>
+              <button className={`nav-link ${openMenu === cat ? 'active' : ''}`}
+                onClick={() => navigate(data.route)}>
+                {cat}
+              </button>
+              {openMenu === cat && (
+                <MegaMenu
+                  category={cat}
+                  data={data}
+                  onNavigate={handleMegaNavigate}
+                  onClose={() => setOpenMenu(null)}
+                />
+              )}
+            </div>
+          ))}
+        </nav>
+
+        <div className="topbar-right">
+          <div className="currency-toggle topbar-currency-desktop">
+            <button className={`currency-btn ${currency === 'USD' ? 'active' : ''}`} onClick={() => setCurrency('USD')}>USD</button>
+            <button className={`currency-btn ${currency === 'EUR' ? 'active' : ''}`} onClick={() => setCurrency('EUR')}>EUR</button>
           </div>
-        ))}
-      </nav>
-
-      <div className="topbar-right">
-        <div className="currency-toggle">
-          <button className={`currency-btn ${currency === 'USD' ? 'active' : ''}`} onClick={() => setCurrency('USD')}>USD</button>
-          <button className={`currency-btn ${currency === 'EUR' ? 'active' : ''}`} onClick={() => setCurrency('EUR')}>EUR</button>
+          {profile?.role === 'admin' && (
+            <button className="btn btn-sm topbar-btn-desktop" onClick={() => navigate('/admin')}>Admin</button>
+          )}
+          {profile?.role !== 'dealer' && (
+            <button className="btn btn-sm topbar-btn-desktop" onClick={() => navigate('/agent')}>Agent</button>
+          )}
+          {profile?.role === 'dealer' && (
+            <button className="btn btn-sm topbar-btn-desktop" onClick={() => navigate('/offers')}>My Offers</button>
+          )}
+          <div className="topbar-avatar-wrap">
+            <div className={`avatar ${avatarColor(profile?.full_name)}`}>{initials(profile?.full_name)}</div>
+            <span className="user-name-label" style={{ fontSize: 12, color: '#888' }}>{profile?.full_name}</span>
+          </div>
+          <button className="btn btn-sm topbar-btn-desktop" onClick={handleSignOut}>Sign out</button>
+          <button className="hamburger" onClick={() => setMobileOpen(true)} aria-label="Menu">
+            <span /><span /><span />
+          </button>
         </div>
-        {profile?.role === 'admin' && (
-          <button className="btn btn-sm" onClick={() => navigate('/admin')}>Admin</button>
-        )}
-        {profile?.role !== 'dealer' && (
-          <button className="btn btn-sm" onClick={() => navigate('/agent')}>Agent</button>
-        )}
-        {profile?.role === 'dealer' && (
-          <button className="btn btn-sm" onClick={() => navigate('/offers')}>My Offers</button>
-        )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <div className={`avatar ${avatarColor(profile?.full_name)}`}>{initials(profile?.full_name)}</div>
-          <span className="user-name-label" style={{ fontSize: 12, color: '#888' }}>{profile?.full_name}</span>
-        </div>
-        <button className="btn btn-sm" onClick={handleSignOut}>Sign out</button>
       </div>
-    </div>
+
+      {mobileOpen && (
+        <MobileMenu
+          profile={profile}
+          currency={currency}
+          setCurrency={setCurrency}
+          onNavigate={navigate}
+          onSignOut={() => { setMobileOpen(false); handleSignOut() }}
+          onClose={() => setMobileOpen(false)}
+        />
+      )}
+    </>
   )
 }

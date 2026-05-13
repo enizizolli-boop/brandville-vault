@@ -259,12 +259,6 @@ export default function DealerCatalog({ routeCategory }) {
   return (
     <div className="page">
       <Topbar />
-      {lockedCategory && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px 0' }}>
-          <button className="btn btn-sm" onClick={() => navigate('/home')}>← Back</button>
-          <span style={{ fontSize: 14, fontWeight: 600 }}>{lockedCategory}</span>
-        </div>
-      )}
       <div className="stat-grid">
         <div className="stat-card"><div className="stat-val">{avail}</div><div className="stat-lbl">Available</div></div>
         <div className="stat-divider" />
