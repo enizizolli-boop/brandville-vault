@@ -119,7 +119,7 @@ button { font-family: inherit; cursor: pointer; }
 .form-3col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
 
 /* ── Layout ───────────────────────────────────── */
-.page { min-height: 100vh; }
+.page { min-height: 100vh; overflow-x: hidden; }
 .container { max-width: 1100px; margin: 0 auto; padding: 0 16px; }
 
 /* ── Topbar ───────────────────────────────────── */
@@ -725,7 +725,13 @@ button { font-family: inherit; cursor: pointer; }
   .topbar-logo { font-size: 16px; }
   .stat-grid { gap: 12px; padding: 8px 12px; }
   .stat-val { font-size: 18px; }
-  .watch-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 12px 10px; }
+  .watch-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 10px 8px; }
+  .watch-card-img { height: 160px; }
+  @media (max-width: 380px) {
+    .watch-grid { grid-template-columns: 1fr; }
+    .watch-card-img { height: 220px; }
+  }
+
   .filters { padding: 8px 10px; gap: 6px; overflow-x: auto; flex-wrap: nowrap; }
   .filters select, .filters input { font-size: 12px; padding: 6px 8px; flex-shrink: 0; }
   .detail-layout { padding: 0 0 48px; }
