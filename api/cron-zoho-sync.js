@@ -143,9 +143,28 @@ export default async function handler(req, res) {
     // Upsert recently modified live items
     let upserted = 0;
     if (liveItems.length > 0) {
+      const liveIds = liveItems.map(i => String(i.item_id));
+
+      // Preserve reserved status — upsert sets status:'available', which would wrongly
+      // overwrite watches a dealer has reserved. Query first, restore after.
+      const { data: reservedRows } = await supabase
+        .from('products')
+        .select('zoho_item_id')
+        .in('zoho_item_id', liveIds)
+        .eq('source', 'zoho')
+        .eq('status', 'reserved');
+      const reservedIds = new Set((reservedRows || []).map(r => r.zoho_item_id));
+
       const rows = liveItems.map(mapZohoItem);
       await supabase.from('products').upsert(rows, { onConflict: 'zoho_item_id' });
       upserted = rows.length;
+
+      if (reservedIds.size > 0) {
+        await supabase.from('products')
+          .update({ status: 'reserved' })
+          .in('zoho_item_id', [...reservedIds])
+          .eq('source', 'zoho');
+      }
     }
 
     return res.status(200).json({

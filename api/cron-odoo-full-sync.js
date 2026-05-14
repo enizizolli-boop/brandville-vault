@@ -295,7 +295,7 @@ export default async function handler(req, res) {
 
     const elapsed = Math.round((Date.now() - startTime) / 1000);
     console.log(`Full sync done: +${added} added, ${updated} updated, ${removed} removed, ${imagesAdded} images, ${elapsed}s`);
-    return res.status(200).json({ success: true, added, updated, removed, images_added: imagesAdded, total: totalCount, sold_on_order: soldTemplateIds.size, elapsed_seconds: elapsed });
+    return res.status(200).json({ success: true, added, updated, removed, images_added: imagesAdded, total: totalCount, elapsed_seconds: elapsed });
 
   } catch (err) {
     console.error('Full sync error:', err);
