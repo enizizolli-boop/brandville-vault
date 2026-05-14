@@ -354,7 +354,7 @@ export default async function handler(req, res) {
         price_eur: priceEur,
         category,
         subcategory: subcategory || null,
-        condition: item.x_studio_condition || 'Pre-owned',
+        condition: item.x_studio_condition || null,
         notes: item.description_sale && item.description_sale.trim() ? item.description_sale.trim() : null,
         status: isSold ? 'sold' : 'available',
       };
