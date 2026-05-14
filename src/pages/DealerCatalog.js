@@ -38,7 +38,7 @@ const ALL_BRANDS = [...new Set([...WATCH_BRANDS, ...JEWELLERY_BRANDS, ...BAG_BRA
 const CONDITIONS = [
   'pre-owned conditions with MINOR signs of usage',
   'pre-owned conditions with MAJOR signs of usage',
-  'Fair','Needs Repair','Repaired','Repaired Albania', 'Pre-owned'
+  'Fair','Needs Repair','Repaired','Repaired Albania', 'Pre-owned', 'Brand New'
 ]
 
 const BRAND_EMOJI = { 'Rolex': '⌚', 'Patek Philippe': '🕰', 'Audemars Piguet': '⌚', 'Richard Mille': '⌚', 'Omega': '⌚', 'Cartier': '⌚', 'IWC': '⌚', 'Jaeger-LeCoultre': '⌚', 'Vacheron Constantin': '⌚', 'A. Lange & Söhne': '⌚' }
@@ -173,6 +173,7 @@ function shortenCond(cond) {
   if (!cond) return 'Pre-owned'
   if (cond.toLowerCase().includes('minor')) return 'Minor wear'
   if (cond.toLowerCase().includes('major')) return 'Major wear'
+  if (cond === 'Brand New') return 'Brand New'
   return cond.split(' ').slice(0, 2).join(' ')
 }
 
@@ -252,6 +253,14 @@ export default function DealerCatalog({ routeCategory }) {
   }, [filterBrand, filterCond, filterStatus, filterCategory, filterMetal, filterSize, filterJewelleryType, lockedCategory])
 
   useEffect(() => { fetchWatches() }, [fetchWatches])
+
+  useEffect(() => {
+    const p = new URLSearchParams(location.search)
+    setFilterBrand(p.get('brand') || '')
+    setPage(0)
+    if (lockedCategory === 'Jewellery') setFilterJewelleryType(p.get('type') || '')
+    if (lockedCategory === 'Bags') setFilterCategory(p.get('type') || '')
+  }, [location.search])
 
   useEffect(() => {
     const sub = supabase.channel('products-catalog').on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, fetchWatches).subscribe()

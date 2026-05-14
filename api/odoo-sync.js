@@ -207,7 +207,7 @@ export default async function handler(req, res) {
   try {
     const domain = [['active', '=', true], ['categ_id', '=', JEWELRY_CATEG_ID], ['dr_free_qty', '>', 0]];
     const totalCount = await odooCount(domain);
-    const items = await odooRead(domain, ['id', 'name', 'default_code', 'list_price', 'description_sale', 'image_1920', 'qty_available', 'virtual_available', 'categ_id'], batch_size, offset);
+    const items = await odooRead(domain, ['id', 'name', 'default_code', 'list_price', 'description_sale', 'image_1920', 'qty_available', 'virtual_available', 'categ_id', 'x_studio_condition'], batch_size, offset);
 
     // Fetch all product template IDs currently on any non-cancelled sale order (draft or confirmed).
     // These are definitively sold regardless of qty_available.
@@ -311,7 +311,7 @@ export default async function handler(req, res) {
         model: (item.name || '').trim(),
         reference: item.default_code ? (item.default_code.match(/(\d+)$/) || [])[1] || item.default_code : null,
         price_eur: item.list_price || null,
-        condition: 'Fair',
+        condition: item.x_studio_condition || 'Fair',
         // Always set status: sold if on active order, available if order was cancelled (was sold → now free), skip if reserved
         ...(isSold ? { status: 'sold' } : currentStatus === 'sold' ? { status: 'available' } : isExisting ? {} : { status: 'available' }),
         category: 'Jewellery',

@@ -150,7 +150,7 @@ export default async function handler(req, res) {
     while (true) {
       const batch = await odooRead(
         domain,
-        ['id', 'name', 'default_code', 'standard_price', 'description_sale', 'categ_id', 'image_1920'],
+        ['id', 'name', 'default_code', 'standard_price', 'description_sale', 'categ_id', 'image_1920', 'x_studio_condition'],
         pageSize,
         page * pageSize
       );
@@ -189,7 +189,7 @@ export default async function handler(req, res) {
         price_eur: priceEur,
         category,
         subcategory: subcategory || null,
-        condition: 'Pre-owned',
+        condition: item.x_studio_condition || 'Pre-owned',
         notes: item.description_sale && item.description_sale.trim() ? item.description_sale.trim() : null,
         status: 'available',
       };

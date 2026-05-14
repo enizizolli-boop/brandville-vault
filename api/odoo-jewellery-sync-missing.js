@@ -156,7 +156,7 @@ export default async function handler(req, res) {
     while (true) {
       const batch = await odooSearchRead(
         'product.template', domain,
-        ['id', 'name', 'default_code', 'list_price', 'description_sale', 'categ_id'],
+        ['id', 'name', 'default_code', 'list_price', 'description_sale', 'categ_id', 'x_studio_condition'],
         pageSize, page * pageSize
       );
       if (!batch.length) break;
@@ -294,7 +294,7 @@ export default async function handler(req, res) {
         model: (n.name || '').trim(),
         reference: refClean,
         price_eur: n.list_price || null,
-        condition: 'Fair',
+        condition: n.x_studio_condition || 'Fair',
         category: 'Jewellery',
         notes: n.description_sale && typeof n.description_sale === 'string' && n.description_sale.trim() ? n.description_sale.trim() : null,
         // Only set status on brand-new rows; leave existing status alone.

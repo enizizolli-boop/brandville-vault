@@ -260,7 +260,7 @@ export default async function handler(req, res) {
     const totalCount = await odooCount(domain);
     const allItems = await odooRead(
       domain,
-      ['id', 'name', 'default_code', 'standard_price', 'description_sale', 'image_1920', 'categ_id'],
+      ['id', 'name', 'default_code', 'standard_price', 'description_sale', 'image_1920', 'categ_id', 'x_studio_condition'],
       batch_size,
       offset
     );
@@ -354,7 +354,7 @@ export default async function handler(req, res) {
         price_eur: priceEur,
         category,
         subcategory: subcategory || null,
-        condition: 'Pre-owned',
+        condition: item.x_studio_condition || 'Pre-owned',
         notes: item.description_sale && item.description_sale.trim() ? item.description_sale.trim() : null,
         status: isSold ? 'sold' : 'available',
       };

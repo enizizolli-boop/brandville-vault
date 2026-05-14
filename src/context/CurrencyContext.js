@@ -3,10 +3,10 @@ import { createContext, useContext, useState } from 'react'
 const CurrencyContext = createContext()
 
 export function CurrencyProvider({ children }) {
-  const [currency, setCurrencyState] = useState(() => localStorage.getItem('currency') || 'EUR')
+  const [currency, setCurrencyState] = useState(() => localStorage.getItem('bv_currency') || 'EUR')
 
   function setCurrency(c) {
-    localStorage.setItem('currency', c)
+    localStorage.setItem('bv_currency', c)
     setCurrencyState(c)
   }
 

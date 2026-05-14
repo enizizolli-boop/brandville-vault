@@ -44,6 +44,7 @@ const CONDITIONS = [
   'Repaired',
   'Repaired Albania',
   'Pre-owned',
+  'Brand New',
 ]
 
 const BRANDS = [

@@ -173,7 +173,7 @@ export default async function handler(req, res) {
 
       const items = await odooRead(
         domain,
-        ['id', 'name', 'default_code', 'list_price', 'description_sale', 'image_1920', 'qty_available', 'virtual_available', 'categ_id'],
+        ['id', 'name', 'default_code', 'list_price', 'description_sale', 'image_1920', 'qty_available', 'virtual_available', 'categ_id', 'x_studio_condition'],
         BATCH_SIZE, offset
       );
       if (!items || items.length === 0) break;
@@ -227,7 +227,7 @@ export default async function handler(req, res) {
           model: (item.name || '').trim(),
           reference: item.default_code || null,
           price_eur: item.list_price || null,
-          condition: 'Fair',
+          condition: item.x_studio_condition || 'Fair',
           ...(isSold ? { status: 'sold' } : currentStatus === 'sold' ? { status: 'available' } : isExisting ? {} : { status: 'available' }),
           category: 'Jewellery',
           notes: item.description_sale && typeof item.description_sale === 'string' ? item.description_sale.trim() || null : null,
