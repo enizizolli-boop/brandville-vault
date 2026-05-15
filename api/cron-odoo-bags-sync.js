@@ -203,6 +203,12 @@ export default async function handler(req, res) {
       upserted += rows.slice(i, i + CHUNK).length;
     }
 
+    await supabase.from('sync_log').upsert({
+      key: 'sync_odoo_bags',
+      last_sync_at: new Date().toISOString(),
+      result: { upserted, removed: toDelete.length, total: items.length },
+    });
+
     return res.status(200).json({
       success: true,
       upserted,

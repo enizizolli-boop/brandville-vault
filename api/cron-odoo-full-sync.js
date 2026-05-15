@@ -295,6 +295,11 @@ export default async function handler(req, res) {
 
     const elapsed = Math.round((Date.now() - startTime) / 1000);
     console.log(`Full sync done: +${added} added, ${updated} updated, ${removed} removed, ${imagesAdded} images, ${elapsed}s`);
+    await supabase.from('sync_log').upsert({
+      key: 'sync_odoo_jewellery',
+      last_sync_at: new Date().toISOString(),
+      result: { added, updated, removed, images_added: imagesAdded, total: totalCount, elapsed_seconds: elapsed },
+    });
     return res.status(200).json({ success: true, added, updated, removed, images_added: imagesAdded, total: totalCount, elapsed_seconds: elapsed });
 
   } catch (err) {

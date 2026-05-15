@@ -167,6 +167,12 @@ export default async function handler(req, res) {
       }
     }
 
+    await supabase.from('sync_log').upsert({
+      key: 'sync_zoho',
+      last_sync_at: new Date().toISOString(),
+      result: { upserted, marked_sold: offItems.length, total_recent: recentItems.length },
+    });
+
     return res.status(200).json({
       success: true,
       upserted,

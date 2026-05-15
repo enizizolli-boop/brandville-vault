@@ -6,6 +6,17 @@ const AVATAR_COLORS = ['avatar-blue', 'avatar-green', 'avatar-amber', 'avatar-pu
 function initials(name = '') { return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() }
 function avatarColor(name = '') { return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length] }
 
+function fmtAge(iso) {
+  if (!iso) return null
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ${mins % 60}m ago`
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+}
+
 export default function AdminPanel() {
   const [tab, setTab] = useState('dealers')
   const [users, setUsers] = useState([])
@@ -33,11 +44,21 @@ export default function AdminPanel() {
   const [cronZohoResult, setCronZohoResult] = useState(null)
   const [cronBagsRunning, setCronBagsRunning] = useState(false)
   const [cronBagsResult, setCronBagsResult] = useState(null)
+  const [syncLog, setSyncLog] = useState({})
 
   const fetchUsers = useCallback(async () => {
     const { data } = await supabase.from('profiles').select('*').order('created_at')
     setUsers(data || [])
     setLoading(false)
+  }, [])
+
+  const fetchSyncLog = useCallback(async () => {
+    const { data } = await supabase.from('sync_log').select('key, last_sync_at')
+    if (data) {
+      const map = {}
+      data.forEach(r => { map[r.key] = r.last_sync_at })
+      setSyncLog(map)
+    }
   }, [])
 
   const fetchStats = useCallback(async () => {
@@ -52,7 +73,7 @@ export default function AdminPanel() {
     }
   }, [])
 
-  useEffect(() => { fetchUsers(); fetchStats() }, [fetchUsers, fetchStats])
+  useEffect(() => { fetchUsers(); fetchStats(); fetchSyncLog() }, [fetchUsers, fetchStats, fetchSyncLog])
 
   async function handleInvite(e) {
     e.preventDefault()
@@ -356,10 +377,16 @@ export default function AdminPanel() {
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 14, padding: 20, marginBottom: 16, boxShadow: 'var(--shadow-xs)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
               <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(22,163,74,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🛍</div>
-              <div>
+              <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 600 }}>Zoho Commerce</div>
                 <div style={{ fontSize: 11, color: 'var(--faint)' }}>Watches & Bags</div>
               </div>
+              {syncLog.sync_zoho && (
+                <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'right', lineHeight: 1.4 }}>
+                  <div style={{ color: '#4ade80', fontWeight: 600 }}>● synced</div>
+                  <div>{fmtAge(syncLog.sync_zoho)}</div>
+                </div>
+              )}
             </div>
             <div style={{ fontSize: 12, color: '#888', lineHeight: 1.6, marginBottom: 14 }}>
               Pulls all items from your Zoho store. Removed items are deleted automatically. Manually added items are never affected.
@@ -401,10 +428,16 @@ export default function AdminPanel() {
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 14, padding: 20, marginBottom: 16, boxShadow: 'var(--shadow-xs)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
               <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--gold-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>💎</div>
-              <div>
+              <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 600 }}>Odoo</div>
                 <div style={{ fontSize: 11, color: 'var(--faint)' }}>Jewellery</div>
               </div>
+              {syncLog.sync_odoo_jewellery && (
+                <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'right', lineHeight: 1.4 }}>
+                  <div style={{ color: '#4ade80', fontWeight: 600 }}>● synced</div>
+                  <div>{fmtAge(syncLog.sync_odoo_jewellery)}</div>
+                </div>
+              )}
             </div>
             <div style={{ fontSize: 12, color: '#888', lineHeight: 1.6, marginBottom: 14 }}>
               Pulls all jewellery items from Odoo. Status (available/sold) is updated automatically every 15 minutes.
@@ -435,10 +468,16 @@ export default function AdminPanel() {
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 14, padding: 20, marginBottom: 16, boxShadow: 'var(--shadow-xs)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
               <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(220,38,38,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>👜</div>
-              <div>
+              <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 600 }}>Odoo — Bags</div>
                 <div style={{ fontSize: 11, color: 'var(--faint)' }}>Handbags · Totes · Backpacks · Pouches</div>
               </div>
+              {syncLog.sync_odoo_bags && (
+                <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'right', lineHeight: 1.4 }}>
+                  <div style={{ color: '#4ade80', fontWeight: 600 }}>● synced</div>
+                  <div>{fmtAge(syncLog.sync_odoo_bags)}</div>
+                </div>
+              )}
             </div>
             <div style={{ fontSize: 12, color: '#888', lineHeight: 1.6, marginBottom: 14 }}>
               Pulls published bags from Odoo with images. Price is calculated as cost + 40%. Only items visible on the website are synced.
