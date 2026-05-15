@@ -44,6 +44,8 @@ export default function AdminPanel() {
   const [cronZohoResult, setCronZohoResult] = useState(null)
   const [cronBagsRunning, setCronBagsRunning] = useState(false)
   const [cronBagsResult, setCronBagsResult] = useState(null)
+  const [imagesSyncing, setImagesSyncing] = useState(false)
+  const [imagesResult, setImagesResult] = useState(null)
   const [syncLog, setSyncLog] = useState({})
 
   const fetchUsers = useCallback(async () => {
@@ -190,6 +192,34 @@ export default function AdminPanel() {
       setCronZohoResult({ error: err.message })
     }
     setCronZohoRunning(false)
+  }
+
+  async function handleSyncImages() {
+    setImagesSyncing(true)
+    setImagesResult(null)
+    const BATCH_SIZE = 10
+    let offset = 0
+    let totalImages = 0
+    let grandTotal = 0
+    try {
+      while (true) {
+        const res = await fetch('/api/zoho-images', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ batch_size: BATCH_SIZE, offset })
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Image sync failed')
+        totalImages += data.images_added || 0
+        grandTotal = data.total || grandTotal
+        setImagesResult({ inProgress: !data.done, images_added: totalImages, processed: offset + (data.processed || 0), total: grandTotal })
+        if (data.done || !data.next_offset) break
+        offset = data.next_offset
+      }
+    } catch (err) {
+      setImagesResult({ error: err.message })
+    }
+    setImagesSyncing(false)
   }
 
   async function handleTestCronBags() {
@@ -419,6 +449,19 @@ export default function AdminPanel() {
                 {cronZohoResult.error
                   ? `Error: ${cronZohoResult.error}`
                   : `✓ Cron OK — ${cronZohoResult.upserted} updated · ${cronZohoResult.marked_sold} marked sold · ${cronZohoResult.total_recent} recent changes`
+                }
+              </div>
+            )}
+            <button className="btn btn-full" onClick={handleSyncImages} disabled={imagesSyncing} style={{ marginTop: 8 }}>
+              {imagesSyncing ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Syncing images...</> : '🖼 Sync missing images'}
+            </button>
+            {imagesResult && (
+              <div style={{ marginTop: 8, fontSize: 12, padding: '8px 10px', borderRadius: 8, background: imagesResult.error ? 'rgba(220,38,38,0.1)' : 'rgba(22,163,74,0.1)', color: imagesResult.error ? '#f87171' : '#4ade80' }}>
+                {imagesResult.error
+                  ? `Error: ${imagesResult.error}`
+                  : imagesResult.inProgress
+                    ? `Fetching... ${imagesResult.processed} / ${imagesResult.total} · ${imagesResult.images_added} images added`
+                    : `✓ Done — ${imagesResult.images_added} images added across ${imagesResult.total} items`
                 }
               </div>
             )}
