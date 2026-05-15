@@ -1,6 +1,3 @@
-const STORE_ID = 'e332ab1967';
-const STORE_DOMAIN = 'thewatchstore.zohocommerce.eu';
-
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -8,47 +5,56 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-async function fetchImagesFromStorePage(zohoItemId) {
+async function getAccessToken() {
+  const res = await fetch('https://accounts.zoho.eu/oauth/v2/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      refresh_token: process.env.ZOHO_REFRESH_TOKEN,
+      client_id: process.env.ZOHO_CLIENT_ID,
+      client_secret: process.env.ZOHO_CLIENT_SECRET,
+      grant_type: 'refresh_token',
+    }),
+  });
+  const data = await res.json();
+  if (!data.access_token) throw new Error('Failed to get Zoho access token');
+  return data.access_token;
+}
+
+async function fetchAndUploadZohoImages(accessToken, itemId, productId) {
   try {
-    const url = `https://${STORE_DOMAIN}/products/${STORE_ID}/${zohoItemId}`;
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0' }
-    });
-    if (!res.ok) return [];
-    const html = await res.text();
-
-    // Extract all CDN image URLs from the page
-    const regex = /https:\/\/cdn3\.zohoecommerce\.com\/product-images\/[^"'\s]+/g;
-    const allMatches = [...new Set(html.match(regex) || [])];
-
-    // Prefer 600x600 versions, fall back to 300x300
-    // Group by filename to deduplicate
-    const imageMap = {};
-    for (const url of allMatches) {
-      // Extract filename as key
-      const filenameMatch = url.match(/product-images\/([^/]+)\//);
-      if (!filenameMatch) continue;
-      const filename = filenameMatch[1];
-      const is600 = url.includes('600x600');
-      const is300 = url.includes('300x300');
-
-      if (!imageMap[filename]) {
-        imageMap[filename] = url;
-      } else if (is600) {
-        // Prefer 600x600
-        imageMap[filename] = url;
-      }
-    }
-
-    // Convert to array of unique image URLs, upgrade 300x300 to 600x600
-    const images = Object.values(imageMap).map(url =>
-      url.replace('300x300', '600x600')
+    const listRes = await fetch(
+      `https://www.zohoapis.eu/inventory/v1/items/${itemId}/images?organization_id=${process.env.ZOHO_ORG_ID}`,
+      { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
     );
+    const listData = await listRes.json();
+    if (!listData.images || listData.images.length === 0) return 0;
 
-    return images;
-  } catch (err) {
-    console.error(`Error fetching images for ${zohoItemId}:`, err);
-    return [];
+    await supabase.from('product_images').delete().eq('product_id', productId);
+
+    let uploaded = 0;
+    for (let i = 0; i < listData.images.length; i++) {
+      const docId = listData.images[i].image_document_id;
+      if (!docId) continue;
+      try {
+        const imgRes = await fetch(
+          `https://www.zohoapis.eu/inventory/v1/items/${itemId}/image?organization_id=${process.env.ZOHO_ORG_ID}&document_id=${docId}`,
+          { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+        );
+        if (!imgRes.ok) continue;
+        const buffer = Buffer.from(await imgRes.arrayBuffer());
+        const path = `${productId}/zoho_${i}.jpg`;
+        const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
+        if (upErr) continue;
+        const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
+        await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position: i });
+        uploaded++;
+      } catch (e) { console.error(`Image ${i} upload error for item ${itemId}:`, e); }
+    }
+    return uploaded;
+  } catch (e) {
+    console.error(`fetchAndUploadZohoImages error for ${itemId}:`, e);
+    return 0;
   }
 }
 
@@ -60,7 +66,8 @@ export default async function handler(req, res) {
   const { batch_size = 10, offset = 0 } = req.body || {};
 
   try {
-    // Get Zoho-sourced watches that need images (or all for full refresh)
+    const accessToken = await getAccessToken();
+
     const { data: watches, error } = await supabase
       .from('products')
       .select('id, zoho_item_id')
@@ -79,41 +86,21 @@ export default async function handler(req, res) {
     const errors = [];
 
     for (const watch of watches) {
-      const images = await fetchImagesFromStorePage(watch.zoho_item_id);
-
-      if (images.length > 0) {
-        // Delete existing images for this watch
-        await supabase.from('product_images').delete().eq('product_id', watch.id);
-
-        // Insert all images
-        const imageRows = images.map((url, i) => ({
-          product_id: watch.id,
-          url,
-          position: i
-        }));
-
-        const { error: insertError } = await supabase
-          .from('product_images')
-          .insert(imageRows);
-
-        if (insertError) {
-          errors.push({ watch_id: watch.id, error: insertError.message });
-        } else {
-          imagesAdded += images.length;
-        }
+      try {
+        imagesAdded += await fetchAndUploadZohoImages(accessToken, watch.zoho_item_id, watch.id);
+      } catch (e) {
+        errors.push({ watch_id: watch.id, error: e.message });
       }
-
       processed++;
     }
 
-    const total = await supabase
+    const { count: totalCount } = await supabase
       .from('products')
       .select('id', { count: 'exact', head: true })
       .eq('source', 'zoho');
 
-    const totalCount = total.count || 0;
     const nextOffset = offset + batch_size;
-    const done = nextOffset >= totalCount;
+    const done = nextOffset >= (totalCount || 0);
 
     return res.status(200).json({
       success: true,

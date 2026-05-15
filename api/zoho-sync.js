@@ -50,33 +50,40 @@ async function fetchAllItems(accessToken) {
   return items;
 }
 
-async function fetchImagesFromStorePage(zohoItemId) {
+async function fetchAndUploadZohoImages(accessToken, itemId, productId) {
   try {
-    const url = `https://${STORE_DOMAIN}/products/${STORE_ID}/${zohoItemId}`;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 10000);
-    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: controller.signal });
-    clearTimeout(timer);
-    if (!res.ok) return [];
-    const html = await res.text();
+    const listRes = await fetch(
+      `https://www.zohoapis.eu/inventory/v1/items/${itemId}/images?organization_id=${process.env.ZOHO_ORG_ID}`,
+      { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+    );
+    const listData = await listRes.json();
+    if (!listData.images || listData.images.length === 0) return 0;
 
-    const regex = /https:\/\/cdn3\.zohoecommerce\.com\/product-images\/[^"'\s]+/g;
-    const allMatches = [...new Set(html.match(regex) || [])];
+    await supabase.from('product_images').delete().eq('product_id', productId);
 
-    const imageMap = {};
-    for (const imgUrl of allMatches) {
-      const filenameMatch = imgUrl.match(/product-images\/([^/]+)\//);
-      if (!filenameMatch) continue;
-      const filename = filenameMatch[1];
-      const is600 = imgUrl.includes('600x600');
-      if (!imageMap[filename] || is600) {
-        imageMap[filename] = imgUrl.replace('300x300', '600x600');
-      }
+    let uploaded = 0;
+    for (let i = 0; i < listData.images.length; i++) {
+      const docId = listData.images[i].image_document_id;
+      if (!docId) continue;
+      try {
+        const imgRes = await fetch(
+          `https://www.zohoapis.eu/inventory/v1/items/${itemId}/image?organization_id=${process.env.ZOHO_ORG_ID}&document_id=${docId}`,
+          { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+        );
+        if (!imgRes.ok) continue;
+        const buffer = Buffer.from(await imgRes.arrayBuffer());
+        const path = `${productId}/zoho_${i}.jpg`;
+        const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
+        if (upErr) continue;
+        const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
+        await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position: i });
+        uploaded++;
+      } catch (e) { console.error(`Image ${i} upload error for item ${itemId}:`, e); }
     }
-
-    return Object.values(imageMap);
-  } catch {
-    return [];
+    return uploaded;
+  } catch (e) {
+    console.error(`fetchAndUploadZohoImages error for ${itemId}:`, e);
+    return 0;
   }
 }
 
@@ -246,21 +253,8 @@ export default async function handler(req, res) {
       const watchId = upserted?.id || existingMap[mapped.zoho_item_id];
       isExisting ? updated++ : added++;
 
-      // Upload missing images — compare DB count vs what the store page has
       if (watchId) {
-        const { count: dbCount } = await supabase
-          .from('product_images')
-          .select('id', { count: 'exact', head: true })
-          .eq('product_id', watchId);
-        const existing = dbCount || 0;
-
-        const storeImages = await fetchImagesFromStorePage(zohoItem.item_id);
-        if (storeImages.length > existing) {
-          const missing = storeImages.slice(existing);
-          const imageRows = missing.map((url, i) => ({ product_id: watchId, url, position: existing + i }));
-          await supabase.from('product_images').insert(imageRows);
-          imagesAdded += missing.length;
-        }
+        imagesAdded += await fetchAndUploadZohoImages(accessToken, zohoItem.item_id, watchId);
       }
     }
 

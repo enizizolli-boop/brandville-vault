@@ -142,8 +142,18 @@ export default async function handler(req, res) {
 
     // Upsert recently modified live items
     let upserted = 0;
+    let imagesAdded = 0;
     if (liveItems.length > 0) {
       const liveIds = liveItems.map(i => String(i.item_id));
+
+      // Find which items are brand new (no existing DB record) — fetch images for those
+      const { data: existingRows } = await supabase
+        .from('products')
+        .select('zoho_item_id')
+        .in('zoho_item_id', liveIds)
+        .eq('source', 'zoho');
+      const existingSet = new Set((existingRows || []).map(r => r.zoho_item_id));
+      const newItems = liveItems.filter(i => !existingSet.has(String(i.item_id)));
 
       // Preserve reserved status — upsert sets status:'available', which would wrongly
       // overwrite watches a dealer has reserved. Query first, restore after.
@@ -156,7 +166,10 @@ export default async function handler(req, res) {
       const reservedIds = new Set((reservedRows || []).map(r => r.zoho_item_id));
 
       const rows = liveItems.map(mapZohoItem);
-      await supabase.from('products').upsert(rows, { onConflict: 'zoho_item_id' });
+      const { data: upsertedRows } = await supabase
+        .from('products')
+        .upsert(rows, { onConflict: 'zoho_item_id' })
+        .select('id, zoho_item_id');
       upserted = rows.length;
 
       if (reservedIds.size > 0) {
@@ -165,12 +178,47 @@ export default async function handler(req, res) {
           .in('zoho_item_id', [...reservedIds])
           .eq('source', 'zoho');
       }
+
+      // Fetch full image gallery for new items only
+      if (newItems.length > 0 && upsertedRows) {
+        const idMap = {};
+        upsertedRows.forEach(r => { idMap[r.zoho_item_id] = r.id; });
+        for (const item of newItems) {
+          const productId = idMap[String(item.item_id)];
+          if (!productId) continue;
+          try {
+            const listRes = await fetch(
+              `https://www.zohoapis.eu/inventory/v1/items/${item.item_id}/images?organization_id=${process.env.ZOHO_ORG_ID}`,
+              { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+            );
+            const listData = await listRes.json();
+            if (!listData.images || listData.images.length === 0) continue;
+            await supabase.from('product_images').delete().eq('product_id', productId);
+            for (let i = 0; i < listData.images.length; i++) {
+              const docId = listData.images[i].image_document_id;
+              if (!docId) continue;
+              const imgRes = await fetch(
+                `https://www.zohoapis.eu/inventory/v1/items/${item.item_id}/image?organization_id=${process.env.ZOHO_ORG_ID}&document_id=${docId}`,
+                { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+              );
+              if (!imgRes.ok) continue;
+              const buffer = Buffer.from(await imgRes.arrayBuffer());
+              const path = `${productId}/zoho_${i}.jpg`;
+              const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
+              if (upErr) continue;
+              const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
+              await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position: i });
+              imagesAdded++;
+            }
+          } catch (e) { console.error(`Cron image error for item ${item.item_id}:`, e); }
+        }
+      }
     }
 
     await supabase.from('sync_log').upsert({
       key: 'sync_zoho',
       last_sync_at: new Date().toISOString(),
-      result: { upserted, marked_sold: offItems.length, total_recent: recentItems.length },
+      result: { upserted, marked_sold: offItems.length, total_recent: recentItems.length, images_added: imagesAdded },
     });
 
     return res.status(200).json({
@@ -178,6 +226,7 @@ export default async function handler(req, res) {
       upserted,
       marked_sold: offItems.length,
       total_recent: recentItems.length,
+      images_added: imagesAdded,
     });
   } catch (err) {
     console.error('Cron Zoho sync error:', err);
