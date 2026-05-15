@@ -50,37 +50,59 @@ async function fetchAllItems(accessToken) {
   return items;
 }
 
-async function fetchAndUploadZohoImages(accessToken, itemId, productId) {
+async function fetchAndUploadZohoImages(accessToken, zohoItem, productId) {
+  const itemId = zohoItem.item_id;
   try {
+    // Try gallery API first
     const listRes = await fetch(
       `https://www.zohoapis.eu/inventory/v1/items/${itemId}/images?organization_id=${process.env.ZOHO_ORG_ID}`,
       { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
     );
     const listData = await listRes.json();
-    if (!listData.images || listData.images.length === 0) return 0;
 
-    await supabase.from('product_images').delete().eq('product_id', productId);
-
-    let uploaded = 0;
-    for (let i = 0; i < listData.images.length; i++) {
-      const docId = listData.images[i].image_document_id;
-      if (!docId) continue;
-      try {
-        const imgRes = await fetch(
-          `https://www.zohoapis.eu/inventory/v1/items/${itemId}/image?organization_id=${process.env.ZOHO_ORG_ID}&document_id=${docId}`,
-          { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
-        );
-        if (!imgRes.ok) continue;
-        const buffer = Buffer.from(await imgRes.arrayBuffer());
-        const path = `${productId}/zoho_${i}.jpg`;
-        const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
-        if (upErr) continue;
-        const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
-        await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position: i });
-        uploaded++;
-      } catch (e) { console.error(`Image ${i} upload error for item ${itemId}:`, e); }
+    if (listData.images && listData.images.length > 0) {
+      await supabase.from('product_images').delete().eq('product_id', productId);
+      let uploaded = 0;
+      for (let i = 0; i < listData.images.length; i++) {
+        const docId = listData.images[i].image_document_id;
+        if (!docId) continue;
+        try {
+          const imgRes = await fetch(
+            `https://www.zohoapis.eu/inventory/v1/items/${itemId}/image?organization_id=${process.env.ZOHO_ORG_ID}&document_id=${docId}`,
+            { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+          );
+          if (!imgRes.ok) continue;
+          const buffer = Buffer.from(await imgRes.arrayBuffer());
+          const path = `${productId}/zoho_${i}.jpg`;
+          const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
+          if (upErr) continue;
+          const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
+          await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position: i });
+          uploaded++;
+        } catch (e) { console.error(`Image ${i} upload error for item ${itemId}:`, e); }
+      }
+      return uploaded;
     }
-    return uploaded;
+
+    // Gallery API returned nothing — fall back to primary image via image_document_id
+    if (!zohoItem.image_document_id) return 0;
+    const { count: existing } = await supabase
+      .from('product_images').select('id', { count: 'exact', head: true }).eq('product_id', productId);
+    if (existing > 0) return 0; // already has image, don't overwrite
+    try {
+      const imgRes = await fetch(
+        `https://www.zohoapis.eu/inventory/v1/items/${itemId}/image?organization_id=${process.env.ZOHO_ORG_ID}`,
+        { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+      );
+      if (!imgRes.ok) return 0;
+      const buffer = Buffer.from(await imgRes.arrayBuffer());
+      const path = `${productId}/zoho_0.jpg`;
+      const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
+      if (upErr) return 0;
+      const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
+      await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position: 0 });
+      return 1;
+    } catch (e) { console.error(`Primary image fallback error for ${itemId}:`, e); return 0; }
   } catch (e) {
     console.error(`fetchAndUploadZohoImages error for ${itemId}:`, e);
     return 0;
@@ -253,8 +275,8 @@ export default async function handler(req, res) {
       const watchId = upserted?.id || existingMap[mapped.zoho_item_id];
       isExisting ? updated++ : added++;
 
-      if (watchId) {
-        imagesAdded += await fetchAndUploadZohoImages(accessToken, zohoItem.item_id, watchId);
+      if (watchId && !isExisting) {
+        imagesAdded += await fetchAndUploadZohoImages(accessToken, zohoItem, watchId);
       }
     }
 
