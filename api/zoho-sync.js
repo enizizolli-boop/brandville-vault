@@ -229,6 +229,15 @@ export default async function handler(req, res) {
     const existingMap = {};
     (existingItems || []).forEach(i => { existingMap[i.zoho_item_id] = i.id; });
 
+    // Find which existing products already have images — skip those during image sync
+    const existingProductIds = (existingItems || []).map(i => i.id);
+    let productsWithImages = new Set();
+    if (existingProductIds.length > 0) {
+      const { data: imgRows } = await supabase
+        .from('product_images').select('product_id').in('product_id', existingProductIds);
+      (imgRows || []).forEach(r => productsWithImages.add(r.product_id));
+    }
+
     // Remove stale items on first batch only (out of stock or removed from storefront)
     let removed = 0;
     if (offset === 0) {
@@ -275,7 +284,7 @@ export default async function handler(req, res) {
       const watchId = upserted?.id || existingMap[mapped.zoho_item_id];
       isExisting ? updated++ : added++;
 
-      if (watchId && !isExisting) {
+      if (watchId && !productsWithImages.has(watchId)) {
         imagesAdded += await fetchAndUploadZohoImages(accessToken, zohoItem, watchId);
       }
     }
