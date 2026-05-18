@@ -113,6 +113,69 @@ function parseVal(raw) {
   return null;
 }
 
+async function odooModelRead(model, domain, fields, limit = 200, offset = 0) {
+  const fieldsXml = fields.map(f => '<value><string>' + f + '</string></value>').join('');
+  const body = '<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>' +
+    '<param><value><string>' + ODOO_DB + '</string></value></param>' +
+    '<param><value><int>' + ODOO_UID + '</int></value></param>' +
+    '<param><value><string>' + ODOO_API_KEY + '</string></value></param>' +
+    '<param><value><string>' + model + '</string></value></param>' +
+    '<param><value><string>search_read</string></value></param>' +
+    '<param><value><array><data><value><array><data>' + domainToXml(domain) + '</data></array></value></data></array></value></param>' +
+    '<param><value><struct>' +
+    '<member><name>fields</name><value><array><data>' + fieldsXml + '</data></array></value></member>' +
+    '<member><name>limit</name><value><int>' + limit + '</int></value></member>' +
+    '<member><name>offset</name><value><int>' + offset + '</int></value></member>' +
+    '</struct></value></param>' +
+    '</params></methodCall>';
+  const res = await fetch(ODOO_URL + '/xmlrpc/2/object', { method: 'POST', headers: { 'Content-Type': 'text/xml' }, body });
+  const text = await res.text();
+  if (text.includes('<fault>')) throw new Error('Odoo model read fault (' + model + '): ' + text.substring(0, 200));
+  return parseItems(text);
+}
+
+async function fetchAttributeMap() {
+  const lines = await odooModelRead(
+    'product.template.attribute.line',
+    [['attribute_id.name', 'in', ['Condition', 'Brand', 'Gender', 'Colors', 'Shoe Size']]],
+    ['product_tmpl_id', 'attribute_id', 'value_ids'],
+    2000
+  );
+  if (!lines || lines.length === 0) return {};
+  const allValueIds = new Set();
+  for (const line of lines) {
+    const vid = line.value_ids;
+    if (typeof vid === 'number') allValueIds.add(vid);
+  }
+  const valueMap = {};
+  if (allValueIds.size > 0) {
+    const idsXml = [...allValueIds].map(i => '<value><int>' + i + '</int></value>').join('');
+    const body = '<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>' +
+      '<param><value><string>' + ODOO_DB + '</string></value></param>' +
+      '<param><value><int>' + ODOO_UID + '</int></value></param>' +
+      '<param><value><string>' + ODOO_API_KEY + '</string></value></param>' +
+      '<param><value><string>product.attribute.value</string></value></param>' +
+      '<param><value><string>read</string></value></param>' +
+      '<param><value><array><data><value><array><data>' + idsXml + '</data></array></value></data></array></value></param>' +
+      '<param><value><struct><member><name>fields</name><value><array><data><value><string>name</string></value></data></array></value></member></struct></value></param>' +
+      '</params></methodCall>';
+    const res = await fetch(ODOO_URL + '/xmlrpc/2/object', { method: 'POST', headers: { 'Content-Type': 'text/xml' }, body });
+    const text = await res.text();
+    const vals = parseItems(text);
+    for (const v of vals) valueMap[v.id] = v.name;
+  }
+  const attrMap = {};
+  for (const line of lines) {
+    const tmplId = String(Array.isArray(line.product_tmpl_id) ? line.product_tmpl_id[0] : line.product_tmpl_id);
+    const attrName = Array.isArray(line.attribute_id) ? line.attribute_id[1] : String(line.attribute_id);
+    const valueId = typeof line.value_ids === 'number' ? line.value_ids : null;
+    if (!tmplId || !attrName || !valueId) continue;
+    if (!attrMap[tmplId]) attrMap[tmplId] = {};
+    attrMap[tmplId][attrName] = valueMap[valueId] || '';
+  }
+  return attrMap;
+}
+
 async function odooReadProductImages(productTmplIds) {
   if (!productTmplIds.length) return [];
   const idsXml = productTmplIds.map(id => `<value><int>${id}</int></value>`).join('');
@@ -258,9 +321,10 @@ export default async function handler(req, res) {
     ];
 
     const totalCount = await odooCount(domain);
+    const attrMap = await fetchAttributeMap();
     const allItems = await odooRead(
       domain,
-      ['id', 'name', 'default_code', 'standard_price', 'description_sale', 'image_1920', 'categ_id', 'x_studio_condition'],
+      ['id', 'name', 'default_code', 'standard_price', 'description_sale', 'image_1920', 'categ_id'],
       batch_size,
       offset
     );
@@ -334,17 +398,26 @@ export default async function handler(req, res) {
       };
       const { category, subcategory } = CATEG_MAP[categName] || { category: 'Accessories', subcategory: null };
 
+      const attrs = attrMap[String(item.id)] || {};
+      const brand = attrs['Brand'] || extractBrand(item.name, item.default_code);
+      const condition = attrs['Condition'] || '';
+      const itemSize = attrs['Shoe Size'] || null;
+      const baseNotes = item.description_sale && item.description_sale.trim() ? item.description_sale.trim() : null;
+      const extraParts = [attrs['Gender'] && `Gender: ${attrs['Gender']}`, attrs['Colors'] && `Color: ${attrs['Colors']}`].filter(Boolean);
+      const notes = [baseNotes, ...extraParts].filter(Boolean).join(' | ') || null;
+
       const mapped = {
         odoo_product_id: String(item.id),
         source: 'odoo_bags',
-        brand: extractBrand(item.name, item.default_code),
+        brand,
         model: (item.name || '').trim(),
         reference: item.default_code || null,
         price_eur: priceEur,
         category,
         subcategory: subcategory || null,
-        condition: item.x_studio_condition || '',
-        notes: item.description_sale && item.description_sale.trim() ? item.description_sale.trim() : null,
+        condition,
+        item_size: itemSize,
+        notes,
         status: isSold ? 'sold' : 'available',
       };
 
