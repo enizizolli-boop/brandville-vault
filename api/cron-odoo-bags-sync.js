@@ -45,7 +45,7 @@ async function odooModelRead(model, domain, fields, limit = 200, offset = 0) {
   return parseItems(text);
 }
 
-async function fetchAttributeMap() {
+async function fetchAttributeMap(templateIds) {
   const TARGET_ATTRS = ['Condition', 'Brand', 'Gender', 'Colors', 'Shoe Size'];
 
   // Step 1: look up attribute IDs by name (avoids dot-notation domain issue)
@@ -54,10 +54,14 @@ async function fetchAttributeMap() {
   const nameById = {};
   const attrIds = attrRecords.map(a => { nameById[a.id] = a.name; return a.id; });
 
-  // Step 2: fetch all attribute lines for those attribute IDs
+  // Step 2: fetch attribute lines filtered to our products only
+  const lineDomain = [
+    ['attribute_id', 'in', attrIds],
+    ['product_tmpl_id', 'in', templateIds],
+  ];
   const lines = await odooModelRead(
     'product.template.attribute.line',
-    [['attribute_id', 'in', attrIds]],
+    lineDomain,
     ['product_tmpl_id', 'attribute_id', 'value_ids'],
     5000
   );
@@ -220,8 +224,12 @@ export default async function handler(req, res) {
       ['categ_id', '!=', 8],
     ];
 
+    // Fetch all product template IDs first so we can filter attribute lines to only our products
+    const allIdItems = await odooRead(domain, ['id'], 2000, 0);
+    const allTemplateIds = (allIdItems || []).map(i => i.id);
+
     // Fetch attribute map (Condition, Brand, Gender, Colors, Shoe Size) from Odoo
-    const attrMap = await fetchAttributeMap();
+    const attrMap = await fetchAttributeMap(allTemplateIds);
 
     // Fetch all items in pages of 200 — no images, data only
     let allItems = [];

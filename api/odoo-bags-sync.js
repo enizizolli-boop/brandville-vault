@@ -134,16 +134,20 @@ async function odooModelRead(model, domain, fields, limit = 200, offset = 0) {
   return parseItems(text);
 }
 
-async function fetchAttributeMap() {
+async function fetchAttributeMap(templateIds) {
   const TARGET_ATTRS = ['Condition', 'Brand', 'Gender', 'Colors', 'Shoe Size'];
   const attrRecords = await odooModelRead('product.attribute', [['name', 'in', TARGET_ATTRS]], ['id', 'name'], 50);
   if (!attrRecords || attrRecords.length === 0) return {};
   const nameById = {};
   const attrIds = attrRecords.map(a => { nameById[a.id] = a.name; return a.id; });
 
+  const lineDomain = [
+    ['attribute_id', 'in', attrIds],
+    ['product_tmpl_id', 'in', templateIds],
+  ];
   const lines = await odooModelRead(
     'product.template.attribute.line',
-    [['attribute_id', 'in', attrIds]],
+    lineDomain,
     ['product_tmpl_id', 'attribute_id', 'value_ids'],
     5000
   );
@@ -328,7 +332,9 @@ export default async function handler(req, res) {
     ];
 
     const totalCount = await odooCount(domain);
-    const attrMap = await fetchAttributeMap();
+    const allIdItems = await odooRead(domain, ['id'], 2000, 0);
+    const allTemplateIds = (allIdItems || []).map(i => i.id);
+    const attrMap = await fetchAttributeMap(allTemplateIds);
     const attrMapDebug = { size: Object.keys(attrMap).length, sample: Object.entries(attrMap).slice(0, 3).map(([k, v]) => ({ id: k, attrs: v })) };
     const allItems = await odooRead(
       domain,
