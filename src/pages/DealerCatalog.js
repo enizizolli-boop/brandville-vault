@@ -255,6 +255,17 @@ export default function DealerCatalog({ routeCategory }) {
   useEffect(() => { fetchWatches() }, [fetchWatches])
 
   useEffect(() => {
+    setFilterBrand('')
+    setFilterCond('')
+    setFilterMetal('')
+    setFilterSize('')
+    setFilterJewelleryType('')
+    setFilterCategory('')
+    setSearch('')
+    setPage(0)
+  }, [location.pathname])
+
+  useEffect(() => {
     const p = new URLSearchParams(location.search)
     setFilterBrand(p.get('brand') || '')
     setPage(0)
