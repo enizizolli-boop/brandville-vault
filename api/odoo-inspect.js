@@ -3,72 +3,109 @@ const ODOO_DB = process.env.ODOO_DB;
 const ODOO_UID = parseInt(process.env.ODOO_USER_ID);
 const ODOO_API_KEY = process.env.ODOO_API_KEY;
 
-async function xmlrpc(model, method, params, kwargs = {}) {
-  const kwargsXml = Object.entries(kwargs).map(([k, v]) => {
-    const val = Array.isArray(v)
-      ? `<array><data>${v.map(i => `<value><string>${i}</string></value>`).join('')}</data></array>`
-      : `<string>${v}</string>`;
-    return `<member><name>${k}</name><value>${val}</value></member>`;
-  }).join('');
-  const paramsXml = params.map(p => {
-    if (typeof p === 'number') return `<param><value><int>${p}</int></value></param>`;
-    if (typeof p === 'string') return `<param><value><string>${p}</string></value></param>`;
-    if (Array.isArray(p)) {
-      const inner = p.map(i => typeof i === 'number' ? `<value><int>${i}</int></value>` : `<value><string>${i}</string></value>`).join('');
-      return `<param><value><array><data>${inner}</data></array></value></param>`;
+function parseItems(xml) {
+  const norm = xml.replace(/>\s+</g, '><');
+  const items = [];
+  const structRe = /<struct>([\s\S]*?)<\/struct>/g;
+  let sm;
+  while ((sm = structRe.exec(norm)) !== null) {
+    const item = {};
+    const memberRe = /<member><name>([^<]+)<\/name><value>([\s\S]*?)<\/value><\/member>/g;
+    let mm;
+    while ((mm = memberRe.exec(sm[1])) !== null) {
+      const raw = mm[2].trim();
+      let m;
+      m = raw.match(/^<int>(\d+)<\/int>$/) || raw.match(/^<i4>(\d+)<\/i4>$/);
+      if (m) { item[mm[1]] = parseInt(m[1]); continue; }
+      m = raw.match(/^<string>([\s\S]*)<\/string>$/);
+      if (m) { item[mm[1]] = m[1]; continue; }
+      if (raw.startsWith('<array>')) {
+        const intM = raw.match(/<int>(\d+)<\/int>/);
+        const strM = raw.match(/<string>([^<]+)<\/string>/);
+        if (intM && strM) item[mm[1]] = [parseInt(intM[1]), strM[1]];
+        else if (intM) item[mm[1]] = parseInt(intM[1]);
+        else item[mm[1]] = null;
+        continue;
+      }
+      item[mm[1]] = raw.replace(/<[^>]+>/g, '').trim() || null;
     }
-    return `<param><value><string>${JSON.stringify(p)}</string></value></param>`;
+    if (item.id !== undefined) items.push(item);
+  }
+  return items;
+}
+
+async function rpc(model, method, domain, fields, limit = 50) {
+  const fieldsXml = fields.map(f => '<value><string>' + f + '</string></value>').join('');
+  const domainXml = domain.map(([f, op, val]) => {
+    let valXml;
+    if (Array.isArray(val)) {
+      const inner = val.map(v => typeof v === 'number' ? '<value><int>' + v + '</int></value>' : '<value><string>' + v + '</string></value>').join('');
+      valXml = '<value><array><data>' + inner + '</data></array></value>';
+    } else if (typeof val === 'number') valXml = '<value><int>' + val + '</int></value>';
+    else valXml = '<value><string>' + val + '</string></value>';
+    return '<value><array><data><value><string>' + f + '</string></value><value><string>' + op + '</string></value>' + valXml + '</data></array></value>';
   }).join('');
-  const body = `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>
-    <param><value><string>${ODOO_DB}</string></value></param>
-    <param><value><int>${ODOO_UID}</int></value></param>
-    <param><value><string>${ODOO_API_KEY}</string></value></param>
-    <param><value><string>${model}</string></value></param>
-    <param><value><string>${method}</string></value></param>
-    ${paramsXml}
-    <param><value><struct>${kwargsXml}</struct></value></param>
-  </params></methodCall>`;
+  const body = '<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>' +
+    '<param><value><string>' + ODOO_DB + '</string></value></param>' +
+    '<param><value><int>' + ODOO_UID + '</int></value></param>' +
+    '<param><value><string>' + ODOO_API_KEY + '</string></value></param>' +
+    '<param><value><string>' + model + '</string></value></param>' +
+    '<param><value><string>search_read</string></value></param>' +
+    '<param><value><array><data><value><array><data>' + domainXml + '</data></array></value></data></array></value></param>' +
+    '<param><value><struct>' +
+    '<member><name>fields</name><value><array><data>' + fieldsXml + '</data></array></value></member>' +
+    '<member><name>limit</name><value><int>' + limit + '</int></value></member>' +
+    '</struct></value></param>' +
+    '</params></methodCall>';
   const res = await fetch(ODOO_URL + '/xmlrpc/2/object', { method: 'POST', headers: { 'Content-Type': 'text/xml' }, body });
-  return res.text();
+  const text = await res.text();
+  if (text.includes('<fault>')) return { error: text.slice(0, 500) };
+  return parseItems(text);
 }
 
 export default async function handler(req, res) {
-  const sku = req.query.sku;
-  const id = req.query.id ? parseInt(req.query.id) : null;
-  if (!sku && !id) return res.status(400).json({ error: 'Pass ?sku=Christian-Dior-24196 or ?id=<odoo_template_id>' });
+  // Step 1: find attribute records
+  const TARGET_ATTRS = ['Condition', 'Brand', 'Gender', 'Colors', 'Shoe Size'];
+  const attrRecords = await rpc('product.attribute', [['name', 'in', TARGET_ATTRS]], ['id', 'name'], 50);
 
-  // Search for the product
-  let searchDomain;
-  if (sku) searchDomain = `<value><array><data><value><string>default_code</string></value><value><string>=</string></value><value><string>${sku}</string></value></data></array></value>`;
-  else searchDomain = `<value><array><data><value><string>id</string></value><value><string>=</string></value><value><int>${id}</int></value></data></array></value>`;
+  if (!Array.isArray(attrRecords)) return res.status(200).json({ step: 'attribute lookup failed', raw: attrRecords });
+  if (attrRecords.length === 0) return res.status(200).json({ step: 'no attributes found', tried: TARGET_ATTRS });
 
-  const searchBody = `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>
-    <param><value><string>${ODOO_DB}</string></value></param>
-    <param><value><int>${ODOO_UID}</int></value></param>
-    <param><value><string>${ODOO_API_KEY}</string></value></param>
-    <param><value><string>product.template</string></value></param>
-    <param><value><string>search_read</string></value></param>
-    <param><value><array><data><value><array><data>${searchDomain}</data></array></value></data></array></value></param>
-    <param><value><struct>
-      <member><name>limit</name><value><int>1</int></value></member>
-    </struct></value></param>
-  </params></methodCall>`;
+  const nameById = {};
+  const attrIds = attrRecords.map(a => { nameById[a.id] = a.name; return a.id; });
 
-  const searchRes = await fetch(ODOO_URL + '/xmlrpc/2/object', { method: 'POST', headers: { 'Content-Type': 'text/xml' }, body: searchBody });
-  const searchText = await searchRes.text();
+  // Step 2: fetch a few attribute lines
+  const lines = await rpc(
+    'product.template.attribute.line',
+    [['attribute_id', 'in', attrIds]],
+    ['product_tmpl_id', 'attribute_id', 'value_ids'],
+    10
+  );
 
-  // Extract all field names and values from the response
-  const fields = {};
-  const memberRe = /<member><name>([^<]+)<\/name><value>([\s\S]*?)<\/value><\/member>/g;
-  let m;
-  while ((m = memberRe.exec(searchText)) !== null) {
-    const key = m[1];
-    const val = m[2].replace(/<[^>]+>/g, '').trim();
-    if (val && val !== 'False' && val !== '0' && val !== '') {
-      fields[key] = val;
-    }
+  if (!Array.isArray(lines)) return res.status(200).json({ step: 'attribute lines failed', raw: lines, attr_ids: attrIds });
+
+  // Step 3: read value names
+  const valueIds = lines.map(l => typeof l.value_ids === 'number' ? l.value_ids : null).filter(Boolean);
+  let valueNames = [];
+  if (valueIds.length > 0) {
+    const idsXml = valueIds.map(i => '<value><int>' + i + '</int></value>').join('');
+    const body = '<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>' +
+      '<param><value><string>' + ODOO_DB + '</string></value></param>' +
+      '<param><value><int>' + ODOO_UID + '</int></value></param>' +
+      '<param><value><string>' + ODOO_API_KEY + '</string></value></param>' +
+      '<param><value><string>product.attribute.value</string></value></param>' +
+      '<param><value><string>read</string></value></param>' +
+      '<param><value><array><data><value><array><data>' + idsXml + '</data></array></value></data></array></value></param>' +
+      '<param><value><struct><member><name>fields</name><value><array><data><value><string>name</string></value></data></array></value></member></struct></value></param>' +
+      '</params></methodCall>';
+    const r = await fetch(ODOO_URL + '/xmlrpc/2/object', { method: 'POST', headers: { 'Content-Type': 'text/xml' }, body });
+    valueNames = parseItems(await r.text());
   }
 
-  // Also get the raw XML for attribute_line_ids context
-  return res.status(200).json({ fields, raw: searchText.slice(0, 8000) });
+  return res.status(200).json({
+    attributes_found: attrRecords,
+    attr_ids: attrIds,
+    sample_lines: lines,
+    value_names: valueNames,
+  });
 }
