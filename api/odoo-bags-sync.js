@@ -135,13 +135,20 @@ async function odooModelRead(model, domain, fields, limit = 200, offset = 0) {
 }
 
 async function fetchAttributeMap() {
+  const TARGET_ATTRS = ['Condition', 'Brand', 'Gender', 'Colors', 'Shoe Size'];
+  const attrRecords = await odooModelRead('product.attribute', [['name', 'in', TARGET_ATTRS]], ['id', 'name'], 50);
+  if (!attrRecords || attrRecords.length === 0) return {};
+  const nameById = {};
+  const attrIds = attrRecords.map(a => { nameById[a.id] = a.name; return a.id; });
+
   const lines = await odooModelRead(
     'product.template.attribute.line',
-    [['attribute_id.name', 'in', ['Condition', 'Brand', 'Gender', 'Colors', 'Shoe Size']]],
+    [['attribute_id', 'in', attrIds]],
     ['product_tmpl_id', 'attribute_id', 'value_ids'],
-    2000
+    5000
   );
   if (!lines || lines.length === 0) return {};
+
   const allValueIds = new Set();
   for (const line of lines) {
     const vid = line.value_ids;
@@ -160,14 +167,14 @@ async function fetchAttributeMap() {
       '<param><value><struct><member><name>fields</name><value><array><data><value><string>name</string></value></data></array></value></member></struct></value></param>' +
       '</params></methodCall>';
     const res = await fetch(ODOO_URL + '/xmlrpc/2/object', { method: 'POST', headers: { 'Content-Type': 'text/xml' }, body });
-    const text = await res.text();
-    const vals = parseItems(text);
+    const vals = parseItems(await res.text());
     for (const v of vals) valueMap[v.id] = v.name;
   }
   const attrMap = {};
   for (const line of lines) {
     const tmplId = String(Array.isArray(line.product_tmpl_id) ? line.product_tmpl_id[0] : line.product_tmpl_id);
-    const attrName = Array.isArray(line.attribute_id) ? line.attribute_id[1] : String(line.attribute_id);
+    const attrId = Array.isArray(line.attribute_id) ? line.attribute_id[0] : line.attribute_id;
+    const attrName = nameById[attrId];
     const valueId = typeof line.value_ids === 'number' ? line.value_ids : null;
     if (!tmplId || !attrName || !valueId) continue;
     if (!attrMap[tmplId]) attrMap[tmplId] = {};
