@@ -244,7 +244,7 @@ export default function DealerCatalog({ routeCategory }) {
 
     const [{ data: products }, { data: preorderData }] = await Promise.all([q, pq])
     const merged = [
-      ...(products || []),
+      ...(products || []).filter(p => p.product_images && p.product_images.length > 0),
       ...(preorderData || []).map(p => ({ ...p, product_images: p.preorder_images || [] }))
     ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     setWatches(merged)
