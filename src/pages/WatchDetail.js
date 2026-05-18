@@ -541,7 +541,7 @@ export default function WatchDetail() {
               {(() => {
                 const isBags = watch.category === 'Bags'
                 let displayGender = null, displayColor = null, displayNotes = watch.notes || null
-                if (isBags && watch.notes) {
+                if (watch.notes) {
                   const remaining = []
                   for (const part of watch.notes.split(' | ')) {
                     if (part.startsWith('Gender: ')) displayGender = part.slice(8)
