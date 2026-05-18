@@ -34,7 +34,7 @@ function parseItems(xml) {
   return items;
 }
 
-async function rpc(model, method, domain, fields, limit = 50) {
+async function rpc(model, domain, fields, limit = 50) {
   const fieldsXml = fields.map(f => '<value><string>' + f + '</string></value>').join('');
   const domainXml = domain.map(([f, op, val]) => {
     let valXml;
@@ -64,6 +64,7 @@ async function rpc(model, method, domain, fields, limit = 50) {
 }
 
 export default async function handler(req, res) {
+  try {
   // Step 1: find attribute records
   const TARGET_ATTRS = ['Condition', 'Brand', 'Gender', 'Colors', 'Shoe Size'];
   const attrRecords = await rpc('product.attribute', [['name', 'in', TARGET_ATTRS]], ['id', 'name'], 50);
@@ -108,4 +109,7 @@ export default async function handler(req, res) {
     sample_lines: lines,
     value_names: valueNames,
   });
+  } catch (e) {
+    return res.status(200).json({ crashed: true, error: e.message, stack: e.stack?.slice(0, 500) });
+  }
 }
