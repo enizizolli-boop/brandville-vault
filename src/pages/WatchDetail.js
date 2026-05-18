@@ -98,7 +98,7 @@ export default function WatchDetail() {
         brand: data.brand || '',
         model: data.model || '',
         reference: data.reference || '',
-        condition: data.condition || 'Pre-owned',
+        condition: data.condition || '',
         price_usd: data.price_usd || '',
         price_eur: data.price_eur || '',
         cost_eur: data.cost_eur || '',
