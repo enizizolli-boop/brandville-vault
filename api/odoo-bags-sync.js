@@ -329,6 +329,7 @@ export default async function handler(req, res) {
 
     const totalCount = await odooCount(domain);
     const attrMap = await fetchAttributeMap();
+    const attrMapDebug = { size: Object.keys(attrMap).length, sample: Object.entries(attrMap).slice(0, 3).map(([k, v]) => ({ id: k, attrs: v })) };
     const allItems = await odooRead(
       domain,
       ['id', 'name', 'default_code', 'standard_price', 'description_sale', 'image_1920', 'categ_id'],
@@ -504,6 +505,7 @@ export default async function handler(req, res) {
       next_offset: done ? null : nextOffset,
       total: totalCount,
       done,
+      attr_map_debug: attrMapDebug,
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (err) {
