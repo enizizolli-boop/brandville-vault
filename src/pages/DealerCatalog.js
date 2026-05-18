@@ -283,7 +283,8 @@ export default function DealerCatalog({ routeCategory }) {
       if (filterPriceMin && Number(w.price_eur) < Number(filterPriceMin)) return false
       if (filterPriceMax && Number(w.price_eur) > Number(filterPriceMax)) return false
       if (!search) return true
-      return w.model?.toLowerCase().includes(search.toLowerCase()) || w.reference?.toLowerCase().includes(search.toLowerCase())
+      const q = search.toLowerCase()
+      return w.model?.toLowerCase().includes(q) || w.reference?.toLowerCase().includes(q) || w.brand?.toLowerCase().includes(q)
     })
     .sort((a, b) => {
       if (sortBy === 'price_asc') return (a.price_eur || a.price_usd || 0) - (b.price_eur || b.price_usd || 0)
