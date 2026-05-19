@@ -202,7 +202,7 @@ export default function Topbar() {
           )}
           <div className="topbar-avatar-wrap">
             <div className={`avatar ${avatarColor(profile?.full_name)}`}>{initials(profile?.full_name)}</div>
-            <span className="user-name-label" style={{ fontSize: 12, color: '#888' }}>{profile?.full_name}</span>
+            <span className="user-name-label">{profile?.full_name?.split(' ')[0]}</span>
           </div>
           <button className="btn btn-sm topbar-btn-desktop" onClick={handleSignOut}>Sign out</button>
           <button className="hamburger" onClick={() => setMobileOpen(true)} aria-label="Menu">
