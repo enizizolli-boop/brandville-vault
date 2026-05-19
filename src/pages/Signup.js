@@ -23,7 +23,11 @@ export default function Signup() {
     const { data: existing } = await supabase.from('profiles').select('id').eq('email', email.toLowerCase().trim()).maybeSingle()
     if (existing) { setError('An account with this email already exists. Please sign in.'); setLoading(false); return }
 
-    const { data, error: signUpError } = await supabase.auth.signUp({ email, password })
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: name.trim() } },
+    })
     if (signUpError) {
       const msg = signUpError.message.toLowerCase()
       if (msg.includes('already registered') || msg.includes('already exists')) {
@@ -35,17 +39,14 @@ export default function Signup() {
       return
     }
 
+    // Profile is created automatically by the database trigger (handle_new_user)
+    // Fallback insert in case trigger is not set up
     const userId = data?.user?.id
     if (userId) {
-      const { error: profileError } = await supabase.from('profiles').upsert(
+      await supabase.from('profiles').upsert(
         { id: userId, full_name: name.trim(), email: email.toLowerCase().trim(), role: 'dealer' },
         { onConflict: 'id' }
       )
-      if (profileError) {
-        setError('Account created but profile could not be saved. Please contact support.')
-        setLoading(false)
-        return
-      }
     }
 
     setLoading(false)
