@@ -343,68 +343,6 @@ export default function DealerCatalog({ routeCategory }) {
     <div className="page">
       <Topbar />
 
-      {/* Stats bar */}
-      <div className="stat-grid">
-        <div className="stat-card"><div className="stat-val" style={{ color: 'var(--gold)' }}>{avail}</div><div className="stat-lbl">Available</div></div>
-        <div className="stat-divider" />
-        {reserved > 0 && <><div className="stat-card"><div className="stat-val">{reserved}</div><div className="stat-lbl">Reserved</div></div><div className="stat-divider" /></>}
-        <div className="stat-card"><div className="stat-val">{watches.length}</div><div className="stat-lbl">Total</div></div>
-      </div>
-
-      {/* Desktop filter bar */}
-      <div className="filter-bar">
-        <div className="filter-group">
-          {lockedCategory === 'Bags' && (
-            <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setFilterBrand('') }}>
-              <option value=''>All</option><option>Bags</option><option>Accessories</option><option>Shoes</option>
-            </select>
-          )}
-          <select value={filterBrand} onChange={e => setFilterBrand(e.target.value)}>
-            <option value="">All brands</option>
-            {brandOptions.map(b => <option key={b}>{b}</option>)}
-          </select>
-          {isWatches && (
-            <select value={filterCond} onChange={e => setFilterCond(e.target.value)}>
-              <option value="">All conditions</option>
-              {CONDITIONS.map(c => <option key={c}>{c}</option>)}
-            </select>
-          )}
-          {lockedCategory === 'Jewellery' && (
-            <select value={filterJewelleryType} onChange={e => { setFilterJewelleryType(e.target.value); setFilterSize('') }}>
-              <option value="">All types</option>
-              <option>Rings</option><option>Bracelets</option><option>Necklaces</option><option>Earrings</option>
-            </select>
-          )}
-          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-            <option value="available">Available</option>
-            <option value="reserved">Reserved</option>
-            <option value="">All status</option>
-          </select>
-        </div>
-        <div className="filter-divider" />
-        <div className="price-range-group">
-          <span className="price-label">€</span>
-          <input className="price-input" type="number" placeholder="Min" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} />
-          <span className="price-sep">—</span>
-          <input className="price-input" type="number" placeholder="Max" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} />
-        </div>
-        <div className="filter-divider" />
-        <div className="search-wrap">
-          <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <input className="search-input" placeholder="Search model or ref…" value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
-        <div className="filter-right">
-          <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
-            <option value="">Newest First</option>
-            <option value="price_asc">Price: Low → High</option>
-            <option value="price_desc">Price: High → Low</option>
-            <option value="sku_asc">SKU: Old → New</option>
-            <option value="sku_desc">SKU: New → Old</option>
-          </select>
-          <span className="results-count"><strong>{filtered.length}</strong> items</span>
-        </div>
-      </div>
-
       {/* Mobile filter bar */}
       <div className="mobile-filter-bar">
         <button className="filter-trigger-btn" onClick={() => setDrawerOpen(true)}>
@@ -468,90 +406,178 @@ export default function DealerCatalog({ routeCategory }) {
         </div>
       )}
 
-      {/* Active filter pills */}
-      {activePills.length > 0 && (
-        <div className="filter-pills">
-          {activePills.map((p, i) => (
-            <span key={i} className="filter-pill" onClick={p.clear}>{p.label} <span className="filter-pill-x">×</span></span>
-          ))}
-          {activePills.length > 1 && (
-            <span className="filter-clear-all" onClick={clearAllFilters}>Clear all</span>
-          )}
-        </div>
-      )}
+      {/* Sidebar + content layout */}
+      <div className="catalog-layout">
 
-      {loading ? (
-        <div className="watch-grid">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="watch-card-skeleton">
-              <div className="sk-img skeleton" />
-              <div className="sk-body">
-                <div className="sk-brand skeleton" />
-                <div className="sk-model skeleton" />
-                <div className="sk-ref skeleton" />
-                <div className="sk-foot">
-                  <div className="sk-price skeleton" />
-                  <div className="sk-badge skeleton" />
-                </div>
-              </div>
+        {/* Sticky sidebar */}
+        <aside className="catalog-sidebar">
+          <div className="sidebar-top">
+            <div className="sidebar-counts">
+              <span className="sidebar-count-main">{filtered.length}</span>
+              <span className="sidebar-count-lbl">items</span>
             </div>
-          ))}
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="empty-state">
-          <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.3 }}>◻</div>
-          <div style={{ fontWeight: 500, marginBottom: 6 }}>No items match your filters</div>
-          {activePills.length > 0 && <span className="filter-clear-all" onClick={clearAllFilters} style={{ fontSize: 13 }}>Clear all filters</span>}
-        </div>
-      ) : (
-        <>
-          <div className="watch-grid">
-            {paginated.map((w) => {
-              const waMsg = encodeURIComponent(`Hi, I'm interested in the ${w.brand} ${w.model}${w.reference ? ` (Ref. ${cleanRef(w.reference)})` : ''}. Is it still available?`)
-              const waNum = WA_NUMBERS[w.category] || '18488639660'
-              return (
-                <React.Fragment key={w.id}>
-                  <div className="watch-card">
-                    <div className="card-img-wrap" onClick={() => navigate(`/catalog/${w.id}`)}>
-                      <CardImages watch={w} />
-                      <div className={`card-status-dot ${w.status}`} />
-                    </div>
-                    <div className="card-body" onClick={() => navigate(`/catalog/${w.id}`)}>
-                      <div className="card-brand">{w.brand}</div>
-                      <div className="card-model">{w.model}</div>
-                      <div className="card-ref">{cleanRef(w.reference) ? `Ref. ${cleanRef(w.reference)}` : '—'}</div>
-                      <div className="card-meta">
-                        {w.notes && <><span className="card-year">{w.notes}</span><div className="card-dot" /></>}
-                        {shortenCond(w.condition) && <span className="card-cond-pill">{shortenCond(w.condition)}</span>}
-                      </div>
-                    </div>
-                    <div className="card-price-row">
-                      <div className="card-price-block">
-                        <div className="card-price">{fmtPrice(w, currency, rate)}</div>
-                        <div className="card-price-label">Asking price</div>
-                      </div>
-                      <div className="card-cta">
-                        <a className="btn-wa" href={`https://wa.me/${waNum}?text=${waMsg}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
-                          {WA_SVG}
-                        </a>
-                        <button className="btn-inquire" onClick={() => navigate(`/catalog/${w.id}`)}>
-                          Inquire
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </React.Fragment>
-              )
-            })}
+            {activePills.length > 0 && (
+              <button className="sidebar-clear" onClick={clearAllFilters}>Clear all</button>
+            )}
           </div>
 
-          {visibleCount < filtered.length && (
-            <div ref={sentinelRef} style={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div className="spinner" />
+          <div className="sidebar-section">
+            <div className="sidebar-label">Search</div>
+            <div className="sidebar-search-wrap">
+              <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <input placeholder="Model, ref, brand…" value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="sidebar-section">
+            <div className="sidebar-label">Sort</div>
+            <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
+              <option value="">Newest first</option>
+              <option value="price_asc">Price: Low → High</option>
+              <option value="price_desc">Price: High → Low</option>
+              <option value="sku_asc">SKU: Old → New</option>
+              <option value="sku_desc">SKU: New → Old</option>
+            </select>
+          </div>
+
+          {lockedCategory === 'Bags' && (
+            <div className="sidebar-section">
+              <div className="sidebar-label">Category</div>
+              <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setFilterBrand('') }}>
+                <option value="">All</option><option>Bags</option><option>Accessories</option><option>Shoes</option>
+              </select>
             </div>
           )}
-        </>
-      )}
+
+          <div className="sidebar-section">
+            <div className="sidebar-label">Brand</div>
+            <select value={filterBrand} onChange={e => setFilterBrand(e.target.value)}>
+              <option value="">All brands</option>
+              {brandOptions.map(b => <option key={b}>{b}</option>)}
+            </select>
+          </div>
+
+          {isWatches && (
+            <div className="sidebar-section">
+              <div className="sidebar-label">Condition</div>
+              <select value={filterCond} onChange={e => setFilterCond(e.target.value)}>
+                <option value="">All conditions</option>
+                {CONDITIONS.map(c => <option key={c}>{c}</option>)}
+              </select>
+            </div>
+          )}
+
+          {lockedCategory === 'Jewellery' && (
+            <div className="sidebar-section">
+              <div className="sidebar-label">Type</div>
+              <select value={filterJewelleryType} onChange={e => { setFilterJewelleryType(e.target.value); setFilterSize('') }}>
+                <option value="">All types</option>
+                <option>Rings</option><option>Bracelets</option><option>Necklaces</option><option>Earrings</option>
+              </select>
+            </div>
+          )}
+
+          <div className="sidebar-section">
+            <div className="sidebar-label">Status</div>
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+              <option value="available">Available</option>
+              <option value="reserved">Reserved</option>
+              <option value="">All</option>
+            </select>
+          </div>
+
+          <div className="sidebar-section">
+            <div className="sidebar-label">Price (EUR)</div>
+            <div className="sidebar-price-range">
+              <input type="number" placeholder="Min" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} />
+              <span>—</span>
+              <input type="number" placeholder="Max" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="sidebar-stats">
+            <div><span style={{ color: 'var(--gold)', fontWeight: 600 }}>{avail}</span> available</div>
+            {reserved > 0 && <div><span style={{ fontWeight: 600 }}>{reserved}</span> reserved</div>}
+            <div><span style={{ fontWeight: 600 }}>{watches.length}</span> total</div>
+          </div>
+        </aside>
+
+        {/* Product grid */}
+        <div className="catalog-content">
+          {loading ? (
+            <div className="watch-grid">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <div key={i} className="watch-card-skeleton">
+                  <div className="sk-img skeleton" />
+                  <div className="sk-body">
+                    <div className="sk-brand skeleton" />
+                    <div className="sk-model skeleton" />
+                    <div className="sk-ref skeleton" />
+                    <div className="sk-foot">
+                      <div className="sk-price skeleton" />
+                      <div className="sk-badge skeleton" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="empty-state">
+              <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.3 }}>◻</div>
+              <div style={{ fontWeight: 500, marginBottom: 6 }}>No items match your filters</div>
+              {activePills.length > 0 && <button className="sidebar-clear" onClick={clearAllFilters} style={{ marginTop: 4 }}>Clear all filters</button>}
+            </div>
+          ) : (
+            <>
+              <div className="watch-grid">
+                {paginated.map((w) => {
+                  const waMsg = encodeURIComponent(`Hi, I'm interested in the ${w.brand} ${w.model}${w.reference ? ` (Ref. ${cleanRef(w.reference)})` : ''}. Is it still available?`)
+                  const waNum = WA_NUMBERS[w.category] || '18488639660'
+                  return (
+                    <React.Fragment key={w.id}>
+                      <div className="watch-card">
+                        <div className="card-img-wrap" onClick={() => navigate(`/catalog/${w.id}`)}>
+                          <CardImages watch={w} />
+                          <div className={`card-status-dot ${w.status}`} />
+                        </div>
+                        <div className="card-body" onClick={() => navigate(`/catalog/${w.id}`)}>
+                          <div className="card-brand">{w.brand}</div>
+                          <div className="card-model">{w.model}</div>
+                          <div className="card-ref">{cleanRef(w.reference) ? `Ref. ${cleanRef(w.reference)}` : '—'}</div>
+                          <div className="card-meta">
+                            {w.notes && <><span className="card-year">{w.notes}</span><div className="card-dot" /></>}
+                            {shortenCond(w.condition) && <span className="card-cond-pill">{shortenCond(w.condition)}</span>}
+                          </div>
+                        </div>
+                        <div className="card-price-row">
+                          <div className="card-price-block">
+                            <div className="card-price">{fmtPrice(w, currency, rate)}</div>
+                            <div className="card-price-label">Asking price</div>
+                          </div>
+                          <div className="card-cta">
+                            <a className="btn-wa" href={`https://wa.me/${waNum}?text=${waMsg}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
+                              {WA_SVG}
+                            </a>
+                            <button className="btn-inquire" onClick={() => navigate(`/catalog/${w.id}`)}>
+                              Inquire
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </React.Fragment>
+                  )
+                })}
+              </div>
+              {visibleCount < filtered.length && (
+                <div ref={sentinelRef} style={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div className="spinner" />
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
       <Footer />
     </div>
   )

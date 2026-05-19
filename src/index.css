@@ -130,6 +130,43 @@ button { font-family: inherit; cursor: pointer; }
 .page { min-height: 100vh; overflow-x: hidden; }
 .container { max-width: 1100px; margin: 0 auto; padding: 0 16px; }
 
+/* ── Catalog sidebar layout ───────────────────── */
+.catalog-layout { display: flex; align-items: flex-start; }
+.catalog-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 62px;
+  height: calc(100vh - 62px);
+  overflow-y: auto;
+  padding: 20px 16px 40px;
+  border-right: 1px solid var(--border-light);
+  background: var(--bg);
+}
+.catalog-sidebar::-webkit-scrollbar { width: 4px; }
+.catalog-sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.catalog-content { flex: 1; min-width: 0; }
+.sidebar-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border-light); }
+.sidebar-count-main { font-size: 22px; font-weight: 700; color: var(--gold); margin-right: 4px; }
+.sidebar-count-lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+.sidebar-clear { background: none; border: none; color: var(--muted); font-size: 11px; cursor: pointer; padding: 0; text-decoration: underline; }
+.sidebar-clear:hover { color: var(--gold); }
+.sidebar-section { margin-bottom: 18px; }
+.sidebar-label { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 7px; }
+.sidebar-section select,
+.sidebar-section input { width: 100%; font-size: 12px; }
+.sidebar-search-wrap { position: relative; }
+.sidebar-search-wrap svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.sidebar-search-wrap input { padding-left: 28px !important; }
+.sidebar-price-range { display: flex; gap: 6px; align-items: center; }
+.sidebar-price-range input { width: 0; flex: 1; font-size: 12px; }
+.sidebar-price-range span { color: var(--muted); font-size: 12px; flex-shrink: 0; }
+.sidebar-stats { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-light); display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+@media (max-width: 768px) {
+  .catalog-layout { display: block; }
+  .catalog-sidebar { display: none; }
+}
+
 /* ── Topbar ───────────────────────────────────── */
 .topbar {
   background: #0d0d0d;
@@ -478,12 +515,9 @@ button { font-family: inherit; cursor: pointer; }
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 16px;
-  padding: 20px 48px;
-  max-width: 1440px;
-  margin: 0 auto;
+  padding: 20px;
 }
-@media (max-width: 900px)  { .watch-grid { padding: 16px 20px; } }
-@media (max-width: 640px)  { .watch-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 12px; } }
+@media (max-width: 640px) { .watch-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 12px; } }
 .watch-card {
   background: var(--surface);
   border: 1px solid var(--border-light);
