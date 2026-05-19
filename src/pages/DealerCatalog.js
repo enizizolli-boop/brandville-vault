@@ -199,7 +199,8 @@ export default function DealerCatalog({ routeCategory }) {
   const [search, setSearch] = useState('')
   const [filterPriceMin, setFilterPriceMin] = useState('')
   const [filterPriceMax, setFilterPriceMax] = useState('')
-  const [page, setPage] = useState(0)
+  const [visibleCount, setVisibleCount] = useState(40)
+  const sentinelRef = useRef(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [sortBy, setSortBy] = useState('')
 
@@ -267,7 +268,6 @@ export default function DealerCatalog({ routeCategory }) {
   useEffect(() => {
     const p = new URLSearchParams(location.search)
     setFilterBrand(p.get('brand') || '')
-    setPage(0)
     if (lockedCategory === 'Jewellery') setFilterJewelleryType(p.get('type') || '')
     if (lockedCategory === 'Bags') setFilterCategory(p.get('type') || '')
   }, [location.search])
@@ -294,11 +294,19 @@ export default function DealerCatalog({ routeCategory }) {
       return 0
     })
 
-  const PAGE_SIZE = 40
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
-  const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+  const paginated = filtered.slice(0, visibleCount)
 
-  useEffect(() => setPage(0), [filterBrand, filterCond, filterStatus, search, sortBy, filterPriceMin, filterPriceMax, filterJewelleryType, filterMetal, filterSize])
+  useEffect(() => setVisibleCount(40), [filterBrand, filterCond, filterStatus, search, sortBy, filterPriceMin, filterPriceMax, filterJewelleryType, filterMetal, filterSize])
+
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) setVisibleCount(v => v + 40)
+    }, { threshold: 0.1 })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [filtered.length, visibleCount])
 
   const avail = watches.filter(w => w.status === 'available').length
   const reserved = watches.filter(w => w.status === 'reserved').length
@@ -537,17 +545,9 @@ export default function DealerCatalog({ routeCategory }) {
             })}
           </div>
 
-          {totalPages > 1 && (
-            <div className="pagination">
-              <button className="page-btn arrow" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}>‹</button>
-              {Array.from({ length: totalPages }, (_, i) => {
-                if (totalPages <= 7 || i === 0 || i === totalPages - 1 || Math.abs(i - page) <= 1) {
-                  return <button key={i} className={`page-btn ${i === page ? 'active' : ''}`} onClick={() => { setPage(i); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>{i + 1}</button>
-                }
-                if (Math.abs(i - page) === 2) return <span key={i} className="page-ellipsis">…</span>
-                return null
-              })}
-              <button className="page-btn arrow" onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1}>›</button>
+          {visibleCount < filtered.length && (
+            <div ref={sentinelRef} style={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div className="spinner" />
             </div>
           )}
         </>
