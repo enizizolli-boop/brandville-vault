@@ -37,7 +37,15 @@ export default function Signup() {
 
     const userId = data?.user?.id
     if (userId) {
-      await supabase.from('profiles').insert({ id: userId, full_name: name.trim(), email: email.toLowerCase().trim(), role: 'dealer' })
+      const { error: profileError } = await supabase.from('profiles').upsert(
+        { id: userId, full_name: name.trim(), email: email.toLowerCase().trim(), role: 'dealer' },
+        { onConflict: 'id' }
+      )
+      if (profileError) {
+        setError('Account created but profile could not be saved. Please contact support.')
+        setLoading(false)
+        return
+      }
     }
 
     setLoading(false)

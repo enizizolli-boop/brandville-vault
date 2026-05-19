@@ -32,7 +32,16 @@ export function AuthProvider({ children }) {
 
   async function fetchProfile(userId) {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
-    setProfile(data)
+    if (data) {
+      setProfile(data)
+    } else {
+      // Profile missing — create a minimal one so the app doesn't break
+      const { data: { user } } = await supabase.auth.getUser()
+      const email = user?.email || ''
+      const fallbackName = email.split('@')[0] || 'User'
+      await supabase.from('profiles').upsert({ id: userId, email, full_name: fallbackName, role: 'dealer' }, { onConflict: 'id' })
+      setProfile({ id: userId, email, full_name: fallbackName, role: 'dealer' })
+    }
     setLoading(false)
   }
 
