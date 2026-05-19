@@ -110,9 +110,8 @@ export default function Login() {
             </>
           )}
         </div>
-        <div style={{ textAlign: 'center', marginTop: 16, fontSize: 12, color: '#bbb' }}>
-          Don't have an account?{' '}
-          <Link to="/signup" style={{ color: '#b8965a', textDecoration: 'none' }}>Create one</Link>
+        <div style={{ textAlign: 'center', marginTop: 20 }}>
+          <Link to="/signup" style={{ display: 'inline-block', width: '100%', padding: '11px', border: '1.5px solid #b8965a', borderRadius: 8, color: '#b8965a', textDecoration: 'none', fontSize: 14, fontWeight: 600, letterSpacing: 0.3, boxSizing: 'border-box' }}>Create an account</Link>
         </div>
       </div>
     </div>
