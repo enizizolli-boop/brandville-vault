@@ -15,16 +15,39 @@ export default function Signup() {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+    if (!name.trim()) { setError('Please enter your full name.'); return }
     if (password.length < 6) { setError('Password must be at least 6 characters.'); return }
     setLoading(true)
+
+    // Check for existing email before attempting signup
+    const { data: existing } = await supabase.from('profiles').select('id').eq('email', email.toLowerCase().trim()).maybeSingle()
+    if (existing) { setError('An account with this email already exists. Please sign in.'); setLoading(false); return }
+
     const { data, error: signUpError } = await supabase.auth.signUp({ email, password })
-    if (signUpError) { setError(signUpError.message); setLoading(false); return }
+    if (signUpError) {
+      const msg = signUpError.message.toLowerCase()
+      if (msg.includes('already registered') || msg.includes('already exists')) {
+        setError('An account with this email already exists. Please sign in.')
+      } else {
+        setError(signUpError.message)
+      }
+      setLoading(false)
+      return
+    }
+
     const userId = data?.user?.id
     if (userId) {
-      await supabase.from('profiles').insert({ id: userId, full_name: name.trim(), email, role: 'dealer' })
+      await supabase.from('profiles').insert({ id: userId, full_name: name.trim(), email: email.toLowerCase().trim(), role: 'dealer' })
     }
+
     setLoading(false)
-    setDone(true)
+
+    // If session exists, email confirmation is disabled — redirect straight to catalog
+    if (data?.session) {
+      navigate('/catalog')
+    } else {
+      setDone(true)
+    }
   }
 
   return (
