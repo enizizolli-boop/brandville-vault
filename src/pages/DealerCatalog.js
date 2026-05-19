@@ -262,7 +262,7 @@ export default function DealerCatalog({ routeCategory }) {
     setFilterJewelleryType('')
     setFilterCategory('')
     setSearch('')
-    setPage(0)
+    setVisibleCount(40)
   }, [location.pathname])
 
   useEffect(() => {
