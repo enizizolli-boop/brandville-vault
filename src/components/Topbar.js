@@ -200,7 +200,7 @@ export default function Topbar() {
           {profile?.role === 'dealer' && (
             <button className="btn btn-sm topbar-btn-desktop" onClick={() => navigate('/offers')}>My Offers</button>
           )}
-          <div className="topbar-avatar-wrap">
+          <div className="topbar-avatar-wrap" onClick={() => navigate('/account')} style={{ cursor: 'pointer' }} title="My Account">
             <div className={`avatar ${avatarColor(profile?.full_name)}`}>{initials(profile?.full_name)}</div>
           </div>
           <button className="btn btn-sm topbar-btn-desktop" onClick={handleSignOut}>Sign out</button>
