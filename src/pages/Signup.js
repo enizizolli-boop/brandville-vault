@@ -6,6 +6,7 @@ export default function Signup() {
   const navigate = useNavigate()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -16,12 +17,9 @@ export default function Signup() {
     e.preventDefault()
     setError('')
     if (!name.trim()) { setError('Please enter your full name.'); return }
+    if (!email.trim()) { setError('Please enter your email.'); return }
     if (password.length < 6) { setError('Password must be at least 6 characters.'); return }
     setLoading(true)
-
-    // Check for existing email before attempting signup
-    const { data: existing } = await supabase.from('profiles').select('id').eq('email', email.toLowerCase().trim()).maybeSingle()
-    if (existing) { setError('An account with this email already exists. Please sign in.'); setLoading(false); return }
 
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
@@ -39,14 +37,11 @@ export default function Signup() {
       return
     }
 
-    // Profile is created automatically by the database trigger (handle_new_user)
-    // Fallback insert in case trigger is not set up
     const userId = data?.user?.id
     if (userId) {
-      await supabase.from('profiles').upsert(
-        { id: userId, full_name: name.trim(), email: email.toLowerCase().trim(), role: 'dealer' },
-        { onConflict: 'id' }
-      )
+      const upsertData = { id: userId, full_name: name.trim(), email: email.toLowerCase().trim(), role: 'dealer' }
+      if (phone.trim()) upsertData.phone = phone.trim()
+      await supabase.from('profiles').upsert(upsertData, { onConflict: 'id' })
     }
 
     setLoading(false)
@@ -88,6 +83,10 @@ export default function Signup() {
                 <div className="form-row">
                   <label>Email</label>
                   <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@email.com" required />
+                </div>
+                <div className="form-row">
+                  <label>Phone number</label>
+                  <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+1 234 567 8900" />
                 </div>
                 <div className="form-row">
                   <label>Password</label>

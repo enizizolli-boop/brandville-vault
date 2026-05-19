@@ -164,10 +164,7 @@ function mapZohoItem(item) {
   const scopeRaw = item.cf_scope_of_delivery || null;
   const notes = item.description && item.description.trim() ? item.description.trim() : null;
 
-  // Extract condition from name first, then description, then custom field
-  let condition = extractConditionFromText(model);
-  if (!condition) condition = extractConditionFromText(notes);
-  if (!condition) condition = mapCondition(item.cf_conditions);
+  const condition = item.cf_conditions && item.cf_conditions.trim() ? item.cf_conditions.trim() : 'Pre-owned';
 
   // Zoho items are always Watches — Jewellery comes exclusively from Odoo
   return {
@@ -255,7 +252,7 @@ export default async function handler(req, res) {
       } else {
         const toDelete = allExistingIds.filter(id => !liveZohoIds.includes(id));
         if (toDelete.length > 0) {
-          await supabase.from('products').delete().in('zoho_item_id', toDelete).eq('source', 'zoho');
+          await supabase.from('products').update({ status: 'sold' }).in('zoho_item_id', toDelete).eq('source', 'zoho');
           removed = toDelete.length;
         }
       }

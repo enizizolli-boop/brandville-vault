@@ -21,6 +21,34 @@ async function getAccessToken() {
   return data.access_token;
 }
 
+async function fetchAllLiveIds(accessToken) {
+  let ids = [];
+  let page = 1;
+  const perPage = 200;
+  while (true) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    try {
+      const url = `https://www.zohoapis.eu/inventory/v1/items?organization_id=${process.env.ZOHO_ORG_ID}&per_page=${perPage}&page=${page}&status=active`;
+      const res = await fetch(url, { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }, signal: controller.signal });
+      clearTimeout(timer);
+      const data = await res.json();
+      if (!data.items || data.items.length === 0) break;
+      for (const item of data.items) {
+        if (item.show_in_storefront !== true) continue;
+        const stock = item.actual_available_stock ?? item.available_stock ?? item.stock_on_hand ?? 0;
+        if (Number(stock) > 0) ids.push(String(item.item_id));
+      }
+      if (data.items.length < perPage) break;
+      page++;
+    } catch {
+      clearTimeout(timer);
+      break;
+    }
+  }
+  return ids;
+}
+
 async function fetchRecentItems(accessToken, sinceMinutes = 35) {
   const since = new Date(Date.now() - sinceMinutes * 60 * 1000);
   const pad = n => String(n).padStart(2, '0');
@@ -94,9 +122,7 @@ function mapZohoItem(item) {
   const scopeRaw = item.cf_scope_of_delivery || null;
   const notes = item.description && item.description.trim() ? item.description.trim() : null;
 
-  let condition = extractConditionFromText(model);
-  if (!condition) condition = extractConditionFromText(notes);
-  if (!condition) condition = mapCondition(item.cf_conditions);
+  const condition = item.cf_conditions && item.cf_conditions.trim() ? item.cf_conditions.trim() : 'Pre-owned';
 
   return {
     zoho_item_id: String(item.item_id),
@@ -138,6 +164,22 @@ export default async function handler(req, res) {
     if (offItems.length > 0) {
       const offIds = offItems.map(i => String(i.item_id));
       await supabase.from('products').update({ status: 'sold' }).in('zoho_item_id', offIds).eq('source', 'zoho');
+    }
+
+    // Full list check: fetch all live Zoho IDs and mark anything in DB but not live as sold
+    // This catches items sold without a recent modification event in Zoho
+    const allLiveIds = await fetchAllLiveIds(accessToken);
+    if (allLiveIds.length > 0) {
+      const { data: dbItems } = await supabase
+        .from('products')
+        .select('zoho_item_id')
+        .eq('source', 'zoho')
+        .neq('status', 'sold');
+      const dbIds = (dbItems || []).map(r => r.zoho_item_id);
+      const nowSold = dbIds.filter(id => !allLiveIds.includes(id));
+      if (nowSold.length > 0) {
+        await supabase.from('products').update({ status: 'sold' }).in('zoho_item_id', nowSold).eq('source', 'zoho');
+      }
     }
 
     // Upsert recently modified live items

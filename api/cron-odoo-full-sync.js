@@ -159,7 +159,7 @@ export default async function handler(req, res) {
     const { data: allExisting } = await supabase.from('products').select('odoo_product_id').eq('source', 'odoo').eq('category', 'Jewellery');
     const toDelete = (allExisting || []).map(i => i.odoo_product_id).filter(id => id && !allOdooIds.includes(id));
     if (toDelete.length > 0) {
-      await supabase.from('products').delete().in('odoo_product_id', toDelete).eq('source', 'odoo').eq('category', 'Jewellery');
+      await supabase.from('products').update({ status: 'sold' }).in('odoo_product_id', toDelete).eq('source', 'odoo').eq('category', 'Jewellery');
       removed = toDelete.length;
     }
 
@@ -227,7 +227,7 @@ export default async function handler(req, res) {
           model: (item.name || '').trim(),
           reference: item.default_code || null,
           price_eur: item.list_price || null,
-          condition: item.x_studio_condition || 'Fair',
+          condition: item.x_studio_condition || 'Pre-owned',
           ...(isSold ? { status: 'sold' } : currentStatus === 'sold' ? { status: 'available' } : isExisting ? {} : { status: 'available' }),
           category: 'Jewellery',
           notes: item.description_sale && typeof item.description_sale === 'string' ? item.description_sale.trim() || null : null,

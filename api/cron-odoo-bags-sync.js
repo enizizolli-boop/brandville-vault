@@ -259,7 +259,7 @@ export default async function handler(req, res) {
     const existingIds = (existing || []).map(i => i.odoo_product_id);
     const toDelete = existingIds.filter(id => !liveOdooIds.includes(id));
     if (toDelete.length > 0) {
-      await supabase.from('products').delete().in('odoo_product_id', toDelete).eq('source', 'odoo_bags');
+      await supabase.from('products').update({ status: 'sold' }).in('odoo_product_id', toDelete).eq('source', 'odoo_bags');
     }
 
     // Build rows — data only, no image uploads
@@ -270,7 +270,7 @@ export default async function handler(req, res) {
       const { category, subcategory } = CATEG_MAP[categName] || { category: 'Accessories', subcategory: null };
       const attrs = attrMap[String(item.id)] || {};
       const brand = attrs['Brand'] || extractBrand(item.name, item.default_code);
-      const condition = attrs['Condition'] || '';
+      const condition = attrs['Condition'] || 'Pre-owned';
       const itemSize = attrs['Shoe Size'] || null;
       const baseNotes = item.description_sale && item.description_sale.trim() ? item.description_sale.trim() : null;
       const extraParts = [attrs['Gender'] && `Gender: ${attrs['Gender']}`, attrs['Colors'] && `Color: ${attrs['Colors']}`].filter(Boolean);
