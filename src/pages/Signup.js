@@ -51,9 +51,9 @@ export default function Signup() {
 
     setLoading(false)
 
-    // If session exists, email confirmation is disabled — redirect straight to catalog
+    // If session exists, email confirmation is disabled — redirect straight to home
     if (data?.session) {
-      navigate('/catalog')
+      navigate('/home')
     } else {
       setDone(true)
     }
