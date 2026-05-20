@@ -679,7 +679,7 @@ export default function DealerCatalog({ routeCategory }) {
 
           {/* Hero */}
           {!loading && (
-            <div className="catalog-hero" style={{ backgroundImage: `url(${process.env.PUBLIC_URL}/background.png)`, backgroundSize: '58% auto', backgroundPosition: 'right center', backgroundRepeat: 'no-repeat' }}>
+            <div className="catalog-hero" style={{ backgroundImage: `url(${process.env.PUBLIC_URL}/background.png)`, backgroundSize: 'cover', backgroundPosition: 'center right', backgroundRepeat: 'no-repeat' }}>
               <div className="hero-gradient-overlay" />
               <div className="hero-left">
                 <div className="hero-eyebrow">
@@ -761,19 +761,13 @@ export default function DealerCatalog({ routeCategory }) {
             <>
               <div className="watch-grid">
                 {paginated.map(w => {
-                  const isNew = new Date(w.created_at) > cutoff
                   const waMsg = encodeURIComponent(`Hi, I'm interested in the ${w.brand} ${w.model}${w.reference ? ` (Ref. ${cleanRef(w.reference)})` : ''}. Is it still available?`)
                   const waNum = WA_NUMBERS[w.category] || '18488639660'
-                  let badge = null
-                  if (isNew && w.status === 'available') badge = { label: 'New Arrival', cls: 'card-badge-new' }
-                  else if (w.status === 'reserved') badge = { label: 'Reserved', cls: 'card-badge-reserved' }
-                  else if (w.status === 'available') badge = { label: 'Available', cls: 'card-badge-available' }
 
                   return (
                     <div className="watch-card" key={w.id}>
                       <div className="card-img-wrap" onClick={() => navigate(`/catalog/${w.id}`)}>
                         <CardImages watch={w} />
-                        {badge && <div className={`card-badge ${badge.cls}`}>{badge.label}</div>}
                         <button className="card-bookmark" onClick={e => e.stopPropagation()} title="Save">
                           <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
                             <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
