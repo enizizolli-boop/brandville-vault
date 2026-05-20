@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useCurrency } from '../context/CurrencyContext'
 
@@ -38,6 +38,17 @@ const MEGA = {
     types: ['Bags', 'Accessories', 'Shoes'],
   },
 }
+
+const NAV = [
+  { label: 'Inventory', route: '/catalog' },
+  { label: 'Watches', route: '/watches', mega: 'Watches' },
+  { label: 'Jewellery', route: '/jewellery', mega: 'Jewellery' },
+  { label: 'Bags', route: '/bags', mega: 'Bags' },
+  { label: 'New Arrivals', route: '/catalog?tab=new' },
+  { label: 'Hot Deals', route: '/catalog' },
+  { label: 'WTB Requests', route: '/agent' },
+  { label: 'My Network', route: '/home' },
+]
 
 function MegaMenu({ category, data, onNavigate, onClose }) {
   return (
@@ -121,7 +132,6 @@ function MobileMenu({ profile, currency, setCurrency, onNavigate, onSignOut, onC
 
         <div className="mobile-nav-actions">
           {profile?.role === 'admin' && <button className="btn btn-sm" onClick={() => { onClose(); onNavigate('/admin') }}>Admin</button>}
-          {profile?.role !== 'dealer' && <button className="btn btn-sm" onClick={() => { onClose(); onNavigate('/agent') }}>Agent</button>}
           {profile?.role === 'dealer' && <button className="btn btn-sm" onClick={() => { onClose(); onNavigate('/offers') }}>My Offers</button>}
           <button className="btn btn-sm" onClick={onSignOut}>Sign out</button>
         </div>
@@ -134,6 +144,7 @@ export default function Topbar() {
   const { profile, signOut } = useAuth()
   const { currency, setCurrency } = useCurrency()
   const navigate = useNavigate()
+  const location = useLocation()
   const [openMenu, setOpenMenu] = useState(null)
   const [mobileOpen, setMobileOpen] = useState(false)
   const closeTimer = useRef(null)
@@ -158,6 +169,11 @@ export default function Topbar() {
     else navigate(`${route}?type=${encodeURIComponent(value)}`)
   }
 
+  function isActive(route) {
+    if (route === '/catalog' || route === '/catalog?tab=new') return location.pathname === '/catalog'
+    return location.pathname.startsWith(route.split('?')[0])
+  }
+
   return (
     <>
       <div className="topbar">
@@ -166,18 +182,20 @@ export default function Topbar() {
         </div>
 
         <nav className="topbar-nav">
-          {Object.entries(MEGA).map(([cat, data]) => (
-            <div key={cat} className="nav-item"
-              onMouseEnter={() => openNav(cat)}
-              onMouseLeave={closeNav}>
-              <button className={`nav-link ${openMenu === cat ? 'active' : ''}`}
-                onClick={() => navigate(data.route)}>
-                {cat}
+          {NAV.map(item => (
+            <div key={item.label} className="nav-item"
+              onMouseEnter={() => item.mega ? openNav(item.mega) : clearTimeout(closeTimer.current)}
+              onMouseLeave={item.mega ? closeNav : undefined}>
+              <button
+                className={`nav-link ${isActive(item.route) ? 'active' : ''}`}
+                onClick={() => { setOpenMenu(null); navigate(item.route) }}
+              >
+                {item.label}
               </button>
-              {openMenu === cat && (
+              {item.mega && openMenu === item.mega && (
                 <MegaMenu
-                  category={cat}
-                  data={data}
+                  category={item.mega}
+                  data={MEGA[item.mega]}
                   onNavigate={handleMegaNavigate}
                   onClose={() => setOpenMenu(null)}
                 />
@@ -187,23 +205,55 @@ export default function Topbar() {
         </nav>
 
         <div className="topbar-right">
-          <div className="currency-toggle topbar-currency-desktop">
-            <button className={`currency-btn ${currency === 'USD' ? 'active' : ''}`} onClick={() => setCurrency('USD')}>USD</button>
-            <button className={`currency-btn ${currency === 'EUR' ? 'active' : ''}`} onClick={() => setCurrency('EUR')}>EUR</button>
+          {/* Globe / region */}
+          <button className="topbar-icon-btn" title="Region">
+            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+            <svg width="8" height="8" fill="currentColor" viewBox="0 0 8 8"><path d="M1 2l3 4 3-4z"/></svg>
+          </button>
+
+          {/* Currency dropdown */}
+          <div className="topbar-currency-select topbar-btn-desktop">
+            <select value={currency} onChange={e => setCurrency(e.target.value)} className="topbar-curr-sel">
+              <option value="EUR">EUR</option>
+              <option value="USD">USD</option>
+            </select>
+            <svg width="8" height="8" fill="currentColor" viewBox="0 0 8 8" className="curr-chevron"><path d="M1 2l3 4 3-4z"/></svg>
           </div>
+
+          {/* Notification bell */}
+          <button className="topbar-icon-btn topbar-btn-desktop" title="Notifications" onClick={() => navigate('/offers')}>
+            <svg width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+            {profile?.role === 'dealer' && (
+              <span className="topbar-bell-dot" />
+            )}
+          </button>
+
+          {/* Account widget */}
+          <div className="topbar-account-widget topbar-btn-desktop" onClick={() => navigate('/account')} title="My Account">
+            <div className={`avatar ${avatarColor(profile?.full_name)}`}>
+              {initials(profile?.full_name)}
+            </div>
+            <div className="ta-info">
+              <div className="ta-name">{profile?.full_name?.split(' ')[0] || 'Account'}</div>
+              <button className="ta-signout" onClick={e => { e.stopPropagation(); handleSignOut() }}>
+                Sign out
+              </button>
+            </div>
+            <svg width="10" height="10" fill="currentColor" viewBox="0 0 8 8" className="ta-chevron"><path d="M1 2l3 4 3-4z"/></svg>
+          </div>
+
+          {/* Admin shortcut */}
           {profile?.role === 'admin' && (
-            <button className="btn btn-sm topbar-btn-desktop" onClick={() => navigate('/admin')}>Admin</button>
+            <button className="btn btn-sm topbar-btn-desktop" onClick={() => navigate('/admin')}
+              style={{ fontSize: 11, padding: '5px 10px' }}>Admin</button>
           )}
-          {profile?.role !== 'dealer' && (
-            <button className="btn btn-sm topbar-btn-desktop" onClick={() => navigate('/agent')}>Agent</button>
-          )}
-          {profile?.role === 'dealer' && (
-            <button className="btn btn-sm topbar-btn-desktop" onClick={() => navigate('/offers')}>My Offers</button>
-          )}
-          <div className="topbar-avatar-wrap" onClick={() => navigate('/account')} style={{ cursor: 'pointer' }} title="My Account">
-            <div className={`avatar ${avatarColor(profile?.full_name)}`}>{initials(profile?.full_name)}</div>
-          </div>
-          <button className="btn btn-sm topbar-btn-desktop" onClick={handleSignOut}>Sign out</button>
+
           <button className="hamburger" onClick={() => setMobileOpen(true)} aria-label="Menu">
             <span /><span /><span />
           </button>

@@ -161,6 +161,38 @@ function CardImages({ watch }) {
   )
 }
 
+const PS_MIN = 1000
+const PS_MAX = 150000
+
+function PriceSlider({ minVal, maxVal, onMinChange, onMaxChange }) {
+  const minPct = ((minVal - PS_MIN) / (PS_MAX - PS_MIN)) * 100
+  const maxPct = ((maxVal - PS_MIN) / (PS_MAX - PS_MIN)) * 100
+
+  function fmtLabel(v, isMax) {
+    if (isMax && v >= PS_MAX) return `€ ${(PS_MAX / 1000).toFixed(0)},000+`
+    return `€ ${v >= 1000 ? (v / 1000).toFixed(0) + ',000' : v}`
+  }
+
+  return (
+    <div className="price-slider">
+      <div className="ps-track-wrap">
+        <div className="ps-track-bg" />
+        <div className="ps-track-fill" style={{ left: minPct + '%', width: (maxPct - minPct) + '%' }} />
+        <input type="range" className="ps-range ps-range-min"
+          min={PS_MIN} max={PS_MAX} step={1000} value={minVal}
+          onChange={e => { const v = Number(e.target.value); if (v < maxVal) onMinChange(v) }} />
+        <input type="range" className="ps-range ps-range-max"
+          min={PS_MIN} max={PS_MAX} step={1000} value={maxVal}
+          onChange={e => { const v = Number(e.target.value); if (v > minVal) onMaxChange(v) }} />
+      </div>
+      <div className="ps-labels">
+        <div className="ps-label-box">{fmtLabel(minVal, false)}</div>
+        <div className="ps-label-box">{fmtLabel(maxVal, true)}</div>
+      </div>
+    </div>
+  )
+}
+
 function SectionHeader({ label, open, onToggle, count }) {
   return (
     <div className="sidebar-acc-header" onClick={onToggle}>
@@ -207,8 +239,10 @@ export default function DealerCatalog({ routeCategory }) {
     urlType && lockedCategory === 'Jewellery' ? urlType : ''
   )
   const [search, setSearch] = useState('')
-  const [filterPriceMin, setFilterPriceMin] = useState('')
-  const [filterPriceMax, setFilterPriceMax] = useState('')
+  const [filterPriceMin, setFilterPriceMin] = useState(1000)
+  const [filterPriceMax, setFilterPriceMax] = useState(150000)
+  const [filterYearMin, setFilterYearMin] = useState('')
+  const [filterYearMax, setFilterYearMax] = useState('')
   const [sortBy, setSortBy] = useState('')
 
   // UI state
@@ -217,7 +251,7 @@ export default function DealerCatalog({ routeCategory }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('available')
   const [filterNewOnly, setFilterNewOnly] = useState(false)
-  const [expanded, setExpanded] = useState({ category: true, brand: true, condition: false, availability: true, price: false, jewType: true })
+  const [expanded, setExpanded] = useState({ category: true, brand: true, condition: true, availability: true, price: true, jewType: true, year: true })
   const [showAllConds, setShowAllConds] = useState(false)
 
   function toggleSec(k) { setExpanded(e => ({ ...e, [k]: !e[k] })) }
@@ -306,8 +340,10 @@ export default function DealerCatalog({ routeCategory }) {
       if (filterNewOnly && new Date(w.created_at) < cutoff) return false
       if (filterCond && w.condition !== filterCond) return false
       if (filterJewelleryType && inferJewelleryType(w) !== filterJewelleryType) return false
-      if (filterPriceMin && Number(w.price_eur) < Number(filterPriceMin)) return false
-      if (filterPriceMax && Number(w.price_eur) > Number(filterPriceMax)) return false
+      if (filterPriceMin > 1000 && Number(w.price_eur) < filterPriceMin) return false
+      if (filterPriceMax < 150000 && Number(w.price_eur) > filterPriceMax) return false
+      if (filterYearMin && w.year && Number(w.year) < Number(filterYearMin)) return false
+      if (filterYearMax && w.year && Number(w.year) > Number(filterYearMax)) return false
       if (!search) return true
       const q = search.toLowerCase()
       return w.model?.toLowerCase().includes(q) || w.reference?.toLowerCase().includes(q) || w.brand?.toLowerCase().includes(q)
@@ -322,7 +358,8 @@ export default function DealerCatalog({ routeCategory }) {
 
   useEffect(() => setVisibleCount(40), [
     filterBrand, filterCond, filterStatus, search, sortBy,
-    filterPriceMin, filterPriceMax, filterJewelleryType, filterMetal, filterSize, filterNewOnly
+    filterPriceMin, filterPriceMax, filterYearMin, filterYearMax,
+    filterJewelleryType, filterMetal, filterSize, filterNewOnly
   ])
 
   useEffect(() => {
@@ -352,15 +389,16 @@ export default function DealerCatalog({ routeCategory }) {
     if (!lockedCategory) setFilterCategory('')
     setFilterBrand(''); setFilterCond(''); setFilterMetal('')
     setFilterSize(''); setFilterJewelleryType('')
-    setSearch(''); setSortBy(''); setFilterPriceMin(''); setFilterPriceMax('')
+    setSearch(''); setSortBy(''); setFilterPriceMin(1000); setFilterPriceMax(150000)
+    setFilterYearMin(''); setFilterYearMax('')
     setFilterNewOnly(false)
     setFilterStatus('available')
     setActiveTab('available')
   }
 
   const hasActiveFilters = filterBrand || filterCond || filterMetal || filterSize ||
-    filterJewelleryType || search || sortBy || filterPriceMin || filterPriceMax ||
-    filterNewOnly || (!lockedCategory && filterCategory)
+    filterJewelleryType || search || sortBy || filterPriceMin > 1000 || filterPriceMax < 150000 ||
+    filterYearMin || filterYearMax || filterNewOnly || (!lockedCategory && filterCategory)
 
   const brandOptions = (
     lockedCategory === 'Watches' ? WATCH_BRANDS :
@@ -588,16 +626,31 @@ export default function DealerCatalog({ routeCategory }) {
             )}
           </div>
 
+          {/* Year */}
+          <div className="sidebar-acc-section">
+            <SectionHeader label="Year" open={expanded.year} onToggle={() => toggleSec('year')} count={(filterYearMin || filterYearMax) ? 1 : 0} />
+            {expanded.year && (
+              <div className="sidebar-acc-body">
+                <div className="sidebar-year-range">
+                  <input type="number" placeholder="Min" min="1900" max="2030" value={filterYearMin} onChange={e => setFilterYearMin(e.target.value)} />
+                  <span className="sidebar-range-dash">—</span>
+                  <input type="number" placeholder="Max" min="1900" max="2030" value={filterYearMax} onChange={e => setFilterYearMax(e.target.value)} />
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Price */}
           <div className="sidebar-acc-section">
-            <SectionHeader label="Price (EUR)" open={expanded.price} onToggle={() => toggleSec('price')} count={(filterPriceMin || filterPriceMax) ? 1 : 0} />
+            <SectionHeader label="Price (EUR)" open={expanded.price} onToggle={() => toggleSec('price')} count={(filterPriceMin > 1000 || filterPriceMax < 150000) ? 1 : 0} />
             {expanded.price && (
-              <div className="sidebar-acc-body">
-                <div className="sidebar-price-range">
-                  <input type="number" placeholder="Min" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} />
-                  <span>—</span>
-                  <input type="number" placeholder="Max" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} />
-                </div>
+              <div className="sidebar-acc-body" style={{ paddingBottom: 14 }}>
+                <PriceSlider
+                  minVal={filterPriceMin}
+                  maxVal={filterPriceMax}
+                  onMinChange={setFilterPriceMin}
+                  onMaxChange={setFilterPriceMax}
+                />
               </div>
             )}
           </div>
