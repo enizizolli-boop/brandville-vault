@@ -749,7 +749,6 @@ export default function DealerCatalog({ routeCategory }) {
                           <a className="btn-wa" href={`https://wa.me/${waNum}?text=${waMsg}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
                             {WA_SVG}
                           </a>
-                          <button className="btn-details" onClick={() => navigate(`/catalog/${w.id}`)}>Details</button>
                           <button className="btn-inquire" onClick={() => navigate(`/catalog/${w.id}`)}>Inquire</button>
                         </div>
                       </div>
