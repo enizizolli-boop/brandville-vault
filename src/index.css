@@ -466,7 +466,7 @@ button { font-family: inherit; cursor: pointer; }
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-light);
   overflow: hidden;
-  background: #e8e0d4 url('/hero-bg.jpg') right center / 58% auto no-repeat;
+  background: #e8e0d4;
   min-height: 230px;
   display: flex;
   align-items: center;
