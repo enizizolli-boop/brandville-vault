@@ -40,10 +40,22 @@ const WA_SVG = (
 )
 
 const TRUST_BADGES = [
-  { icon: '🛡', label: 'Verified Inventory', sub: '100% Authentic' },
-  { icon: '🌐', label: 'Global Network', sub: 'Trusted Dealers' },
-  { icon: '🔒', label: 'Secure Transactions', sub: 'Protected Deals' },
-  { icon: '✈️', label: 'Fast Worldwide Shipping', sub: 'Insured Delivery' },
+  {
+    icon: <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
+    label: 'Verified Inventory', sub: '100% Authentic'
+  },
+  {
+    icon: <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>,
+    label: 'Global Network', sub: 'Trusted Dealers'
+  },
+  {
+    icon: <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>,
+    label: 'Secure Transactions', sub: 'Protected Deals'
+  },
+  {
+    icon: <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>,
+    label: 'Fast Worldwide Shipping', sub: 'Insured Delivery'
+  },
 ]
 
 const WHY_ITEMS = [
@@ -668,6 +680,7 @@ export default function DealerCatalog({ routeCategory }) {
           {/* Hero */}
           {!loading && (
             <div className="catalog-hero">
+              <div className="hero-gradient-overlay" />
               <div className="hero-left">
                 <div className="hero-eyebrow">
                   WELCOME BACK, {profile?.full_name ? profile.full_name.split(' ')[0].toUpperCase() : 'DEALER'} 👋
@@ -680,7 +693,7 @@ export default function DealerCatalog({ routeCategory }) {
                 <div className="hero-trust-badges">
                   {TRUST_BADGES.map(b => (
                     <div key={b.label} className="hero-trust-badge">
-                      <span className="hero-trust-icon">{b.icon}</span>
+                      <div className="hero-trust-icon">{b.icon}</div>
                       <div>
                         <div className="hero-trust-label">{b.label}</div>
                         <div className="hero-trust-sub">{b.sub}</div>
@@ -688,22 +701,6 @@ export default function DealerCatalog({ routeCategory }) {
                     </div>
                   ))}
                 </div>
-              </div>
-              <div className="hero-right">
-                {heroImgUrl ? (
-                  <img src={heroImgUrl} alt="Featured piece" className="hero-watch-img" />
-                ) : (
-                  <div className="hero-watch-placeholder">
-                    <svg width="140" height="140" viewBox="0 0 80 80" fill="none">
-                      <rect x="30" y="6" width="20" height="13" rx="3" stroke="#C9A87A" strokeWidth="1.5"/>
-                      <rect x="30" y="61" width="20" height="13" rx="3" stroke="#C9A87A" strokeWidth="1.5"/>
-                      <circle cx="40" cy="40" r="21" stroke="#C9A87A" strokeWidth="1.5"/>
-                      <circle cx="40" cy="40" r="2" fill="#C9A87A"/>
-                      <line x1="40" y1="38" x2="40" y2="25" stroke="#C9A87A" strokeWidth="1.5" strokeLinecap="round"/>
-                      <line x1="40" y1="40" x2="53" y2="46" stroke="#C9A87A" strokeWidth="1.5" strokeLinecap="round"/>
-                    </svg>
-                  </div>
-                )}
               </div>
             </div>
           )}

@@ -137,10 +137,10 @@ button { font-family: inherit; cursor: pointer; }
   padding: 10px 24px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: center;
+  position: relative;
 }
 .catalog-searchbar-inner {
-  flex: 1;
   display: flex;
   align-items: center;
   background: var(--bg);
@@ -148,7 +148,7 @@ button { font-family: inherit; cursor: pointer; }
   border-radius: var(--radius);
   padding: 0 6px 0 12px;
   transition: border-color 0.15s, box-shadow 0.15s;
-  max-width: 700px;
+  width: min(640px, 60%);
 }
 .catalog-searchbar-inner:focus-within {
   border-color: var(--gold);
@@ -180,6 +180,8 @@ button { font-family: inherit; cursor: pointer; }
 }
 .csb-btn:hover { background: var(--gold-dark); }
 .csb-wtb {
+  position: absolute;
+  right: 24px;
   background: none;
   border: 1px solid var(--border-light);
   border-radius: var(--radius);
@@ -459,19 +461,28 @@ button { font-family: inherit; cursor: pointer; }
 
 /* ── Catalog hero ─────────────────────────────── */
 .catalog-hero {
+  position: relative;
+  margin: 16px 20px 0;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-light);
+  overflow: hidden;
+  background: #e8e0d4 url('/hero-bg.jpg') right center / 58% auto no-repeat;
+  min-height: 230px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  margin: 20px 20px 0;
-  padding: 28px 32px;
-  background: var(--surface);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  position: relative;
 }
-.hero-left { flex: 1; min-width: 0; }
+.hero-gradient-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, #faf9f7 42%, rgba(250,249,247,0.88) 58%, transparent 78%);
+  pointer-events: none;
+}
+.hero-left {
+  position: relative;
+  z-index: 1;
+  padding: 32px 36px;
+  max-width: 54%;
+}
 .hero-eyebrow {
   font-size: 9px;
   font-weight: 700;
@@ -482,7 +493,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .hero-headline {
   font-family: 'Playfair Display', Georgia, serif;
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 400;
   color: var(--text);
   line-height: 1.15;
@@ -491,50 +502,37 @@ button { font-family: inherit; cursor: pointer; }
 .hero-sub {
   font-size: 13px;
   color: var(--text-muted);
-  line-height: 1.5;
-  margin-bottom: 20px;
+  line-height: 1.55;
+  margin-bottom: 22px;
 }
 .hero-sub strong { color: var(--text); font-weight: 600; }
 .hero-trust-badges {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px 20px;
+  gap: 8px 22px;
 }
 .hero-trust-badge {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
 }
-.hero-trust-icon { font-size: 14px; flex-shrink: 0; }
+.hero-trust-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--gold-light);
+  border: 1px solid rgba(184,150,106,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--gold);
+}
 .hero-trust-label { font-size: 11px; font-weight: 600; color: var(--text); line-height: 1.2; }
 .hero-trust-sub { font-size: 10px; color: var(--muted); }
-.hero-right {
-  width: 220px;
-  height: 180px;
-  flex-shrink: 0;
-  border-radius: var(--radius);
-  overflow: hidden;
-  background: var(--bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.hero-watch-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.hero-watch-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  opacity: 0.5;
-}
 @media (max-width: 900px) {
-  .hero-right { display: none; }
-  .catalog-hero { padding: 22px 20px; }
+  .hero-left { max-width: 70%; }
+  .catalog-hero { background-size: 45% auto; }
 }
 @media (max-width: 768px) { .catalog-hero { display: none; } }
 
@@ -719,8 +717,8 @@ button { font-family: inherit; cursor: pointer; }
   justify-content: space-between;
   position: sticky;
   top: 0;
-  z-index: 50;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  z-index: 100;
+  overflow: visible;
 }
 .topbar-logo {
   font-family: 'Playfair Display', Georgia, serif;
@@ -780,13 +778,14 @@ button { font-family: inherit; cursor: pointer; }
 /* ── Mega menu (light) ────────────────────────── */
 .mega-menu {
   position: absolute;
-  top: calc(100% + 1px);
+  top: 100%;
   left: 50%;
   transform: translateX(-50%);
   background: #fff;
   border: 1px solid rgba(0,0,0,0.1);
-  border-radius: 8px;
-  box-shadow: 0 12px 40px rgba(0,0,0,0.12);
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.1);
   min-width: 480px;
   z-index: 200;
   overflow: hidden;

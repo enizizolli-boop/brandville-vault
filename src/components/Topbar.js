@@ -46,9 +46,9 @@ const NAV = [
   { label: 'Bags', route: '/bags', mega: 'Bags' },
 ]
 
-function MegaMenu({ category, data, onNavigate, onClose }) {
+function MegaMenu({ category, data, onNavigate, onClose, onKeepOpen }) {
   return (
-    <div className="mega-menu" onMouseLeave={onClose}>
+    <div className="mega-menu" onMouseLeave={onClose} onMouseEnter={onKeepOpen}>
       <div className="mega-inner">
         {data.types && (
           <div className="mega-section">
@@ -194,6 +194,7 @@ export default function Topbar() {
                   data={MEGA[item.mega]}
                   onNavigate={handleMegaNavigate}
                   onClose={() => setOpenMenu(null)}
+                  onKeepOpen={() => openNav(item.mega)}
                 />
               )}
             </div>
