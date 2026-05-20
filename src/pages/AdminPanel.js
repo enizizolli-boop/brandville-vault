@@ -64,15 +64,18 @@ export default function AdminPanel() {
   }, [])
 
   const fetchStats = useCallback(async () => {
-    const { data } = await supabase.from('products').select('status')
-    if (data) {
-      setStats({
-        total: data.length,
-        available: data.filter(w => w.status === 'available').length,
-        reserved: data.filter(w => w.status === 'reserved').length,
-        sold: data.filter(w => w.status === 'sold').length,
-      })
-    }
+    const [
+      { count: total },
+      { count: available },
+      { count: reserved },
+      { count: sold },
+    ] = await Promise.all([
+      supabase.from('products').select('*', { count: 'exact', head: true }),
+      supabase.from('products').select('*', { count: 'exact', head: true }).eq('status', 'available'),
+      supabase.from('products').select('*', { count: 'exact', head: true }).eq('status', 'reserved'),
+      supabase.from('products').select('*', { count: 'exact', head: true }).eq('status', 'sold'),
+    ])
+    setStats({ total: total || 0, available: available || 0, reserved: reserved || 0, sold: sold || 0 })
   }, [])
 
   useEffect(() => { fetchUsers(); fetchStats(); fetchSyncLog() }, [fetchUsers, fetchStats, fetchSyncLog])
