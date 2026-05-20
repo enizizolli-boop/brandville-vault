@@ -467,7 +467,7 @@ button { font-family: inherit; cursor: pointer; }
   border: 1px solid var(--border-light);
   overflow: hidden;
   background: #e8e0d4;
-  min-height: 260px;
+  min-height: 340px;
   display: flex;
   align-items: center;
 }

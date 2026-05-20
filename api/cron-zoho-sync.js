@@ -43,7 +43,8 @@ async function fetchAllLiveIds(accessToken) {
       page++;
     } catch {
       clearTimeout(timer);
-      break;
+      // Any page failure means the list is incomplete — return null to signal abort
+      return null;
     }
   }
   return ids;
@@ -169,7 +170,8 @@ export default async function handler(req, res) {
     // Full list check: fetch all live Zoho IDs and mark anything in DB but not live as sold
     // This catches items sold without a recent modification event in Zoho
     const allLiveIds = await fetchAllLiveIds(accessToken);
-    if (allLiveIds.length > 0) {
+    // null means a page fetch failed — list is incomplete, skip sold-marking to avoid false positives
+    if (allLiveIds !== null && allLiveIds.length > 0) {
       const { data: dbItems } = await supabase
         .from('products')
         .select('zoho_item_id')

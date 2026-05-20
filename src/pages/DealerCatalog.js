@@ -679,7 +679,7 @@ export default function DealerCatalog({ routeCategory }) {
 
           {/* Hero */}
           {!loading && (
-            <div className="catalog-hero" style={{ backgroundImage: `url(${process.env.PUBLIC_URL}/background.png)`, backgroundSize: 'cover', backgroundPosition: 'center right', backgroundRepeat: 'no-repeat' }}>
+            <div className="catalog-hero" style={{ backgroundImage: `url(${process.env.PUBLIC_URL}/background.png)`, backgroundSize: 'cover', backgroundPosition: 'right bottom', backgroundRepeat: 'no-repeat' }}>
               <div className="hero-gradient-overlay" />
               <div className="hero-left">
                 <div className="hero-eyebrow">

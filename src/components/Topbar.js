@@ -40,7 +40,7 @@ const MEGA = {
 }
 
 const NAV = [
-  { label: 'Inventory', route: '/catalog' },
+  { label: 'All Products', route: '/catalog' },
   { label: 'Watches', route: '/watches', mega: 'Watches' },
   { label: 'Jewellery', route: '/jewellery', mega: 'Jewellery' },
   { label: 'Bags', route: '/bags', mega: 'Bags' },
