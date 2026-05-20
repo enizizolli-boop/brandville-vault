@@ -44,10 +44,6 @@ const NAV = [
   { label: 'Watches', route: '/watches', mega: 'Watches' },
   { label: 'Jewellery', route: '/jewellery', mega: 'Jewellery' },
   { label: 'Bags', route: '/bags', mega: 'Bags' },
-  { label: 'New Arrivals', route: '/catalog?tab=new' },
-  { label: 'Hot Deals', route: '/catalog' },
-  { label: 'WTB Requests', route: '/agent' },
-  { label: 'My Network', route: '/home' },
 ]
 
 function MegaMenu({ category, data, onNavigate, onClose }) {
