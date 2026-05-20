@@ -15,9 +15,16 @@ async function scrapeImagesFromStorePage(itemId) {
     });
     if (!res.ok) return [];
     const html = await res.text();
-    const matches = [...html.matchAll(/https:\/\/[^"'\s]*zohocommerce[^"'\s]*\.(jpg|jpeg|png|webp)/gi)];
-    const unique = [...new Set(matches.map(m => m[0].split('?')[0]))];
-    return unique.filter(u => !u.includes('thumb') && !u.includes('icon') && !u.includes('logo')).slice(0, 10);
+    // Try Zoho CDN domains broadly — covers zohocommerce.eu, zoho.com CDN, and storage buckets
+    const matches = [...html.matchAll(/https:\/\/[^"'\s<>]*(?:zoho|zohostatic|zohocdn)[^"'\s<>]*\.(jpg|jpeg|png|webp)/gi)];
+    // Also grab any og:image or product image meta tags as fallback
+    const ogMatches = [...html.matchAll(/content="(https:\/\/[^"]+\.(jpg|jpeg|png|webp)[^"]*)"/gi)];
+    const allUrls = [
+      ...matches.map(m => m[0].split('?')[0]),
+      ...ogMatches.map(m => m[1].split('?')[0]),
+    ];
+    const unique = [...new Set(allUrls)];
+    return unique.filter(u => !u.includes('thumb') && !u.includes('icon') && !u.includes('logo') && !u.includes('favicon')).slice(0, 10);
   } catch {
     return [];
   }
