@@ -46,9 +46,7 @@ export default function AdminPanel() {
   const [cronBagsResult, setCronBagsResult] = useState(null)
   const [imagesSyncing, setImagesSyncing] = useState(false)
   const [imagesResult, setImagesResult] = useState(null)
-  const [scrapeRunning, setScrapeRunning] = useState(false)
-  const [scrapeResult, setScrapeResult] = useState(null)
-  const [syncLog, setSyncLog] = useState({})
+const [syncLog, setSyncLog] = useState({})
 
   const fetchUsers = useCallback(async () => {
     const { data } = await supabase.from('profiles').select('*').order('created_at')
@@ -227,38 +225,7 @@ export default function AdminPanel() {
     setImagesSyncing(false)
   }
 
-  async function handleScrapeImages() {
-    setScrapeRunning(true)
-    setScrapeResult(null)
-    const BATCH_SIZE = 20
-    let offset = 0
-    let totalImages = 0
-    let totalWithout = 0
-    let grandTotal = 0
-    try {
-      while (true) {
-        const res = await fetch('/api/zoho-scrape-images', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ batch_size: BATCH_SIZE, offset })
-        })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error || 'Scrape failed')
-        totalImages += data.images_added || 0
-        totalWithout += data.without_images || 0
-        grandTotal = data.total || grandTotal
-        setScrapeResult({ inProgress: !data.done, images_added: totalImages, processed: offset + (data.processed || 0), total: grandTotal })
-        if (data.done || !data.next_offset) break
-        offset = data.next_offset
-      }
-      setScrapeResult(prev => ({ ...prev, inProgress: false, without_images: totalWithout }))
-    } catch (err) {
-      setScrapeResult({ error: err.message })
-    }
-    setScrapeRunning(false)
-  }
-
-  async function handleTestCronBags() {
+async function handleTestCronBags() {
     setCronBagsRunning(true)
     setCronBagsResult(null)
     try {
@@ -498,19 +465,6 @@ export default function AdminPanel() {
                   : imagesResult.inProgress
                     ? `Fetching... ${imagesResult.processed} / ${imagesResult.total} · ${imagesResult.images_added} images added`
                     : `✓ Done — ${imagesResult.images_added} images added across ${imagesResult.total} items`
-                }
-              </div>
-            )}
-            <button className="btn btn-full" onClick={handleScrapeImages} disabled={scrapeRunning} style={{ marginTop: 8 }}>
-              {scrapeRunning ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Scraping images...</> : '🌐 Scrape images from storefront'}
-            </button>
-            {scrapeResult && (
-              <div style={{ marginTop: 8, fontSize: 12, padding: '8px 10px', borderRadius: 8, background: scrapeResult.error ? 'rgba(220,38,38,0.1)' : 'rgba(22,163,74,0.1)', color: scrapeResult.error ? '#f87171' : '#4ade80' }}>
-                {scrapeResult.error
-                  ? `Error: ${scrapeResult.error}`
-                  : scrapeResult.inProgress
-                    ? `Scanning... ${scrapeResult.processed} / ${scrapeResult.total} · ${scrapeResult.images_added} images found`
-                    : `✓ Done — ${scrapeResult.images_added} images added · ${scrapeResult.without_images || 0} items had no images`
                 }
               </div>
             )}
