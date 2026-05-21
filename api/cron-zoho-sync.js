@@ -143,6 +143,13 @@ function mapZohoItem(item) {
 
 export default async function handler(req, res) {
   try {
+    // Log invocation time immediately so sync_log always reflects last run
+    await supabase.from('sync_log').upsert({
+      key: 'sync_zoho',
+      last_sync_at: new Date().toISOString(),
+      result: { status: 'running' },
+    });
+
     const accessToken = await getAccessToken();
 
     // Only fetch items modified in the last 35 minutes
@@ -155,7 +162,7 @@ export default async function handler(req, res) {
       return Number(stock) > 0;
     });
 
-    // Items that were recently modified but now out of stock/off storefront → mark sold
+    // Items recently modified but now out of stock/off storefront → mark sold
     const offItems = recentItems.filter(item => {
       if (item.show_in_storefront !== true) return true;
       const stock = item.actual_available_stock ?? item.available_stock ?? item.stock_on_hand ?? 0;
@@ -165,23 +172,6 @@ export default async function handler(req, res) {
     if (offItems.length > 0) {
       const offIds = offItems.map(i => String(i.item_id));
       await supabase.from('products').update({ status: 'sold' }).in('zoho_item_id', offIds).eq('source', 'zoho');
-    }
-
-    // Full list check: fetch all live Zoho IDs and mark anything in DB but not live as sold
-    // This catches items sold without a recent modification event in Zoho
-    const allLiveIds = await fetchAllLiveIds(accessToken);
-    // null means a page fetch failed — list is incomplete, skip sold-marking to avoid false positives
-    if (allLiveIds !== null && allLiveIds.length > 0) {
-      const { data: dbItems } = await supabase
-        .from('products')
-        .select('zoho_item_id')
-        .eq('source', 'zoho')
-        .neq('status', 'sold');
-      const dbIds = (dbItems || []).map(r => r.zoho_item_id);
-      const nowSold = dbIds.filter(id => !allLiveIds.includes(id));
-      if (nowSold.length > 0) {
-        await supabase.from('products').update({ status: 'sold' }).in('zoho_item_id', nowSold).eq('source', 'zoho');
-      }
     }
 
     // Upsert recently modified live items
@@ -279,7 +269,7 @@ export default async function handler(req, res) {
     await supabase.from('sync_log').upsert({
       key: 'sync_zoho',
       last_sync_at: new Date().toISOString(),
-      result: { upserted, marked_sold: offItems.length, total_recent: recentItems.length, images_added: imagesAdded },
+      result: { status: 'done', upserted, marked_sold: offItems.length, total_recent: recentItems.length, images_added: imagesAdded },
     });
 
     return res.status(200).json({

@@ -226,13 +226,24 @@ export default async function handler(req, res) {
     const existingMap = {};
     (existingItems || []).forEach(i => { existingMap[i.zoho_item_id] = i.id; });
 
-    // Find which existing products already have images — skip those during image sync
+    // Find which existing products already have proper Supabase-hosted images
+    // Products with only scraped (non-Supabase) URLs are treated as imageless so they get re-fetched
     const existingProductIds = (existingItems || []).map(i => i.id);
     let productsWithImages = new Set();
     if (existingProductIds.length > 0) {
       const { data: imgRows } = await supabase
-        .from('product_images').select('product_id').in('product_id', existingProductIds);
-      (imgRows || []).forEach(r => productsWithImages.add(r.product_id));
+        .from('product_images').select('product_id, url').in('product_id', existingProductIds);
+      (imgRows || []).forEach(r => {
+        if (r.url && r.url.includes('supabase.co')) productsWithImages.add(r.product_id);
+      });
+      // Delete any bad (non-Supabase) image rows so they don't persist
+      const badRows = (imgRows || []).filter(r => !r.url || !r.url.includes('supabase.co'));
+      if (badRows.length > 0) {
+        const badIds = [...new Set(badRows.map(r => r.product_id))];
+        await supabase.from('product_images').delete()
+          .in('product_id', badIds)
+          .not('url', 'like', '%supabase.co%');
+      }
     }
 
     // Remove stale items on first batch only (out of stock or removed from storefront)
