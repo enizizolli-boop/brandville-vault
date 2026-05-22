@@ -310,10 +310,11 @@ export default function DealerCatalog({ routeCategory }) {
     if (filterSize) pq = pq.eq('item_size', filterSize)
 
     const [{ data: products }, { data: preorderData }] = await Promise.all([q, pq])
+    const byDate = (a, b) => new Date(b.created_at) - new Date(a.created_at)
     const merged = [
-      ...(products || []).filter(p => p.product_images && p.product_images.length > 0),
-      ...(preorderData || []).map(p => ({ ...p, product_images: p.preorder_images || [] }))
-    ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      ...(products || []).filter(p => p.product_images && p.product_images.length > 0).sort(byDate),
+      ...(preorderData || []).map(p => ({ ...p, product_images: p.preorder_images || [] })).sort(byDate),
+    ]
     setWatches(merged)
     setLoading(false)
   }, [filterBrand, filterStatus, filterCategory, filterMetal, filterSize, lockedCategory])
