@@ -788,7 +788,6 @@ export default function DealerCatalog({ routeCategory }) {
                       <div className="card-price-row">
                         <div className="card-price-block">
                           <div className="card-price">{fmtPrice(w, currency, rate)}</div>
-                          <div className="card-price-label">Excl. VAT</div>
                         </div>
                         <div className="card-cta">
                           <a className="btn-wa" href={`https://wa.me/${waNum}?text=${waMsg}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
