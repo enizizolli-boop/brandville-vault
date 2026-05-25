@@ -257,9 +257,11 @@ export default async function handler(req, res) {
         const stock = i.actual_available_stock ?? i.available_stock ?? i.stock_on_hand ?? 0;
         return Number(stock) > 0;
       }).map(i => String(i.item_id));
-      // Safety guard — if no live items, abort cleanup to prevent mass deletion
-      if (liveZohoIds.length === 0) {
-        console.error('All Zoho items filtered out — aborting stale cleanup to prevent mass deletion');
+      // Safety guard — abort if Zoho returned suspiciously few live items vs what's in DB
+      // A drop >50% almost certainly means a partial/bad API response, not real sold-through
+      const minExpected = Math.ceil(allExistingIds.length * 0.5);
+      if (liveZohoIds.length < minExpected) {
+        console.error(`Stale cleanup aborted: Zoho returned ${liveZohoIds.length} live items but DB has ${allExistingIds.length} — looks like a partial API response`);
       } else {
         const toDelete = allExistingIds.filter(id => !liveZohoIds.includes(id));
         if (toDelete.length > 0) {
