@@ -180,15 +180,6 @@ export default async function handler(req, res) {
     if (liveItems.length > 0) {
       const liveIds = liveItems.map(i => String(i.item_id));
 
-      // Find which items are brand new (no existing DB record) — fetch images for those
-      const { data: existingRows } = await supabase
-        .from('products')
-        .select('zoho_item_id')
-        .in('zoho_item_id', liveIds)
-        .eq('source', 'zoho');
-      const existingSet = new Set((existingRows || []).map(r => r.zoho_item_id));
-      const newItems = liveItems.filter(i => !existingSet.has(String(i.item_id)));
-
       // Preserve reserved status — upsert sets status:'available', which would wrongly
       // overwrite watches a dealer has reserved. Query first, restore after.
       const { data: reservedRows } = await supabase
@@ -213,11 +204,22 @@ export default async function handler(req, res) {
           .eq('source', 'zoho');
       }
 
-      // Fetch full image gallery for new items only
-      if (newItems.length > 0 && upsertedRows) {
+      // Fetch images for recently modified items that have no images yet
+      if (upsertedRows && upsertedRows.length > 0) {
         const idMap = {};
         upsertedRows.forEach(r => { idMap[r.zoho_item_id] = r.id; });
-        for (const item of newItems) {
+        const upsertedProductIds = upsertedRows.map(r => r.id);
+
+        const { data: existingImgs } = await supabase
+          .from('product_images').select('product_id').in('product_id', upsertedProductIds);
+        const withImages = new Set((existingImgs || []).map(r => r.product_id));
+
+        const itemsNeedingImages = liveItems.filter(item => {
+          const productId = idMap[String(item.item_id)];
+          return productId && !withImages.has(productId);
+        });
+
+        for (const item of itemsNeedingImages) {
           const productId = idMap[String(item.item_id)];
           if (!productId) continue;
           try {
@@ -245,7 +247,6 @@ export default async function handler(req, res) {
                 imagesAdded++;
               }
             } else if (item.image_document_id) {
-              // Gallery empty — fall back to primary image
               const imgRes = await fetch(
                 `https://www.zohoapis.eu/inventory/v1/items/${item.item_id}/image?organization_id=${process.env.ZOHO_ORG_ID}`,
                 { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
@@ -265,6 +266,46 @@ export default async function handler(req, res) {
         }
       }
     }
+
+    // Secondary pass: fill up to 5 existing available items with no images per cron run
+    // This progressively backfills old items that never got images uploaded
+    try {
+      const { data: candidates } = await supabase
+        .from('products').select('id, zoho_item_id').eq('source', 'zoho').eq('status', 'available').limit(50);
+      if (candidates && candidates.length > 0) {
+        const { data: imgCheck } = await supabase
+          .from('product_images').select('product_id').in('product_id', candidates.map(r => r.id));
+        const withImgSet = new Set((imgCheck || []).map(r => r.product_id));
+        const toFill = candidates.filter(r => !withImgSet.has(r.id)).slice(0, 5);
+        for (const row of toFill) {
+          try {
+            const listRes = await fetch(
+              `https://www.zohoapis.eu/inventory/v1/items/${row.zoho_item_id}/images?organization_id=${process.env.ZOHO_ORG_ID}`,
+              { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+            );
+            const listData = await listRes.json();
+            if (listData.images && listData.images.length > 0) {
+              for (let i = 0; i < listData.images.length; i++) {
+                const docId = listData.images[i].image_document_id;
+                if (!docId) continue;
+                const imgRes = await fetch(
+                  `https://www.zohoapis.eu/inventory/v1/items/${row.zoho_item_id}/image?organization_id=${process.env.ZOHO_ORG_ID}&document_id=${docId}`,
+                  { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+                );
+                if (!imgRes.ok) continue;
+                const buffer = Buffer.from(await imgRes.arrayBuffer());
+                const path = `${row.id}/zoho_${i}.jpg`;
+                const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
+                if (upErr) continue;
+                const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
+                await supabase.from('product_images').insert({ product_id: row.id, url: publicUrl, position: i });
+                imagesAdded++;
+              }
+            }
+          } catch (e) { console.error(`Secondary image fill error for ${row.zoho_item_id}:`, e); }
+        }
+      }
+    } catch (e) { console.error('Secondary image pass error:', e); }
 
     await supabase.from('sync_log').upsert({
       key: 'sync_zoho',
