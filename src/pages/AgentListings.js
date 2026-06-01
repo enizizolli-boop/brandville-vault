@@ -397,20 +397,26 @@ export default function AgentListings() {
         const { data: preorder, error: pErr } = await supabase.from('preorders').insert(payload).select().single()
         if (pErr) throw pErr
 
+        let imagesFailed = 0
         for (let i = 0; i < images.length; i++) {
           const file = images[i]
           const ext = file.name.split('.').pop()
           const path = `${preorder.id}/${i}.${ext}`
           const { error: upErr } = await supabase.storage.from('watch-images').upload(path, file)
-          if (upErr) { console.error('Preorder image upload error:', upErr.message); continue }
+          if (upErr) { console.error('Preorder image upload error:', upErr.message); imagesFailed++; continue }
           const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path)
-          await supabase.from('preorder_images').insert({ preorder_id: preorder.id, url: publicUrl, position: i })
+          const { error: dbErr } = await supabase.from('preorder_images').insert({ preorder_id: preorder.id, url: publicUrl, position: i })
+          if (dbErr) { console.error('Preorder image DB error:', dbErr.message); imagesFailed++ }
         }
 
         setForm(EMPTY_FORM)
         setImages([])
         setPreviews([])
-        setMsg('Preorder posted — dealers will be notified.')
+        if (imagesFailed > 0) {
+          setMsg(`Preorder posted, but ${imagesFailed} image(s) failed to save — open the listing and re-upload them.`)
+        } else {
+          setMsg('Preorder posted — dealers will be notified.')
+        }
         setTab('listings')
         setListingType('preorders')
         fetchPreorders()
