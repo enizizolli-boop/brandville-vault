@@ -225,6 +225,11 @@ export default function WatchDetail() {
     if (path) await supabase.storage.from('watch-images').remove([decodeURIComponent(path)])
     const imgTable = isPreorder ? 'preorder_images' : 'product_images'
     await supabase.from(imgTable).delete().eq('id', img.id)
+    // Renumber remaining positions to close the gap and ensure position 0 always exists
+    const remaining = images.filter(i => i.id !== img.id).sort((a, b) => a.position - b.position)
+    await Promise.all(remaining.map((r, idx) =>
+      supabase.from(imgTable).update({ position: idx }).eq('id', r.id)
+    ))
     setActiveImg(0)
     await fetchWatch()
   }
@@ -234,6 +239,7 @@ export default function WatchDetail() {
     if (!files.length) return
     setUploadingImg(true)
     setMsg('')
+    const maxPos = images.length > 0 ? Math.max(...images.map(img => img.position)) + 1 : 0
     let uploaded = 0
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
@@ -243,7 +249,7 @@ export default function WatchDetail() {
       if (upErr) { setMsg(`Upload failed: ${upErr.message}`); continue }
       const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path)
       const imgTable = isPreorder ? 'preorder_images' : 'product_images'
-      const imgRecord = isPreorder ? { preorder_id: id, url: publicUrl, position: images.length + i } : { product_id: id, url: publicUrl, position: images.length + i }
+      const imgRecord = isPreorder ? { preorder_id: id, url: publicUrl, position: maxPos + i } : { product_id: id, url: publicUrl, position: maxPos + i }
       const { error: dbErr } = await supabase.from(imgTable).insert(imgRecord)
       if (dbErr) { setMsg(`Save failed: ${dbErr.message}`); continue }
       uploaded++
