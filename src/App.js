@@ -8,6 +8,7 @@ import Home from './pages/Home'
 import DealerCatalog from './pages/DealerCatalog'
 import WatchDetail from './pages/WatchDetail'
 import AgentListings from './pages/AgentListings'
+import AgentProfile from './pages/AgentProfile'
 import AdminPanel from './pages/AdminPanel'
 import DealerOffers from './pages/DealerOffers'
 import MyAccount from './pages/MyAccount'
@@ -46,6 +47,7 @@ export default function App() {
           <Route path="/bags" element={<PrivateRoute allowedRoles={['dealer', 'admin', 'agent']}><DealerCatalog routeCategory="Bags" /></PrivateRoute>} />
           <Route path="/catalog/:id" element={<PrivateRoute><WatchDetail /></PrivateRoute>} />
           <Route path="/agent" element={<PrivateRoute allowedRoles={['agent', 'admin']}><AgentListings /></PrivateRoute>} />
+          <Route path="/agent/:agentId" element={<PrivateRoute allowedRoles={['agent', 'admin']}><AgentProfile /></PrivateRoute>} />
           <Route path="/admin" element={<PrivateRoute allowedRoles={['admin']}><AdminPanel /></PrivateRoute>} />
           <Route path="/offers" element={<PrivateRoute allowedRoles={['dealer']}><DealerOffers /></PrivateRoute>} />
           <Route path="/account" element={<PrivateRoute><MyAccount /></PrivateRoute>} />

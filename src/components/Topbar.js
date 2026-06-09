@@ -129,7 +129,7 @@ function MobileMenu({ profile, currency, setCurrency, onNavigate, onSignOut, onC
         <div className="mobile-nav-actions">
           {profile?.role === 'admin' && <button className="btn btn-sm" onClick={() => { onClose(); onNavigate('/admin') }}>Admin</button>}
           {profile?.role === 'dealer' && <button className="btn btn-sm" onClick={() => { onClose(); onNavigate('/offers') }}>My Offers</button>}
-          {(profile?.role === 'agent' || profile?.role === 'admin') && <button className="btn btn-sm" onClick={() => { onClose(); onNavigate(`/catalog?agent=${profile.id}`) }}>My Listings</button>}
+          {(profile?.role === 'agent' || profile?.role === 'admin') && <button className="btn btn-sm" onClick={() => { onClose(); onNavigate(`/agent/${profile.id}`) }}>My Listings</button>}
           <button className="btn btn-sm" onClick={onSignOut}>Sign out</button>
         </div>
       </div>
@@ -240,7 +240,7 @@ export default function Topbar() {
             <div className="ta-info">
               <div className="ta-name">{profile?.full_name?.split(' ')[0] || 'Account'}</div>
               {(profile?.role === 'agent' || profile?.role === 'admin') && (
-                <button className="ta-signout" onClick={e => { e.stopPropagation(); navigate(`/catalog?agent=${profile.id}`) }}>
+                <button className="ta-signout" onClick={e => { e.stopPropagation(); navigate(`/agent/${profile.id}`) }}>
                   My Listings
                 </button>
               )}
