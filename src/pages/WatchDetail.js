@@ -593,7 +593,9 @@ export default function WatchDetail() {
                     {profile?.role !== 'dealer' && (
                     <div className="detail-meta-row">
                       <span className="detail-meta-key"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Agent</span>
-                      <span>{watch.profiles?.full_name || '—'}</span>
+                      {watch.profiles?.full_name && watch.posted_by
+                        ? <span onClick={() => navigate(`/catalog?agent=${watch.posted_by}`)} style={{ cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>{watch.profiles.full_name}</span>
+                        : <span>—</span>}
                     </div>
                     )}
                     {profile?.role !== 'dealer' && (

@@ -230,6 +230,7 @@ export default function DealerCatalog({ routeCategory }) {
   const urlBrand = params.get('brand') || ''
   const urlType = params.get('type') || ''
   const urlCategory = params.get('category') || ''
+  const urlAgent = params.get('agent') || ''
   const lockedCategory = routeCategory || urlCategory
 
   const { currency } = useCurrency()
@@ -240,6 +241,7 @@ export default function DealerCatalog({ routeCategory }) {
 
   // Filters
   const [filterBrand, setFilterBrand] = useState(urlBrand)
+  const [filterAgent, setFilterAgent] = useState(urlAgent)
   const [filterCond, setFilterCond] = useState('')
   const [filterStatus, setFilterStatus] = useState('available')
   const [filterCategory, setFilterCategory] = useState(
@@ -308,6 +310,7 @@ export default function DealerCatalog({ routeCategory }) {
     }
     if (filterMetal) pq = pq.eq('metal_type', filterMetal)
     if (filterSize) pq = pq.eq('item_size', filterSize)
+    if (filterAgent) pq = pq.eq('posted_by', filterAgent)
 
     const [{ data: products }, { data: preorderData }] = await Promise.all([q, pq])
     const byDate = (a, b) => new Date(b.created_at) - new Date(a.created_at)
@@ -317,7 +320,7 @@ export default function DealerCatalog({ routeCategory }) {
     ]
     setWatches(merged)
     setLoading(false)
-  }, [filterBrand, filterStatus, filterCategory, filterMetal, filterSize, lockedCategory])
+  }, [filterBrand, filterStatus, filterCategory, filterMetal, filterSize, lockedCategory, filterAgent])
 
   useEffect(() => { fetchWatches() }, [fetchWatches])
 
