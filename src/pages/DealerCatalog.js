@@ -258,6 +258,7 @@ export default function DealerCatalog({ routeCategory }) {
   const [filterYearMin, setFilterYearMin] = useState('')
   const [filterYearMax, setFilterYearMax] = useState('')
   const [sortBy, setSortBy] = useState('')
+  const [filterSourceType, setFilterSourceType] = useState('')
 
   // UI state
   const [visibleCount, setVisibleCount] = useState(40)
@@ -265,7 +266,7 @@ export default function DealerCatalog({ routeCategory }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('available')
   const [filterNewOnly, setFilterNewOnly] = useState(false)
-  const [expanded, setExpanded] = useState({ category: true, brand: true, condition: true, availability: true, price: true, jewType: true, year: true })
+  const [expanded, setExpanded] = useState({ category: true, brand: true, condition: true, availability: true, price: true, jewType: true, year: true, sourceType: true })
   const [showAllConds, setShowAllConds] = useState(false)
 
   function toggleSec(k) { setExpanded(e => ({ ...e, [k]: !e[k] })) }
@@ -360,6 +361,8 @@ export default function DealerCatalog({ routeCategory }) {
       if (filterPriceMax < 150000 && Number(w.price_eur) > filterPriceMax) return false
       if (filterYearMin && w.year && Number(w.year) < Number(filterYearMin)) return false
       if (filterYearMax && w.year && Number(w.year) > Number(filterYearMax)) return false
+      if (filterSourceType === 'express' && !w.zoho_item_id) return false
+      if (filterSourceType === 'sourced' && w.zoho_item_id) return false
       if (!search) return true
       const q = search.toLowerCase()
       return w.model?.toLowerCase().includes(q) || w.reference?.toLowerCase().includes(q) || w.brand?.toLowerCase().includes(q)
@@ -375,7 +378,7 @@ export default function DealerCatalog({ routeCategory }) {
   useEffect(() => setVisibleCount(40), [
     filterBrand, filterCond, filterStatus, search, sortBy,
     filterPriceMin, filterPriceMax, filterYearMin, filterYearMax,
-    filterJewelleryType, filterMetal, filterSize, filterNewOnly
+    filterJewelleryType, filterMetal, filterSize, filterNewOnly, filterSourceType
   ])
 
   useEffect(() => {
@@ -410,11 +413,12 @@ export default function DealerCatalog({ routeCategory }) {
     setFilterNewOnly(false)
     setFilterStatus('available')
     setActiveTab('available')
+    setFilterSourceType('')
   }
 
   const hasActiveFilters = filterBrand || filterCond || filterMetal || filterSize ||
     filterJewelleryType || search || sortBy || filterPriceMin > 1000 || filterPriceMax < 150000 ||
-    filterYearMin || filterYearMax || filterNewOnly || (!lockedCategory && filterCategory)
+    filterYearMin || filterYearMax || filterNewOnly || (!lockedCategory && filterCategory) || filterSourceType
 
   const brandOptions = (
     lockedCategory === 'Watches' ? WATCH_BRANDS :
@@ -514,6 +518,16 @@ export default function DealerCatalog({ routeCategory }) {
                 <option value="price_desc">Price: High → Low</option>
               </select>
             </div>
+            {(profile?.role === 'agent' || profile?.role === 'admin') && (
+              <div className="drawer-section">
+                <div className="drawer-label">Listing Type</div>
+                <select value={filterSourceType} onChange={e => setFilterSourceType(e.target.value)}>
+                  <option value="">All Listings</option>
+                  <option value="express">Express</option>
+                  <option value="sourced">Sourced</option>
+                </select>
+              </div>
+            )}
             <button className="drawer-apply" onClick={() => setDrawerOpen(false)}>Apply Filters</button>
           </div>
         </div>
@@ -575,6 +589,27 @@ export default function DealerCatalog({ routeCategory }) {
               </div>
             )}
           </div>
+
+          {/* Listing Type — agents/admins only */}
+          {(profile?.role === 'agent' || profile?.role === 'admin') && (
+            <div className="sidebar-acc-section">
+              <SectionHeader label="Listing Type" open={expanded.sourceType} onToggle={() => toggleSec('sourceType')} count={filterSourceType ? 1 : 0} />
+              {expanded.sourceType && (
+                <div className="sidebar-acc-body">
+                  {[
+                    { val: '', label: 'All Listings' },
+                    { val: 'express', label: 'Express' },
+                    { val: 'sourced', label: 'Sourced' },
+                  ].map(opt => (
+                    <label key={opt.val} className="sidebar-radio-row">
+                      <input type="radio" name="srctype" checked={filterSourceType === opt.val} onChange={() => setFilterSourceType(opt.val)} />
+                      <span>{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Condition */}
           <div className="sidebar-acc-section">

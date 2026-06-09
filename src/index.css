@@ -1684,11 +1684,18 @@ button { font-family: inherit; cursor: pointer; }
   .tab { padding: 12px 14px; font-size: 12px; }
   .user-row { flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
   .user-row-actions { width: 100%; justify-content: flex-end; }
+  .card-body { padding: 8px 9px 5px; }
+  .card-brand { font-size: 8px; letter-spacing: 1px; }
+  .card-model { font-size: 12px; margin-bottom: 3px; }
+  .card-ref { font-size: 9px; margin-bottom: 5px; }
+  .card-price-row { padding: 6px 9px 8px; gap: 5px; }
+  .card-price { font-size: 14px; }
+  .btn-wa { padding: 6px 7px; border-radius: 7px; }
+  .btn-inquire { font-size: 10px; padding: 6px 8px; border-radius: 7px; letter-spacing: 0.04em; }
 }
 
 @media (max-width: 380px) {
   .watch-grid { grid-template-columns: 1fr; }
-  .btn-wa { display: none; }
 }
 
 /* ── Footer ───────────────────────────────────── */
