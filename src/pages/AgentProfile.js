@@ -1,12 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '../lib/supabase'
 import Topbar from '../components/Topbar'
-
-const supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL,
-  process.env.REACT_APP_SUPABASE_ANON_KEY
-)
 
 function getThumb(item) {
   const imgs = [...(item.preorder_images || [])].sort((a, b) => a.position - b.position)
