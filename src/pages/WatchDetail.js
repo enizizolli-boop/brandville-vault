@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { idFromSlug } from '../lib/slug'
 import { useAuth } from '../context/AuthContext'
 import { useExchangeRate } from '../hooks/useExchangeRate'
 import { useCurrency } from '../context/CurrencyContext'
@@ -58,7 +59,7 @@ const BRANDS = [
 ]
 
 export default function WatchDetail() {
-  const { id } = useParams()
+  const { slug } = useParams()
   const navigate = useNavigate()
   const { profile } = useAuth()
   const { rate } = useExchangeRate()
@@ -83,76 +84,99 @@ export default function WatchDetail() {
   const [myOffer, setMyOffer] = useState(null)
 
   const fetchWatch = useCallback(async () => {
-    const { data } = await supabase
-      .from('products')
-      .select('*, product_images(id, url, position), profiles!posted_by(full_name)')
-      .eq('id', id)
-      .single()
-    if (data) {
-      setWatch(data)
+    const { isShort, value: lookupVal } = idFromSlug(slug)
+
+    let productData = null
+    if (isShort) {
+      const { data } = await supabase
+        .from('products')
+        .select('*, product_images(id, url, position), profiles!posted_by(full_name)')
+        .filter('id::text', 'ilike', `${lookupVal}%`)
+        .limit(1)
+      productData = data?.[0] ?? null
+    } else {
+      const { data } = await supabase
+        .from('products')
+        .select('*, product_images(id, url, position), profiles!posted_by(full_name)')
+        .eq('id', lookupVal)
+        .single()
+      productData = data ?? null
+    }
+
+    if (productData) {
+      setWatch(productData)
       setIsPreorder(false)
-      setImages([...(data.product_images || [])].sort((a, b) => a.position - b.position))
+      setImages([...(productData.product_images || [])].sort((a, b) => a.position - b.position))
       setEditForm({
-        category: data.category || 'Watches',
-        brand: data.brand || '',
-        model: data.model || '',
-        reference: data.reference || '',
-        condition: data.condition || '',
-        price_usd: data.price_usd || '',
-        price_eur: data.price_eur || '',
-        cost_eur: data.cost_eur || '',
-        vendor: data.vendor || '',
-        notes: data.notes || '',
-        metal_type: data.metal_type || '',
-        subcategory: data.subcategory || '',
-        item_size: data.item_size || '',
-        scope_of_delivery: data.scope_of_delivery || '',
+        category: productData.category || 'Watches',
+        brand: productData.brand || '',
+        model: productData.model || '',
+        reference: productData.reference || '',
+        condition: productData.condition || '',
+        price_usd: productData.price_usd || '',
+        price_eur: productData.price_eur || '',
+        cost_eur: productData.cost_eur || '',
+        vendor: productData.vendor || '',
+        notes: productData.notes || '',
+        metal_type: productData.metal_type || '',
+        subcategory: productData.subcategory || '',
+        item_size: productData.item_size || '',
+        scope_of_delivery: productData.scope_of_delivery || '',
       })
       setLoading(false)
       return
     }
-    const { data: preorder } = await supabase.from('preorders').select('*').eq('id', id).single()
-    if (preorder) {
+
+    let preorderData = null
+    if (isShort) {
+      const { data } = await supabase.from('preorders').select('*').filter('id::text', 'ilike', `${lookupVal}%`).limit(1)
+      preorderData = data?.[0] ?? null
+    } else {
+      const { data } = await supabase.from('preorders').select('*').eq('id', lookupVal).single()
+      preorderData = data ?? null
+    }
+
+    if (preorderData) {
       const [{ data: agentProfile }, { data: preorderImgs }] = await Promise.all([
-        preorder.posted_by
-          ? supabase.from('profiles').select('full_name').eq('id', preorder.posted_by).single()
+        preorderData.posted_by
+          ? supabase.from('profiles').select('full_name').eq('id', preorderData.posted_by).single()
           : Promise.resolve({ data: null }),
-        supabase.from('preorder_images').select('id, url, position').eq('preorder_id', id).order('position')
+        supabase.from('preorder_images').select('id, url, position').eq('preorder_id', preorderData.id).order('position')
       ])
-      setWatch({ ...preorder, product_images: preorderImgs || [], profiles: agentProfile || null })
+      setWatch({ ...preorderData, product_images: preorderImgs || [], profiles: agentProfile || null })
       setIsPreorder(true)
       setImages([...(preorderImgs || [])].sort((a, b) => a.position - b.position))
       setEditForm({
-        category: preorder.category || 'Watches',
-        brand: preorder.brand || '',
-        model: preorder.model || '',
-        reference: preorder.reference || '',
-        condition: preorder.condition || 'Pre-owned',
-        price_usd: preorder.price_usd || '',
-        price_eur: preorder.price_eur || '',
-        cost_eur: preorder.cost_eur || '',
-        vendor: preorder.vendor || '',
-        notes: preorder.notes || '',
-        metal_type: preorder.metal_type || '',
-        subcategory: preorder.subcategory || '',
-        item_size: preorder.item_size || '',
-        scope_of_delivery: preorder.scope_of_delivery || '',
+        category: preorderData.category || 'Watches',
+        brand: preorderData.brand || '',
+        model: preorderData.model || '',
+        reference: preorderData.reference || '',
+        condition: preorderData.condition || 'Pre-owned',
+        price_usd: preorderData.price_usd || '',
+        price_eur: preorderData.price_eur || '',
+        cost_eur: preorderData.cost_eur || '',
+        vendor: preorderData.vendor || '',
+        notes: preorderData.notes || '',
+        metal_type: preorderData.metal_type || '',
+        subcategory: preorderData.subcategory || '',
+        item_size: preorderData.item_size || '',
+        scope_of_delivery: preorderData.scope_of_delivery || '',
       })
     }
     setLoading(false)
-  }, [id])
+  }, [slug])
 
   const fetchMyOffer = useCallback(async () => {
-    if (profile?.role !== 'dealer') return
+    if (profile?.role !== 'dealer' || !watch?.id) return
     const { data } = await supabase
       .from('offers')
       .select('*')
-      .eq('watch_id', id)
+      .eq('watch_id', watch.id)
       .eq('dealer_id', profile.id)
       .in('status', ['pending', 'countered'])
       .maybeSingle()
     setMyOffer(data || null)
-  }, [id, profile])
+  }, [watch?.id, profile])
 
   useEffect(() => { fetchWatch() }, [fetchWatch])
   useEffect(() => { fetchMyOffer() }, [fetchMyOffer])
@@ -187,7 +211,7 @@ export default function WatchDetail() {
       metal_type: editForm.category === 'Jewellery' && editForm.metal_type ? editForm.metal_type : null,
       subcategory: editForm.category === 'Jewellery' && editForm.subcategory ? editForm.subcategory : null,
       item_size: editForm.category === 'Jewellery' && editForm.item_size && editForm.subcategory !== 'Necklaces' ? editForm.item_size : null,
-    }).eq('id', id)
+    }).eq('id', watch.id)
     if (!error) { await fetchWatch(); setEditing(false); setMsg('Updated successfully.') }
     setSaving(false)
   }
@@ -195,14 +219,14 @@ export default function WatchDetail() {
   async function handleDeleteListing() {
     if (!window.confirm('Delete this listing permanently? This cannot be undone.')) return
     if (isPreorder) {
-      await supabase.from('preorders').delete().eq('id', id)
+      await supabase.from('preorders').delete().eq('id', watch.id)
     } else {
       for (const img of images) {
         const path = img.url.split('/object/public/watch-images/')[1]
         if (path) await supabase.storage.from('watch-images').remove([decodeURIComponent(path)])
       }
-      await supabase.from('product_images').delete().eq('product_id', id)
-      await supabase.from('products').delete().eq('id', id)
+      await supabase.from('product_images').delete().eq('product_id', watch.id)
+      await supabase.from('products').delete().eq('id', watch.id)
     }
     navigate(-1)
   }
@@ -244,12 +268,12 @@ export default function WatchDetail() {
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
       const ext = file.name.split('.').pop()
-      const path = `${id}/${Date.now()}_${i}.${ext}`
+      const path = `${watch.id}/${Date.now()}_${i}.${ext}`
       const { error: upErr } = await supabase.storage.from('watch-images').upload(path, file)
       if (upErr) { setMsg(`Upload failed: ${upErr.message}`); continue }
       const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path)
       const imgTable = isPreorder ? 'preorder_images' : 'product_images'
-      const imgRecord = isPreorder ? { preorder_id: id, url: publicUrl, position: maxPos + i } : { product_id: id, url: publicUrl, position: maxPos + i }
+      const imgRecord = isPreorder ? { preorder_id: watch.id, url: publicUrl, position: maxPos + i } : { product_id: watch.id, url: publicUrl, position: maxPos + i }
       const { error: dbErr } = await supabase.from(imgTable).insert(imgRecord)
       if (dbErr) { setMsg(`Save failed: ${dbErr.message}`); continue }
       uploaded++
@@ -263,7 +287,7 @@ export default function WatchDetail() {
     if (!offerPrice) return
     setSubmittingOffer(true)
     const { data: offer, error } = await supabase.from('offers').insert({
-      watch_id: id,
+      watch_id: watch.id,
       dealer_id: profile.id,
       dealer_whatsapp: offerPhone || null,
       offer_price: Number(offerPrice),

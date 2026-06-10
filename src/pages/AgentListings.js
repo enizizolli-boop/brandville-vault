@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { toSlug } from '../lib/slug'
 import { useAuth } from '../context/AuthContext'
 import { useExchangeRate } from '../hooks/useExchangeRate'
 import { useCurrency } from '../context/CurrencyContext'
@@ -625,15 +626,15 @@ export default function AgentListings() {
                 ? <div className="empty-state">{search ? 'No items match your search' : 'No items posted yet'}</div>
                 : filteredWatches.map(w => (
                 <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid var(--border-light)', borderRadius: 10, marginBottom: 8, background: 'var(--surface)' }}>
-                  <div onClick={() => navigate(`/catalog/${w.id}`)} style={{ width: 50, height: 50, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}>
+                  <div onClick={() => navigate(`/catalog/${toSlug(w)}`)} style={{ width: 50, height: 50, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}>
                     {getThumb(w) ? <img src={getThumb(w)} alt={w.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20 }}>⌚</span>}
                   </div>
-                  <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => navigate(`/catalog/${w.id}`)}>
+                  <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => navigate(`/catalog/${toSlug(w)}`)}>
                     <div style={{ fontSize: 13, fontWeight: 500 }}>{w.brand} {w.model}</div>
                     <div style={{ fontSize: 11, color: '#aaa' }}>{fmtPrice(w)} · {w.condition}{w.reference ? ` · ${w.reference}` : ''}{w.category ? ` · ${w.category}` : ''}</div>
                   </div>
                   <span className={`badge badge-${w.status}`}>{w.status}</span>
-                  <button className="btn btn-sm" onClick={() => navigate(`/catalog/${w.id}`)}>Edit</button>
+                  <button className="btn btn-sm" onClick={() => navigate(`/catalog/${toSlug(w)}`)}>Edit</button>
                   {w.status !== 'sold' && (
                     <button className="btn btn-sm" onClick={() => markSold(w.id)}>Mark sold</button>
                   )}
@@ -649,10 +650,10 @@ export default function AgentListings() {
               ? <div className="empty-state">{search ? 'No preorders match your search' : 'No preorders yet'}</div>
               : filteredPreorders.map(p => (
               <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid var(--border-light)', borderRadius: 10, marginBottom: 8, background: 'var(--surface)' }}>
-                <div onClick={() => navigate(`/catalog/${p.id}`)} style={{ width: 50, height: 50, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}>
+                <div onClick={() => navigate(`/catalog/${toSlug(p)}`)} style={{ width: 50, height: 50, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}>
                   {getPreorderThumb(p) ? <img src={getPreorderThumb(p)} alt={p.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20 }}>🔖</span>}
                 </div>
-                <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => navigate(`/catalog/${p.id}`)}>
+                <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => navigate(`/catalog/${toSlug(p)}`)}>
                   <div style={{ fontSize: 13, fontWeight: 500 }}>{p.brand} {p.model}</div>
                   <div style={{ fontSize: 11, color: '#aaa' }}>{p.price_eur ? `€${Number(p.price_eur).toLocaleString()}` : '—'} · {p.condition}{p.category ? ` · ${p.category}` : ''}</div>
                 </div>
@@ -702,7 +703,7 @@ export default function AgentListings() {
                   <div key={offer.id} style={{ border: '1px solid var(--border-light)', borderRadius: 12, padding: 16, marginBottom: 12, background: 'var(--surface)' }}>
                     <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                       <div
-                        onClick={() => navigate(`/catalog/${watch.id}`)}
+                        onClick={() => navigate(`/catalog/${toSlug(watch)}`)}
                         style={{ width: 52, height: 52, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}
                       >
                         {thumb ? <img src={thumb} alt={watch.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20 }}>⌚</span>}
@@ -710,7 +711,7 @@ export default function AgentListings() {
                       <div style={{ flex: 1 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                           <div>
-                            <div style={{ fontWeight: 600, fontSize: 14, cursor: 'pointer' }} onClick={() => navigate(`/catalog/${watch.id}`)}>
+                            <div style={{ fontWeight: 600, fontSize: 14, cursor: 'pointer' }} onClick={() => navigate(`/catalog/${toSlug(watch)}`)}>
                               {watch.brand} {watch.model}
                             </div>
                             <div style={{ fontSize: 11, color: '#aaa' }}>{offer.dealer_whatsapp ? `WA: ${offer.dealer_whatsapp}` : 'Dealer'}</div>

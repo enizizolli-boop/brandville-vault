@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { toSlug } from '../lib/slug'
 import { useAuth } from '../context/AuthContext'
 import Topbar from '../components/Topbar'
 import Footer from '../components/Footer'
@@ -114,7 +115,7 @@ export default function DealerOffers() {
                 <div key={offer.id} style={{ border: '1px solid var(--border-light)', borderRadius: 12, padding: 16, marginBottom: 12, background: 'var(--surface)' }}>
                   <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                     <div
-                      onClick={() => navigate(`/catalog/${watch.id}`)}
+                      onClick={() => navigate(`/catalog/${toSlug(watch)}`)}
                       style={{ width: 56, height: 56, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}
                     >
                       {thumb
@@ -126,7 +127,7 @@ export default function DealerOffers() {
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                         <div>
-                          <div style={{ fontWeight: 600, fontSize: 14, cursor: 'pointer' }} onClick={() => navigate(`/catalog/${watch.id}`)}>
+                          <div style={{ fontWeight: 600, fontSize: 14, cursor: 'pointer' }} onClick={() => navigate(`/catalog/${toSlug(watch)}`)}>
                             {watch.brand} {watch.model}
                           </div>
                           {watch.reference && <div style={{ fontSize: 11, color: '#aaa' }}>{watch.reference}</div>}

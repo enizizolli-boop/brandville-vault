@@ -45,7 +45,7 @@ export default function App() {
           <Route path="/watches" element={<PrivateRoute allowedRoles={['dealer', 'admin', 'agent']}><DealerCatalog routeCategory="Watches" /></PrivateRoute>} />
           <Route path="/jewellery" element={<PrivateRoute allowedRoles={['dealer', 'admin', 'agent']}><DealerCatalog routeCategory="Jewellery" /></PrivateRoute>} />
           <Route path="/bags" element={<PrivateRoute allowedRoles={['dealer', 'admin', 'agent']}><DealerCatalog routeCategory="Bags" /></PrivateRoute>} />
-          <Route path="/catalog/:id" element={<PrivateRoute><WatchDetail /></PrivateRoute>} />
+          <Route path="/catalog/:slug" element={<PrivateRoute><WatchDetail /></PrivateRoute>} />
           <Route path="/agent" element={<PrivateRoute allowedRoles={['agent', 'admin']}><AgentListings /></PrivateRoute>} />
           <Route path="/agent/:agentId" element={<PrivateRoute allowedRoles={['agent', 'admin']}><AgentProfile /></PrivateRoute>} />
           <Route path="/admin" element={<PrivateRoute allowedRoles={['admin']}><AdminPanel /></PrivateRoute>} />

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { toSlug } from '../lib/slug'
 import Topbar from '../components/Topbar'
 
 function getThumb(item) {
@@ -102,7 +103,7 @@ export default function AgentProfile() {
               return (
                 <div
                   key={item.id}
-                  onClick={() => navigate(`/catalog/${item.id}`)}
+                  onClick={() => navigate(`/catalog/${toSlug(item)}`)}
                   style={{ cursor: 'pointer', border: '1px solid #eee', borderRadius: 10, overflow: 'hidden', background: '#fff', transition: 'box-shadow 0.15s' }}
                   onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.10)'}
                   onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
