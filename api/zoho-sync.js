@@ -19,6 +19,20 @@ async function parseJsonSafe(res, context) {
 }
 
 async function getAccessToken() {
+  // Cache token in sync_log for 50 min (Zoho tokens last 1h) to avoid
+  // hitting the auth endpoint on every batch call.
+  const TOKEN_TTL_MS = 50 * 60 * 1000;
+  const { data: cached } = await supabase
+    .from('sync_log')
+    .select('result, last_sync_at')
+    .eq('key', 'zoho_access_token')
+    .single();
+
+  if (cached?.result?.token && cached.last_sync_at) {
+    const ageMs = Date.now() - new Date(cached.last_sync_at).getTime();
+    if (ageMs < TOKEN_TTL_MS) return cached.result.token;
+  }
+
   const res = await fetch('https://accounts.zoho.eu/oauth/v2/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -31,6 +45,11 @@ async function getAccessToken() {
   });
   const data = await parseJsonSafe(res, 'Zoho OAuth token');
   if (!data.access_token) throw new Error('Failed to get access token: ' + JSON.stringify(data));
+
+  await supabase.from('sync_log').upsert(
+    { key: 'zoho_access_token', last_sync_at: new Date().toISOString(), result: { token: data.access_token } },
+    { onConflict: 'key' }
+  );
   return data.access_token;
 }
 
