@@ -267,6 +267,56 @@ export default async function handler(req, res) {
       }
     }
 
+    // Daily full reconciliation: find Zoho items missing from DB and insert them
+    // Runs once every 12 hours to catch items the delta sync window misses
+    try {
+      const { data: logRow } = await supabase.from('sync_log').select('result').eq('key', 'sync_zoho_reconcile').single();
+      const lastReconcile = logRow?.result?.last_reconcile_at ? new Date(logRow.result.last_reconcile_at) : null;
+      const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
+      if (!lastReconcile || lastReconcile < twelveHoursAgo) {
+        const allZohoIds = await fetchAllLiveIds(accessToken);
+        if (allZohoIds && allZohoIds.length > 0) {
+          const { data: dbRows } = await supabase.from('products').select('zoho_item_id').eq('source', 'zoho');
+          const inDb = new Set((dbRows || []).map(r => r.zoho_item_id));
+          const missingIds = allZohoIds.filter(id => !inDb.has(id));
+          if (missingIds.length > 0) {
+            // Fetch full item data for missing items only
+            const allItems = await fetchAllLiveIds._fullItems || [];
+            // Re-fetch all items to get full data for the missing ones
+            let allFull = [];
+            let rPage = 1;
+            const rPer = 200;
+            while (true) {
+              const controller = new AbortController();
+              const timer = setTimeout(() => controller.abort(), 15000);
+              try {
+                const url = `https://www.zohoapis.eu/inventory/v1/items?organization_id=${process.env.ZOHO_ORG_ID}&per_page=${rPer}&page=${rPage}&status=active`;
+                const res = await fetch(url, { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }, signal: controller.signal });
+                clearTimeout(timer);
+                const data = await res.json();
+                if (!data.items || data.items.length === 0) break;
+                allFull = allFull.concat(data.items);
+                if (data.items.length < rPer) break;
+                rPage++;
+              } catch { clearTimeout(timer); break; }
+            }
+            const missingSet = new Set(missingIds);
+            const toInsert = allFull.filter(item => {
+              if (!missingSet.has(String(item.item_id))) return false;
+              if (item.show_in_storefront !== true) return false;
+              const stock = item.actual_available_stock ?? item.available_stock ?? item.stock_on_hand ?? 0;
+              return Number(stock) > 0;
+            }).map(mapZohoItem);
+            if (toInsert.length > 0) {
+              await supabase.from('products').upsert(toInsert, { onConflict: 'zoho_item_id' });
+              console.log(`Reconciliation: inserted ${toInsert.length} missing items`);
+            }
+          }
+          await supabase.from('sync_log').upsert({ key: 'sync_zoho_reconcile', last_sync_at: new Date().toISOString(), result: { last_reconcile_at: new Date().toISOString(), missing_added: missingIds.length } });
+        }
+      }
+    } catch (e) { console.error('Reconciliation error:', e); }
+
     // Secondary pass: fill up to 5 existing available items with no images per cron run
     // This progressively backfills old items that never got images uploaded
     try {

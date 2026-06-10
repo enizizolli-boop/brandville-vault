@@ -39,13 +39,21 @@ async function fetchAllItems(accessToken) {
   let page = 1;
   const perPage = 200;
   while (true) {
-    const url = `https://www.zohoapis.eu/inventory/v1/items?organization_id=${process.env.ZOHO_ORG_ID}&per_page=${perPage}&page=${page}&status=active`;
-    const res = await fetch(url, { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } });
-    const data = await parseJsonSafe(res, `Zoho inventory items page ${page}`);
-    if (!data.items || data.items.length === 0) break;
-    items = items.concat(data.items);
-    if (data.items.length < perPage) break;
-    page++;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    try {
+      const url = `https://www.zohoapis.eu/inventory/v1/items?organization_id=${process.env.ZOHO_ORG_ID}&per_page=${perPage}&page=${page}&status=active`;
+      const res = await fetch(url, { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }, signal: controller.signal });
+      clearTimeout(timer);
+      const data = await parseJsonSafe(res, `Zoho inventory items page ${page}`);
+      if (!data.items || data.items.length === 0) break;
+      items = items.concat(data.items);
+      if (data.items.length < perPage) break;
+      page++;
+    } catch (e) {
+      clearTimeout(timer);
+      throw new Error(`Zoho fetch failed on page ${page}: ${e.message}`);
+    }
   }
   return items;
 }
