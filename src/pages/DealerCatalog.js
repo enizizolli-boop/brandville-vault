@@ -518,14 +518,16 @@ export default function DealerCatalog({ routeCategory }) {
                 <option value="price_desc">Price: High → Low</option>
               </select>
             </div>
-            <div className="drawer-section">
-              <div className="drawer-label">Listing Type</div>
-              <select value={filterSourceType} onChange={e => setFilterSourceType(e.target.value)}>
-                <option value="">All Listings</option>
-                <option value="express">Express</option>
-                <option value="sourced">Sourced</option>
-              </select>
-            </div>
+            {(profile?.role === 'agent' || profile?.role === 'admin') && (
+              <div className="drawer-section">
+                <div className="drawer-label">Listing Type</div>
+                <select value={filterSourceType} onChange={e => setFilterSourceType(e.target.value)}>
+                  <option value="">All Listings</option>
+                  <option value="express">Express</option>
+                  <option value="sourced">Sourced</option>
+                </select>
+              </div>
+            )}
             <button className="drawer-apply" onClick={() => setDrawerOpen(false)}>Apply Filters</button>
           </div>
         </div>
@@ -588,24 +590,26 @@ export default function DealerCatalog({ routeCategory }) {
             )}
           </div>
 
-          {/* Listing Type */}
-          <div className="sidebar-acc-section">
-            <SectionHeader label="Listing Type" open={expanded.sourceType} onToggle={() => toggleSec('sourceType')} count={filterSourceType ? 1 : 0} />
-            {expanded.sourceType && (
-              <div className="sidebar-acc-body">
-                {[
-                  { val: '', label: 'All Listings' },
-                  { val: 'express', label: 'Express' },
-                  { val: 'sourced', label: 'Sourced' },
-                ].map(opt => (
-                  <label key={opt.val} className="sidebar-radio-row">
-                    <input type="radio" name="srctype" checked={filterSourceType === opt.val} onChange={() => setFilterSourceType(opt.val)} />
-                    <span>{opt.label}</span>
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
+          {/* Listing Type — agents/admins only */}
+          {(profile?.role === 'agent' || profile?.role === 'admin') && (
+            <div className="sidebar-acc-section">
+              <SectionHeader label="Listing Type" open={expanded.sourceType} onToggle={() => toggleSec('sourceType')} count={filterSourceType ? 1 : 0} />
+              {expanded.sourceType && (
+                <div className="sidebar-acc-body">
+                  {[
+                    { val: '', label: 'All Listings' },
+                    { val: 'express', label: 'Express' },
+                    { val: 'sourced', label: 'Sourced' },
+                  ].map(opt => (
+                    <label key={opt.val} className="sidebar-radio-row">
+                      <input type="radio" name="srctype" checked={filterSourceType === opt.val} onChange={() => setFilterSourceType(opt.val)} />
+                      <span>{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Condition */}
           <div className="sidebar-acc-section">
