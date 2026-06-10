@@ -18,6 +18,7 @@ export default function Signup() {
     setError('')
     if (!name.trim()) { setError('Please enter your full name.'); return }
     if (!email.trim()) { setError('Please enter your email.'); return }
+    if (!phone.trim()) { setError('Please enter your phone number.'); return }
     if (password.length < 6) { setError('Password must be at least 6 characters.'); return }
     setLoading(true)
 
@@ -39,8 +40,7 @@ export default function Signup() {
 
     const userId = data?.user?.id
     if (userId) {
-      const upsertData = { id: userId, full_name: name.trim(), email: email.toLowerCase().trim(), role: 'dealer' }
-      if (phone.trim()) upsertData.phone = phone.trim()
+      const upsertData = { id: userId, full_name: name.trim(), email: email.toLowerCase().trim(), role: 'dealer', phone: phone.trim() }
       await supabase.from('profiles').upsert(upsertData, { onConflict: 'id' })
     }
 
@@ -86,7 +86,7 @@ export default function Signup() {
                 </div>
                 <div className="form-row">
                   <label>Phone number</label>
-                  <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+1 234 567 8900" />
+                  <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+1 234 567 8900" required />
                 </div>
                 <div className="form-row">
                   <label>Password</label>
