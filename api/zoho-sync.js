@@ -58,6 +58,29 @@ async function fetchAllItems(accessToken) {
   return items;
 }
 
+// Cache Zoho items in sync_log for 10 minutes so each batch call in a sync session
+// reuses the same snapshot instead of re-fetching all pages from Zoho every time.
+async function getAllItemsCached(accessToken) {
+  const CACHE_TTL_MS = 10 * 60 * 1000;
+  const { data: cached } = await supabase
+    .from('sync_log')
+    .select('result, last_sync_at')
+    .eq('key', 'zoho_items_cache')
+    .single();
+
+  if (cached?.result?.items && cached.last_sync_at) {
+    const ageMs = Date.now() - new Date(cached.last_sync_at).getTime();
+    if (ageMs < CACHE_TTL_MS) return cached.result.items;
+  }
+
+  const items = await fetchAllItems(accessToken);
+  await supabase.from('sync_log').upsert(
+    { key: 'zoho_items_cache', last_sync_at: new Date().toISOString(), result: { items } },
+    { onConflict: 'key' }
+  );
+  return items;
+}
+
 async function fetchAndUploadZohoImages(accessToken, zohoItem, productId) {
   const itemId = zohoItem.item_id;
   try {
@@ -66,9 +89,14 @@ async function fetchAndUploadZohoImages(accessToken, zohoItem, productId) {
       `https://www.zohoapis.eu/inventory/v1/items/${itemId}/images?organization_id=${process.env.ZOHO_ORG_ID}`,
       { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
     );
-    const listData = await listRes.json();
+    // Some Zoho items return binary (ZIP/PKCS) instead of JSON — guard before parsing
+    let listData = null;
+    try {
+      const ct = listRes.headers.get('content-type') || '';
+      if (ct.includes('application/json') || ct.includes('text/')) listData = await listRes.json();
+    } catch { listData = null; }
 
-    if (listData.images && listData.images.length > 0) {
+    if (listData?.images && listData.images.length > 0) {
       await supabase.from('product_images').delete().eq('product_id', productId);
       let uploaded = 0;
       for (let i = 0; i < listData.images.length; i++) {
@@ -200,7 +228,7 @@ export default async function handler(req, res) {
 
   try {
     const accessToken = await getAccessToken();
-    const allItems = await fetchAllItems(accessToken);
+    const allItems = await getAllItemsCached(accessToken);
 
     // Safety guard — if Zoho returns nothing, abort rather than wiping the DB
     if (!allItems || allItems.length === 0) {
