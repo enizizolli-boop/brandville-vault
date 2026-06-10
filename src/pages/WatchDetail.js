@@ -84,83 +84,62 @@ export default function WatchDetail() {
   const [myOffer, setMyOffer] = useState(null)
 
   const fetchWatch = useCallback(async () => {
-    const { isShort, value: lookupVal } = idFromSlug(slug)
+    const itemId = idFromSlug(slug)
 
-    let productData = null
-    if (isShort) {
-      const { data } = await supabase
-        .from('products')
-        .select('*, product_images(id, url, position), profiles!posted_by(full_name)')
-        .filter('id::text', 'ilike', `${lookupVal}%`)
-        .limit(1)
-      productData = data?.[0] ?? null
-    } else {
-      const { data } = await supabase
-        .from('products')
-        .select('*, product_images(id, url, position), profiles!posted_by(full_name)')
-        .eq('id', lookupVal)
-        .single()
-      productData = data ?? null
-    }
-
-    if (productData) {
-      setWatch(productData)
+    const { data } = await supabase
+      .from('products')
+      .select('*, product_images(id, url, position), profiles!posted_by(full_name)')
+      .eq('id', itemId)
+      .single()
+    if (data) {
+      setWatch(data)
       setIsPreorder(false)
-      setImages([...(productData.product_images || [])].sort((a, b) => a.position - b.position))
+      setImages([...(data.product_images || [])].sort((a, b) => a.position - b.position))
       setEditForm({
-        category: productData.category || 'Watches',
-        brand: productData.brand || '',
-        model: productData.model || '',
-        reference: productData.reference || '',
-        condition: productData.condition || '',
-        price_usd: productData.price_usd || '',
-        price_eur: productData.price_eur || '',
-        cost_eur: productData.cost_eur || '',
-        vendor: productData.vendor || '',
-        notes: productData.notes || '',
-        metal_type: productData.metal_type || '',
-        subcategory: productData.subcategory || '',
-        item_size: productData.item_size || '',
-        scope_of_delivery: productData.scope_of_delivery || '',
+        category: data.category || 'Watches',
+        brand: data.brand || '',
+        model: data.model || '',
+        reference: data.reference || '',
+        condition: data.condition || '',
+        price_usd: data.price_usd || '',
+        price_eur: data.price_eur || '',
+        cost_eur: data.cost_eur || '',
+        vendor: data.vendor || '',
+        notes: data.notes || '',
+        metal_type: data.metal_type || '',
+        subcategory: data.subcategory || '',
+        item_size: data.item_size || '',
+        scope_of_delivery: data.scope_of_delivery || '',
       })
       setLoading(false)
       return
     }
-
-    let preorderData = null
-    if (isShort) {
-      const { data } = await supabase.from('preorders').select('*').filter('id::text', 'ilike', `${lookupVal}%`).limit(1)
-      preorderData = data?.[0] ?? null
-    } else {
-      const { data } = await supabase.from('preorders').select('*').eq('id', lookupVal).single()
-      preorderData = data ?? null
-    }
-
-    if (preorderData) {
+    const { data: preorder } = await supabase.from('preorders').select('*').eq('id', itemId).single()
+    if (preorder) {
       const [{ data: agentProfile }, { data: preorderImgs }] = await Promise.all([
-        preorderData.posted_by
-          ? supabase.from('profiles').select('full_name').eq('id', preorderData.posted_by).single()
+        preorder.posted_by
+          ? supabase.from('profiles').select('full_name').eq('id', preorder.posted_by).single()
           : Promise.resolve({ data: null }),
-        supabase.from('preorder_images').select('id, url, position').eq('preorder_id', preorderData.id).order('position')
+        supabase.from('preorder_images').select('id, url, position').eq('preorder_id', preorder.id).order('position')
       ])
-      setWatch({ ...preorderData, product_images: preorderImgs || [], profiles: agentProfile || null })
+      setWatch({ ...preorder, product_images: preorderImgs || [], profiles: agentProfile || null })
       setIsPreorder(true)
       setImages([...(preorderImgs || [])].sort((a, b) => a.position - b.position))
       setEditForm({
-        category: preorderData.category || 'Watches',
-        brand: preorderData.brand || '',
-        model: preorderData.model || '',
-        reference: preorderData.reference || '',
-        condition: preorderData.condition || 'Pre-owned',
-        price_usd: preorderData.price_usd || '',
-        price_eur: preorderData.price_eur || '',
-        cost_eur: preorderData.cost_eur || '',
-        vendor: preorderData.vendor || '',
-        notes: preorderData.notes || '',
-        metal_type: preorderData.metal_type || '',
-        subcategory: preorderData.subcategory || '',
-        item_size: preorderData.item_size || '',
-        scope_of_delivery: preorderData.scope_of_delivery || '',
+        category: preorder.category || 'Watches',
+        brand: preorder.brand || '',
+        model: preorder.model || '',
+        reference: preorder.reference || '',
+        condition: preorder.condition || 'Pre-owned',
+        price_usd: preorder.price_usd || '',
+        price_eur: preorder.price_eur || '',
+        cost_eur: preorder.cost_eur || '',
+        vendor: preorder.vendor || '',
+        notes: preorder.notes || '',
+        metal_type: preorder.metal_type || '',
+        subcategory: preorder.subcategory || '',
+        item_size: preorder.item_size || '',
+        scope_of_delivery: preorder.scope_of_delivery || '',
       })
     }
     setLoading(false)

@@ -9,16 +9,14 @@ function slugify(str) {
 
 export function toSlug(item) {
   const parts = [slugify(item.brand), slugify(item.model)].filter(Boolean)
-  const shortId = (item.id || '').slice(0, 8)
-  return [...parts, shortId].filter(Boolean).join('-')
+  const prefix = parts.join('-')
+  return prefix ? `${prefix}--${item.id}` : item.id
 }
 
 export function idFromSlug(slug) {
-  // Backwards compat: full UUID passed directly
-  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug)) {
-    return { isShort: false, value: slug }
-  }
-  // New format: last segment is the 8-char short ID
-  const parts = slug.split('-')
-  return { isShort: true, value: parts[parts.length - 1] }
+  // New format: everything after last '--' is the full UUID
+  const idx = slug.lastIndexOf('--')
+  if (idx !== -1) return slug.slice(idx + 2)
+  // Backwards compat: plain UUID or old short-id slug — return as-is and try eq first
+  return slug
 }
