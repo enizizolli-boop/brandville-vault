@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import JSZip from 'jszip';
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL,
@@ -45,31 +46,61 @@ async function fetchAndUploadZohoImages(accessToken, itemId, productId) {
       { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
     );
 
-    // Guard against rate-limit (429) and binary responses
-    let listData = null;
     const ct = listRes.headers.get('content-type') || '';
+
     if (listRes.status === 429) {
       console.log(`Gallery API rate limited (429) for item ${itemId} — skipping`);
       return 0;
     }
+
+    // Zoho returns a ZIP file containing all gallery images
+    if (ct.includes('application/zip')) {
+      const { data: existingImgs } = await supabase
+        .from('product_images').select('position').eq('product_id', productId);
+      const existingPositions = new Set((existingImgs || []).map(r => r.position));
+
+      try {
+        const buffer = Buffer.from(await listRes.arrayBuffer());
+        const zip = await JSZip.loadAsync(buffer);
+        const imageFiles = Object.values(zip.files)
+          .filter(f => !f.dir && /\.(jpe?g|png|webp|gif)$/i.test(f.name))
+          .sort((a, b) => a.name.localeCompare(b.name));
+
+        let uploaded = 0;
+        for (let i = 0; i < imageFiles.length; i++) {
+          if (existingPositions.has(i)) continue;
+          try {
+            const imgBuffer = Buffer.from(await imageFiles[i].async('arraybuffer'));
+            const path = `${productId}/zoho_${i}.jpg`;
+            const { error: upErr } = await supabase.storage.from('watch-images').upload(path, imgBuffer, { contentType: 'image/jpeg', upsert: true });
+            if (upErr) continue;
+            const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
+            await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position: i });
+            uploaded++;
+          } catch (e) { console.error(`ZIP image ${i} upload error for item ${itemId}:`, e); }
+        }
+        console.log(`Item ${itemId}: extracted ${imageFiles.length} images from ZIP, uploaded ${uploaded}`);
+        return uploaded;
+      } catch (e) {
+        console.error(`ZIP extract error for item ${itemId}:`, e);
+        return 0;
+      }
+    }
+
+    // JSON gallery list
+    let listData = null;
     try {
       if (ct.includes('application/json') || ct.includes('text/')) listData = await listRes.json();
-      else console.log(`Gallery API non-JSON for item ${itemId}: content-type="${ct}" status=${listRes.status}`);
     } catch { listData = null; }
 
     if (listData?.images && listData.images.length > 0) {
-      // Find which positions we already have so we only add what's missing
       const { data: existingImgs } = await supabase
-        .from('product_images')
-        .select('position')
-        .eq('product_id', productId);
+        .from('product_images').select('position').eq('product_id', productId);
       const existingPositions = new Set((existingImgs || []).map(r => r.position));
-      const missingCount = listData.images.filter((_, i) => !existingPositions.has(i)).length;
-      console.log(`Item ${itemId}: Zoho has ${listData.images.length} images, DB has ${existingPositions.size}, missing ${missingCount}`);
 
       let uploaded = 0;
       for (let i = 0; i < listData.images.length; i++) {
-        if (existingPositions.has(i)) continue; // already have this position
+        if (existingPositions.has(i)) continue;
         const docId = listData.images[i].image_document_id;
         if (!docId) continue;
         try {
@@ -78,9 +109,9 @@ async function fetchAndUploadZohoImages(accessToken, itemId, productId) {
             { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
           );
           if (!imgRes.ok) continue;
-          const buffer = Buffer.from(await imgRes.arrayBuffer());
+          const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
           const path = `${productId}/zoho_${i}.jpg`;
-          const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
+          const { error: upErr } = await supabase.storage.from('watch-images').upload(path, imgBuffer, { contentType: 'image/jpeg', upsert: true });
           if (upErr) continue;
           const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
           await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position: i });
@@ -90,8 +121,8 @@ async function fetchAndUploadZohoImages(accessToken, itemId, productId) {
       return uploaded;
     }
 
-    // Gallery empty or non-JSON — try primary image endpoint, only if no images at all
-    console.log(`Item ${itemId}: gallery empty or non-JSON (ct="${ct}"), images in list: ${listData?.images?.length ?? 'n/a'}`);
+    // No gallery — try primary image, only if item has no images at all
+    console.log(`Item ${itemId}: no gallery (ct="${ct}")`);
     const { count: existing } = await supabase
       .from('product_images').select('id', { count: 'exact', head: true }).eq('product_id', productId);
     if (existing > 0) return 0;
