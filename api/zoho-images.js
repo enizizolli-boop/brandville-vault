@@ -60,6 +60,8 @@ async function fetchAndUploadZohoImages(accessToken, itemId, productId) {
         .select('position')
         .eq('product_id', productId);
       const existingPositions = new Set((existingImgs || []).map(r => r.position));
+      const missingCount = listData.images.filter((_, i) => !existingPositions.has(i)).length;
+      console.log(`Item ${itemId}: Zoho has ${listData.images.length} images, DB has ${existingPositions.size}, missing ${missingCount}`);
 
       let uploaded = 0;
       for (let i = 0; i < listData.images.length; i++) {
@@ -84,7 +86,8 @@ async function fetchAndUploadZohoImages(accessToken, itemId, productId) {
       return uploaded;
     }
 
-    // Gallery empty — try primary image endpoint, only if no images at all
+    // Gallery empty or non-JSON — try primary image endpoint, only if no images at all
+    console.log(`Item ${itemId}: gallery empty or non-JSON (ct="${ct}"), images in list: ${listData?.images?.length ?? 'n/a'}`);
     const { count: existing } = await supabase
       .from('product_images').select('id', { count: 'exact', head: true }).eq('product_id', productId);
     if (existing > 0) return 0;
