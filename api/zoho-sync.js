@@ -79,17 +79,19 @@ async function fetchAllItems(accessToken) {
 
 // Cache Zoho items in sync_log for 10 minutes so each batch call in a sync session
 // reuses the same snapshot instead of re-fetching all pages from Zoho every time.
-async function getAllItemsCached(accessToken) {
-  const CACHE_TTL_MS = 10 * 60 * 1000;
-  const { data: cached } = await supabase
-    .from('sync_log')
-    .select('result, last_sync_at')
-    .eq('key', 'zoho_items_cache')
-    .single();
+async function getAllItemsCached(accessToken, forceRefresh = false) {
+  if (!forceRefresh) {
+    const CACHE_TTL_MS = 10 * 60 * 1000;
+    const { data: cached } = await supabase
+      .from('sync_log')
+      .select('result, last_sync_at')
+      .eq('key', 'zoho_items_cache')
+      .single();
 
-  if (cached?.result?.items && cached.last_sync_at) {
-    const ageMs = Date.now() - new Date(cached.last_sync_at).getTime();
-    if (ageMs < CACHE_TTL_MS) return cached.result.items;
+    if (cached?.result?.items && cached.last_sync_at) {
+      const ageMs = Date.now() - new Date(cached.last_sync_at).getTime();
+      if (ageMs < CACHE_TTL_MS) return cached.result.items;
+    }
   }
 
   const items = await fetchAllItems(accessToken);
@@ -247,7 +249,8 @@ export default async function handler(req, res) {
 
   try {
     const accessToken = await getAccessToken();
-    const allItems = await getAllItemsCached(accessToken);
+    // Force fresh fetch on first batch so new/updated items are never missed
+    const allItems = await getAllItemsCached(accessToken, offset === 0);
 
     // Safety guard — if Zoho returns nothing, abort rather than wiping the DB
     if (!allItems || allItems.length === 0) {
@@ -255,8 +258,9 @@ export default async function handler(req, res) {
     }
 
     // Filter: must be on storefront AND have stock available
+    // show_in_storefront can be boolean true or string "true" depending on Zoho API version
     let zohoItems = allItems.filter(item => {
-      if (item.show_in_storefront !== true) return false;
+      if (item.show_in_storefront !== true && item.show_in_storefront !== 'true') return false;
       const stock = item.actual_available_stock ?? item.available_stock ?? item.stock_on_hand ?? 0;
       return Number(stock) > 0;
     });
@@ -308,7 +312,7 @@ export default async function handler(req, res) {
         .from('products').select('zoho_item_id').eq('source', 'zoho');
       const allExistingIds = (allExisting || []).map(i => i.zoho_item_id);
       const liveZohoIds = allItems.filter(i => {
-        if (i.show_in_storefront !== true) return false;
+        if (i.show_in_storefront !== true && i.show_in_storefront !== 'true') return false;
         const stock = i.actual_available_stock ?? i.available_stock ?? i.stock_on_hand ?? 0;
         return Number(stock) > 0;
       }).map(i => String(i.item_id));
