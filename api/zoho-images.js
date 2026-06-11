@@ -6,6 +6,18 @@ const supabase = createClient(
 );
 
 async function getAccessToken() {
+  const TOKEN_TTL_MS = 50 * 60 * 1000;
+  const { data: cached } = await supabase
+    .from('sync_log')
+    .select('result, last_sync_at')
+    .eq('key', 'zoho_access_token')
+    .single();
+
+  if (cached?.result?.token && cached.last_sync_at) {
+    const ageMs = Date.now() - new Date(cached.last_sync_at).getTime();
+    if (ageMs < TOKEN_TTL_MS) return cached.result.token;
+  }
+
   const res = await fetch('https://accounts.zoho.eu/oauth/v2/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -18,6 +30,11 @@ async function getAccessToken() {
   });
   const data = await res.json();
   if (!data.access_token) throw new Error('Failed to get Zoho access token');
+
+  await supabase.from('sync_log').upsert(
+    { key: 'zoho_access_token', last_sync_at: new Date().toISOString(), result: { token: data.access_token } },
+    { onConflict: 'key' }
+  );
   return data.access_token;
 }
 
@@ -27,12 +44,25 @@ async function fetchAndUploadZohoImages(accessToken, itemId, productId) {
       `https://www.zohoapis.eu/inventory/v1/items/${itemId}/images?organization_id=${process.env.ZOHO_ORG_ID}`,
       { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
     );
-    const listData = await listRes.json();
 
-    if (listData.images && listData.images.length > 0) {
-      await supabase.from('product_images').delete().eq('product_id', productId);
+    // Guard against binary (ZIP/PKCS) responses from Zoho
+    let listData = null;
+    try {
+      const ct = listRes.headers.get('content-type') || '';
+      if (ct.includes('application/json') || ct.includes('text/')) listData = await listRes.json();
+    } catch { listData = null; }
+
+    if (listData?.images && listData.images.length > 0) {
+      // Find which positions we already have so we only add what's missing
+      const { data: existingImgs } = await supabase
+        .from('product_images')
+        .select('position')
+        .eq('product_id', productId);
+      const existingPositions = new Set((existingImgs || []).map(r => r.position));
+
       let uploaded = 0;
       for (let i = 0; i < listData.images.length; i++) {
+        if (existingPositions.has(i)) continue; // already have this position
         const docId = listData.images[i].image_document_id;
         if (!docId) continue;
         try {
@@ -53,7 +83,7 @@ async function fetchAndUploadZohoImages(accessToken, itemId, productId) {
       return uploaded;
     }
 
-    // Gallery empty — try primary image endpoint directly
+    // Gallery empty — try primary image endpoint, only if no images at all
     const { count: existing } = await supabase
       .from('product_images').select('id', { count: 'exact', head: true }).eq('product_id', productId);
     if (existing > 0) return 0;
