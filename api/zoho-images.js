@@ -45,9 +45,13 @@ async function fetchAndUploadZohoImages(accessToken, itemId, productId) {
       { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
     );
 
-    // Guard against binary (ZIP/PKCS) responses from Zoho
+    // Guard against rate-limit (429) and binary responses
     let listData = null;
     const ct = listRes.headers.get('content-type') || '';
+    if (listRes.status === 429) {
+      console.log(`Gallery API rate limited (429) for item ${itemId} — skipping`);
+      return 0;
+    }
     try {
       if (ct.includes('application/json') || ct.includes('text/')) listData = await listRes.json();
       else console.log(`Gallery API non-JSON for item ${itemId}: content-type="${ct}" status=${listRes.status}`);
@@ -147,6 +151,8 @@ export default async function handler(req, res) {
         errors.push({ watch_id: watch.id, error: e.message });
       }
       processed++;
+      // Pause between items to avoid hitting Zoho's gallery API rate limit
+      await new Promise(r => setTimeout(r, 500));
     }
 
     const { count: totalCount } = await supabase
