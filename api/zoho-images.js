@@ -47,9 +47,10 @@ async function fetchAndUploadZohoImages(accessToken, itemId, productId) {
 
     // Guard against binary (ZIP/PKCS) responses from Zoho
     let listData = null;
+    const ct = listRes.headers.get('content-type') || '';
     try {
-      const ct = listRes.headers.get('content-type') || '';
       if (ct.includes('application/json') || ct.includes('text/')) listData = await listRes.json();
+      else console.log(`Gallery API non-JSON for item ${itemId}: content-type="${ct}" status=${listRes.status}`);
     } catch { listData = null; }
 
     if (listData?.images && listData.images.length > 0) {
