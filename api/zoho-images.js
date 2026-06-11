@@ -122,7 +122,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { batch_size = 10, offset = 0 } = req.body || {};
+  const { batch_size = 5, offset = 0 } = req.body || {};
 
   try {
     const accessToken = await getAccessToken();
@@ -151,8 +151,8 @@ export default async function handler(req, res) {
         errors.push({ watch_id: watch.id, error: e.message });
       }
       processed++;
-      // Pause between items to avoid hitting Zoho's gallery API rate limit
-      await new Promise(r => setTimeout(r, 500));
+      // Pause between items — Zoho gallery API has a strict per-minute rate limit
+      await new Promise(r => setTimeout(r, 1500));
     }
 
     const { count: totalCount } = await supabase

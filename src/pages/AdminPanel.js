@@ -200,7 +200,7 @@ const [syncLog, setSyncLog] = useState({})
   async function handleSyncImages() {
     setImagesSyncing(true)
     setImagesResult(null)
-    const BATCH_SIZE = 10
+    const BATCH_SIZE = 5
     let offset = 0
     let totalImages = 0
     let grandTotal = 0
