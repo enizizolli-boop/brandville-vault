@@ -636,13 +636,11 @@ export default function WatchDetail() {
 
               {profile?.role === 'dealer' && watch.status === 'available' && watch.source !== 'odoo_bags' && (
                 <div style={{ marginTop: 12 }}>
-                  {myOffer ? (
+                  {myOffer && (
                     <div style={{ fontSize: 13, color: 'var(--gold)', padding: '8px 12px', background: 'var(--gold-light)', borderRadius: 8, border: '1px solid rgba(184,150,106,0.3)' }}>
                       Offer pending — <strong>€{Number(myOffer.offer_price).toLocaleString()}</strong>
                       {myOffer.status === 'countered' && ` · Counter: €${Number(myOffer.counter_price).toLocaleString()}`}
                     </div>
-                  ) : (
-                    <button className="btn btn-dark btn-full" onClick={() => setOfferModal(true)}>Make an Offer</button>
                   )}
                 </div>
               )}
