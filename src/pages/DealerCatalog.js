@@ -806,7 +806,7 @@ export default function DealerCatalog({ routeCategory }) {
 
                   return (
                     <div className="watch-card" key={w.id}>
-                      <div className="card-img-wrap" onClick={() => navigate(`/catalog/${toSlug(w)}`)}>
+                      <div className="card-img-wrap" onClick={() => navigate(`/catalog/${toSlug(w)}${currency === 'USD' ? '?usd' : ''}`)}>
                         <CardImages watch={w} />
                         <button className="card-bookmark" onClick={e => e.stopPropagation()} title="Save">
                           <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
@@ -814,7 +814,7 @@ export default function DealerCatalog({ routeCategory }) {
                           </svg>
                         </button>
                       </div>
-                      <div className="card-body" onClick={() => navigate(`/catalog/${toSlug(w)}`)}>
+                      <div className="card-body" onClick={() => navigate(`/catalog/${toSlug(w)}${currency === 'USD' ? '?usd' : ''}`)}>
                         <div className="card-brand">{w.brand}</div>
                         <div className="card-model">{w.model}</div>
                         <div className="card-ref">{cleanRef(w.reference) ? `Ref. ${cleanRef(w.reference)}` : '—'}</div>
@@ -832,7 +832,7 @@ export default function DealerCatalog({ routeCategory }) {
                           <a className="btn-wa" href={`https://wa.me/${waNum}?text=${waMsg}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
                             {WA_SVG}
                           </a>
-                          <button className="btn-inquire" onClick={() => navigate(`/catalog/${toSlug(w)}`)}>Inquire</button>
+                          <button className="btn-inquire" onClick={() => navigate(`/catalog/${toSlug(w)}${currency === 'USD' ? '?usd' : ''}`)}>Inquire</button>
                         </div>
                       </div>
                     </div>
