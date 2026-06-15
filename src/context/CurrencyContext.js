@@ -6,8 +6,8 @@ const CurrencyContext = createContext()
 
 export function CurrencyProvider({ children }) {
   const [currency, setCurrencyState] = useState(() => {
-    const param = new URLSearchParams(window.location.search).get('currency')?.toUpperCase()
-    if (param && SUPPORTED.includes(param)) return param
+    const params = new URLSearchParams(window.location.search)
+    if (params.has('usd')) return 'USD'
     return localStorage.getItem('bv_currency') || 'EUR'
   })
 
@@ -16,9 +16,9 @@ export function CurrencyProvider({ children }) {
     setCurrencyState(c)
     const url = new URL(window.location.href)
     if (c === 'USD') {
-      url.searchParams.set('currency', 'USD')
+      url.searchParams.set('usd', '')
     } else {
-      url.searchParams.delete('currency')
+      url.searchParams.delete('usd')
     }
     window.history.replaceState(null, '', url.toString())
   }
