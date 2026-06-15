@@ -14,6 +14,9 @@ export function CurrencyProvider({ children }) {
   function setCurrency(c) {
     localStorage.setItem('bv_currency', c)
     setCurrencyState(c)
+    const url = new URL(window.location.href)
+    url.searchParams.set('currency', c)
+    window.history.replaceState(null, '', url.toString())
   }
 
   return (
