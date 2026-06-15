@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useNav } from '../hooks/useNav'
 
 const WA_NUMBERS = {
   Watches: '18488639660',
@@ -7,7 +7,7 @@ const WA_NUMBERS = {
 }
 
 export default function Footer() {
-  const navigate = useNavigate()
+  const navigate = useNav()
   const year = new Date().getFullYear()
 
   return (

@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useCurrency } from '../context/CurrencyContext'
+import { useNav } from '../hooks/useNav'
 
 const AVATAR_COLORS = ['avatar-blue', 'avatar-green', 'avatar-amber', 'avatar-purple', 'avatar-red']
 
@@ -140,7 +141,7 @@ function MobileMenu({ profile, currency, setCurrency, onNavigate, onSignOut, onC
 export default function Topbar() {
   const { profile, signOut } = useAuth()
   const { currency, setCurrency } = useCurrency()
-  const navigate = useNavigate()
+  const navigate = useNav()
   const location = useLocation()
   const [openMenu, setOpenMenu] = useState(null)
   const [mobileOpen, setMobileOpen] = useState(false)

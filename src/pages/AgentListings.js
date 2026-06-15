@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNav } from '../hooks/useNav'
 import { supabase } from '../lib/supabase'
 import { toSlug } from '../lib/slug'
 import { useAuth } from '../context/AuthContext'
@@ -296,7 +296,7 @@ async function notifyDealers(watch) {
 
 export default function AgentListings() {
   const { profile } = useAuth()
-  const navigate = useNavigate()
+  const navigate = useNav()
   const { rate } = useExchangeRate()
   const [tab, setTab] = useState('listings')
   const [watches, setWatches] = useState([])

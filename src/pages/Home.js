@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useNav } from '../hooks/useNav'
 import { useAuth } from '../context/AuthContext'
 import Topbar from '../components/Topbar'
 import Footer from '../components/Footer'
@@ -26,7 +26,7 @@ const CATEGORIES = [
 ]
 
 export default function Home() {
-  const navigate = useNavigate()
+  const navigate = useNav()
   const { profile } = useAuth()
   const [hovered, setHovered] = useState(null)
 

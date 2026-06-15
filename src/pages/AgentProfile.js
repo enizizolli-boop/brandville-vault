@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
+import { useNav } from '../hooks/useNav'
 import { supabase } from '../lib/supabase'
 import { toSlug } from '../lib/slug'
 import Topbar from '../components/Topbar'
@@ -11,7 +12,7 @@ function getThumb(item) {
 
 export default function AgentProfile() {
   const { agentId } = useParams()
-  const navigate = useNavigate()
+  const navigate = useNav()
 
   const [agentName, setAgentName] = useState('')
   const [listings, setListings] = useState([])

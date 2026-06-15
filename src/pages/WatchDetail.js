@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
+import { useNav } from '../hooks/useNav'
 import { supabase } from '../lib/supabase'
 import { idFromSlug } from '../lib/slug'
 import { useAuth } from '../context/AuthContext'
@@ -60,7 +61,7 @@ const BRANDS = [
 
 export default function WatchDetail() {
   const { slug } = useParams()
-  const navigate = useNavigate()
+  const navigate = useNav()
   const { profile } = useAuth()
   const { rate } = useExchangeRate()
   const { currency } = useCurrency()

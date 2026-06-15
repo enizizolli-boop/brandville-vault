@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNav } from '../hooks/useNav'
 import { supabase } from '../lib/supabase'
 import { toSlug } from '../lib/slug'
 import { useAuth } from '../context/AuthContext'
@@ -23,7 +23,7 @@ const STATUS_COLOR = { pending: '#e6a817', countered: '#b8965a', accepted: '#2e7
 
 export default function MyAccount() {
   const { profile, fetchProfile } = useAuth()
-  const navigate = useNavigate()
+  const navigate = useNav()
   const [tab, setTab] = useState('profile')
 
   // Profile state
