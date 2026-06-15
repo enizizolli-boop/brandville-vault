@@ -223,18 +223,22 @@ export default async function handler(req, res) {
       const jewelleryOdooIds = allJewellery.map(w => parseInt(w.odoo_product_id)).filter(Boolean);
       const qtyMap = await fetchOdooQtyMap(jewelleryOdooIds);
 
-      for (const item of allJewellery) {
-        // virtual_available covers both confirmed-SO and already-sold cases for max-1-stock items
-        const qty = qtyMap.get(item.odoo_product_id);
-        const isSold = qty === undefined || qty <= 0;
+      // Safety guard: if Odoo returned nothing (timeout/error), skip entirely —
+      // an empty qtyMap would mark every item as sold (qty === undefined → isSold)
+      if (qtyMap.size === 0) {
+        console.error('Odoo qty fetch returned empty map — skipping jewellery status update to prevent mass wipe');
+      } else {
+        for (const item of allJewellery) {
+          const qty = qtyMap.get(item.odoo_product_id);
+          const isSold = qty === undefined || qty <= 0;
 
-        if (isSold && item.status !== 'sold') {
-          await supabase.from('products').update({ status: 'sold' }).eq('id', item.id);
-          jewelleryMarkedSold++;
-        } else if (!isSold && item.status === 'sold') {
-          // Only restore to available if qty is explicitly > 0 and not on SO
-          await supabase.from('products').update({ status: 'available' }).eq('id', item.id);
-          jewelleryMarkedAvailable++;
+          if (isSold && item.status !== 'sold') {
+            await supabase.from('products').update({ status: 'sold' }).eq('id', item.id);
+            jewelleryMarkedSold++;
+          } else if (!isSold && item.status === 'sold') {
+            await supabase.from('products').update({ status: 'available' }).eq('id', item.id);
+            jewelleryMarkedAvailable++;
+          }
         }
       }
     }
@@ -247,7 +251,7 @@ export default async function handler(req, res) {
       if (allZohoItems.length > 0) {
         const liveIds = new Set(
           allZohoItems
-            .filter(i => i.show_in_storefront === true && Number(i.actual_available_stock ?? i.available_stock ?? i.stock_on_hand ?? 0) > 0)
+            .filter(i => (i.show_in_storefront === true || i.show_in_storefront === 'true') && Number(i.actual_available_stock ?? i.available_stock ?? i.stock_on_hand ?? 0) > 0)
             .map(i => String(i.item_id))
         );
         const { data: zohoProducts } = await supabase.from('products').select('id, zoho_item_id, status').eq('source', 'zoho');
