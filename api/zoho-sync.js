@@ -102,14 +102,26 @@ async function getAllItemsCached(accessToken, forceRefresh = false) {
   return items;
 }
 
+function withTimeout(ms) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  return { signal: ctrl.signal, clear: () => clearTimeout(timer) };
+}
+
 async function fetchAndUploadZohoImages(accessToken, zohoItem, productId) {
   const itemId = zohoItem.item_id;
   try {
-    // Try gallery API first
-    const listRes = await fetch(
-      `https://www.zohoapis.eu/inventory/v1/items/${itemId}/images?organization_id=${process.env.ZOHO_ORG_ID}`,
-      { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
-    );
+    const gallery = withTimeout(8000);
+    let listRes;
+    try {
+      listRes = await fetch(
+        `https://www.zohoapis.eu/inventory/v1/items/${itemId}/images?organization_id=${process.env.ZOHO_ORG_ID}`,
+        { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }, signal: gallery.signal }
+      );
+    } finally { gallery.clear(); }
+
+    if (listRes.status === 429) { console.log(`Gallery rate limited for ${itemId}`); return 0; }
+
     // Some Zoho items return binary (ZIP/PKCS) instead of JSON — guard before parsing
     let listData = null;
     try {
@@ -124,10 +136,14 @@ async function fetchAndUploadZohoImages(accessToken, zohoItem, productId) {
         const docId = listData.images[i].image_document_id;
         if (!docId) continue;
         try {
-          const imgRes = await fetch(
-            `https://www.zohoapis.eu/inventory/v1/items/${itemId}/image?organization_id=${process.env.ZOHO_ORG_ID}&document_id=${docId}`,
-            { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
-          );
+          const img = withTimeout(8000);
+          let imgRes;
+          try {
+            imgRes = await fetch(
+              `https://www.zohoapis.eu/inventory/v1/items/${itemId}/image?organization_id=${process.env.ZOHO_ORG_ID}&document_id=${docId}`,
+              { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }, signal: img.signal }
+            );
+          } finally { img.clear(); }
           if (!imgRes.ok) continue;
           const buffer = Buffer.from(await imgRes.arrayBuffer());
           const path = `${productId}/zoho_${i}.jpg`;
@@ -145,12 +161,16 @@ async function fetchAndUploadZohoImages(accessToken, zohoItem, productId) {
     if (!zohoItem.image_document_id) return 0;
     const { count: existing } = await supabase
       .from('product_images').select('id', { count: 'exact', head: true }).eq('product_id', productId);
-    if (existing > 0) return 0; // already has image, don't overwrite
+    if (existing > 0) return 0;
     try {
-      const imgRes = await fetch(
-        `https://www.zohoapis.eu/inventory/v1/items/${itemId}/image?organization_id=${process.env.ZOHO_ORG_ID}`,
-        { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
-      );
+      const primary = withTimeout(8000);
+      let imgRes;
+      try {
+        imgRes = await fetch(
+          `https://www.zohoapis.eu/inventory/v1/items/${itemId}/image?organization_id=${process.env.ZOHO_ORG_ID}`,
+          { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }, signal: primary.signal }
+        );
+      } finally { primary.clear(); }
       if (!imgRes.ok) return 0;
       const buffer = Buffer.from(await imgRes.arrayBuffer());
       const path = `${productId}/zoho_0.jpg`;
