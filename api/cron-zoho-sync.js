@@ -35,7 +35,7 @@ async function fetchAllLiveIds(accessToken) {
       const data = await res.json();
       if (!data.items || data.items.length === 0) break;
       for (const item of data.items) {
-        if (item.show_in_storefront !== true) continue;
+        if (item.show_in_storefront !== true && item.show_in_storefront !== 'true') continue;
         const stock = item.actual_available_stock ?? item.available_stock ?? item.stock_on_hand ?? 0;
         if (Number(stock) > 0) ids.push(String(item.item_id));
       }
@@ -157,14 +157,14 @@ export default async function handler(req, res) {
 
     // Filter: must be on storefront with stock
     const liveItems = recentItems.filter(item => {
-      if (item.show_in_storefront !== true) return false;
+      if (item.show_in_storefront !== true && item.show_in_storefront !== 'true') return false;
       const stock = item.actual_available_stock ?? item.available_stock ?? item.stock_on_hand ?? 0;
       return Number(stock) > 0;
     });
 
     // Items recently modified but now out of stock/off storefront → mark sold
     const offItems = recentItems.filter(item => {
-      if (item.show_in_storefront !== true) return true;
+      if (item.show_in_storefront !== true && item.show_in_storefront !== 'true') return true;
       const stock = item.actual_available_stock ?? item.available_stock ?? item.stock_on_hand ?? 0;
       return Number(stock) <= 0;
     });
@@ -303,7 +303,7 @@ export default async function handler(req, res) {
             const missingSet = new Set(missingIds);
             const toInsert = allFull.filter(item => {
               if (!missingSet.has(String(item.item_id))) return false;
-              if (item.show_in_storefront !== true) return false;
+              if (item.show_in_storefront !== true && item.show_in_storefront !== 'true') return false;
               const stock = item.actual_available_stock ?? item.available_stock ?? item.stock_on_hand ?? 0;
               return Number(stock) > 0;
             }).map(mapZohoItem);
