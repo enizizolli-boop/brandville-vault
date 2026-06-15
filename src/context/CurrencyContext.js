@@ -15,7 +15,11 @@ export function CurrencyProvider({ children }) {
     localStorage.setItem('bv_currency', c)
     setCurrencyState(c)
     const url = new URL(window.location.href)
-    url.searchParams.set('currency', c)
+    if (c === 'USD') {
+      url.searchParams.set('currency', 'USD')
+    } else {
+      url.searchParams.delete('currency')
+    }
     window.history.replaceState(null, '', url.toString())
   }
 
