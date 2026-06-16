@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import JSZip from 'jszip';
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL,
@@ -122,10 +123,40 @@ async function fetchAndUploadZohoImages(accessToken, zohoItem, productId) {
 
     if (listRes.status === 429) { console.log(`Gallery rate limited for ${itemId}`); return 0; }
 
-    // Some Zoho items return binary (ZIP/PKCS) instead of JSON — guard before parsing
+    const ct = listRes.headers.get('content-type') || '';
+
+    // Zoho returns a ZIP file containing all gallery images for multi-image items
+    if (ct.includes('application/zip')) {
+      await supabase.from('product_images').delete().eq('product_id', productId);
+      try {
+        const buffer = Buffer.from(await listRes.arrayBuffer());
+        const zip = await JSZip.loadAsync(buffer);
+        const imageFiles = Object.values(zip.files)
+          .filter(f => !f.dir && /\.(jpe?g|png|webp|gif)$/i.test(f.name))
+          .sort((a, b) => a.name.localeCompare(b.name));
+
+        let uploaded = 0;
+        for (let i = 0; i < imageFiles.length; i++) {
+          try {
+            const imgBuffer = Buffer.from(await imageFiles[i].async('arraybuffer'));
+            const path = `${productId}/zoho_${i}.jpg`;
+            const { error: upErr } = await supabase.storage.from('watch-images').upload(path, imgBuffer, { contentType: 'image/jpeg', upsert: true });
+            if (upErr) continue;
+            const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
+            await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position: i });
+            uploaded++;
+          } catch (e) { console.error(`ZIP image ${i} upload error for item ${itemId}:`, e); }
+        }
+        return uploaded;
+      } catch (e) {
+        console.error(`ZIP extract error for item ${itemId}:`, e);
+        return 0;
+      }
+    }
+
+    // Some Zoho items return JSON instead of ZIP
     let listData = null;
     try {
-      const ct = listRes.headers.get('content-type') || '';
       if (ct.includes('application/json') || ct.includes('text/')) listData = await listRes.json();
     } catch { listData = null; }
 
