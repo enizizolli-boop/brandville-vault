@@ -310,6 +310,7 @@ export default function AgentListings() {
   const [bagImages, setBagImages] = useState([])
   const [bagPreviews, setBagPreviews] = useState([])
   const [bagDragIndex, setBagDragIndex] = useState(null)
+  const [bagIsPreorder, setBagIsPreorder] = useState(false)
   const [watches, setWatches] = useState([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -516,19 +517,24 @@ export default function AgentListings() {
         status: 'available',
       }
 
-      const { data: preorder, error: pErr } = await supabase.from('preorders').insert(payload).select().single()
+      const table = bagIsPreorder ? 'preorders' : 'products'
+      const imgTable = bagIsPreorder ? 'preorder_images' : 'product_images'
+      const fkCol = bagIsPreorder ? 'preorder_id' : 'product_id'
+      const insertPayload = bagIsPreorder ? payload : { ...payload, source: 'manual' }
+
+      const { data: item, error: pErr } = await supabase.from(table).insert(insertPayload).select().single()
       if (pErr) throw pErr
 
       let imagesFailed = 0
       for (let i = 0; i < bagImages.length; i++) {
         const file = bagImages[i]
         const ext = file.name.split('.').pop()
-        const path = `${preorder.id}/${i}.${ext}`
+        const path = `${item.id}/${i}.${ext}`
         const { error: upErr } = await supabase.storage.from('watch-images').upload(path, file)
-        if (upErr) { console.error('Bag preorder image upload error:', upErr.message); imagesFailed++; continue }
+        if (upErr) { console.error('Bag image upload error:', upErr.message); imagesFailed++; continue }
         const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path)
-        const { error: dbErr } = await supabase.from('preorder_images').insert({ preorder_id: preorder.id, url: publicUrl, position: i })
-        if (dbErr) { console.error('Bag preorder image DB error:', dbErr.message); imagesFailed++ }
+        const { error: dbErr } = await supabase.from(imgTable).insert({ [fkCol]: item.id, url: publicUrl, position: i })
+        if (dbErr) { console.error('Bag image DB error:', dbErr.message); imagesFailed++ }
       }
 
       setBagName('')
@@ -537,14 +543,16 @@ export default function AgentListings() {
       setBagSellingPrice('')
       setBagImages([])
       setBagPreviews([])
+      setBagIsPreorder(false)
       setBagMsg(imagesFailed > 0
-        ? `Bags preorder posted, but ${imagesFailed} image(s) failed to save — open the listing and re-upload them.`
-        : 'Bags preorder posted.')
+        ? `Bag ${bagIsPreorder ? 'preorder' : 'listing'} posted, but ${imagesFailed} image(s) failed to save — open the listing and re-upload them.`
+        : bagIsPreorder ? 'Bags preorder posted.' : 'Item posted — now live in the dealer catalog.')
       setTab('listings')
-      setListingType('preorders-bags')
+      setListingType(bagIsPreorder ? 'preorders-bags' : 'instock')
       fetchPreorders()
+      fetchMyWatches()
     } catch (err) {
-      console.error('Bag preorder post error:', err)
+      console.error('Bag listing post error:', err)
       setBagError(err?.message || 'Something went wrong. Please try again.')
     }
     setBagPosting(false)
@@ -677,8 +685,8 @@ export default function AgentListings() {
       <Topbar />
       <div className="tabs">
         <div className={`tab ${tab === 'listings' ? 'active' : ''}`} onClick={() => setTab('listings')}>My listings</div>
-        <div className={`tab ${tab === 'post' ? 'active' : ''}`} onClick={() => setTab('post')}>Preorders Watches</div>
-        <div className={`tab ${tab === 'bagpreorder' ? 'active' : ''}`} onClick={() => setTab('bagpreorder')}>Bags Preorder</div>
+        <div className={`tab ${tab === 'post' ? 'active' : ''}`} onClick={() => setTab('post')}>Listings Watches</div>
+        <div className={`tab ${tab === 'bagpreorder' ? 'active' : ''}`} onClick={() => setTab('bagpreorder')}>Listings Bags</div>
         <div className={`tab ${tab === 'offers' ? 'active' : ''}`} onClick={() => setTab('offers')}>
           Offers{offers.filter(o => o.status === 'pending').length > 0 && (
             <span style={{ marginLeft: 6, background: '#b8965a', color: '#fff', borderRadius: 10, fontSize: 10, padding: '1px 6px', fontWeight: 700 }}>
@@ -1186,8 +1194,22 @@ export default function AgentListings() {
               </div>
             </div>
 
+            {/* Preorder toggle */}
+            <div
+              onClick={() => setBagIsPreorder(v => !v)}
+              style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', background: bagIsPreorder ? 'var(--gold-light)' : 'var(--surface)', borderRadius: 14, border: `1px solid ${bagIsPreorder ? 'rgba(184,150,106,0.4)' : 'var(--border)'}`, marginBottom: 20, cursor: 'pointer', transition: 'all 0.2s' }}
+            >
+              <div style={{ width: 44, height: 26, borderRadius: 13, background: bagIsPreorder ? '#b8965a' : '#ddd', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                <div style={{ position: 'absolute', top: 3, left: bagIsPreorder ? 21 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.18s', boxShadow: '0 1px 4px rgba(0,0,0,0.18)' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: bagIsPreorder ? 'var(--gold)' : 'var(--text)' }}>Preorder</div>
+                <div style={{ fontSize: 11, color: '#b0a898', marginTop: 1 }}>{bagIsPreorder ? 'No SKU required — item not yet in stock' : 'Toggle on if item is not yet in stock'}</div>
+              </div>
+            </div>
+
             <button type="submit" className="btn btn-dark btn-full" disabled={bagPosting} style={{ height: 48, fontSize: 15, borderRadius: 12 }}>
-              {bagPosting ? <span className="spinner" style={{ width: 18, height: 18 }} /> : 'Post bags preorder'}
+              {bagPosting ? <span className="spinner" style={{ width: 18, height: 18 }} /> : bagIsPreorder ? 'Post bags preorder' : 'Post to catalog'}
             </button>
           </form>
         </div>
