@@ -336,15 +336,23 @@ export default async function handler(req, res) {
     const existingMap = {};
     (existingItems || []).forEach(i => { existingMap[i.zoho_item_id] = i.id; });
 
-    // Find which existing products already have proper Supabase-hosted images
-    // Products with only scraped (non-Supabase) URLs are treated as imageless so they get re-fetched
+    // Find which existing products already have a full gallery of Supabase-hosted images.
+    // Products with only scraped (non-Supabase) URLs, or just a single leftover image
+    // (e.g. from the old primary-image-only fallback), are treated as imageless so the
+    // full gallery gets (re-)fetched.
     const existingProductIds = (existingItems || []).map(i => i.id);
     let productsWithImages = new Set();
     if (existingProductIds.length > 0) {
       const { data: imgRows } = await supabase
         .from('product_images').select('product_id, url').in('product_id', existingProductIds);
+      const supabaseImageCounts = new Map();
       (imgRows || []).forEach(r => {
-        if (r.url && r.url.includes('supabase.co')) productsWithImages.add(r.product_id);
+        if (r.url && r.url.includes('supabase.co')) {
+          supabaseImageCounts.set(r.product_id, (supabaseImageCounts.get(r.product_id) || 0) + 1);
+        }
+      });
+      supabaseImageCounts.forEach((count, productId) => {
+        if (count >= 2) productsWithImages.add(productId);
       });
       // Delete any bad (non-Supabase) image rows so they don't persist
       const badRows = (imgRows || []).filter(r => !r.url || !r.url.includes('supabase.co'));
