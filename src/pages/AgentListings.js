@@ -307,6 +307,9 @@ export default function AgentListings() {
   const [bagPosting, setBagPosting] = useState(false)
   const [bagMsg, setBagMsg] = useState('')
   const [bagError, setBagError] = useState('')
+  const [bagImages, setBagImages] = useState([])
+  const [bagPreviews, setBagPreviews] = useState([])
+  const [bagDragIndex, setBagDragIndex] = useState(null)
   const [watches, setWatches] = useState([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -363,6 +366,24 @@ export default function AgentListings() {
     const files = Array.from(e.target.files)
     setImages(files)
     setPreviews(files.map(f => URL.createObjectURL(f)))
+  }
+
+  function handleBagImages(e) {
+    const files = Array.from(e.target.files)
+    setBagImages(prev => [...prev, ...files])
+    setBagPreviews(prev => [...prev, ...files.map(f => URL.createObjectURL(f))])
+    e.target.value = ''
+  }
+
+  function reorderBagImages(from, to) {
+    if (from === null || from === to) return
+    setBagImages(arr => { const copy = [...arr]; const [moved] = copy.splice(from, 1); copy.splice(to, 0, moved); return copy })
+    setBagPreviews(arr => { const copy = [...arr]; const [moved] = copy.splice(from, 1); copy.splice(to, 0, moved); return copy })
+  }
+
+  function removeBagImage(idx) {
+    setBagImages(arr => arr.filter((_, i) => i !== idx))
+    setBagPreviews(arr => arr.filter((_, i) => i !== idx))
   }
 
   const usdPreview = form.price_eur && rate
@@ -495,14 +516,30 @@ export default function AgentListings() {
         status: 'available',
       }
 
-      const { error: pErr } = await supabase.from('preorders').insert(payload)
+      const { data: preorder, error: pErr } = await supabase.from('preorders').insert(payload).select().single()
       if (pErr) throw pErr
+
+      let imagesFailed = 0
+      for (let i = 0; i < bagImages.length; i++) {
+        const file = bagImages[i]
+        const ext = file.name.split('.').pop()
+        const path = `${preorder.id}/${i}.${ext}`
+        const { error: upErr } = await supabase.storage.from('watch-images').upload(path, file)
+        if (upErr) { console.error('Bag preorder image upload error:', upErr.message); imagesFailed++; continue }
+        const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path)
+        const { error: dbErr } = await supabase.from('preorder_images').insert({ preorder_id: preorder.id, url: publicUrl, position: i })
+        if (dbErr) { console.error('Bag preorder image DB error:', dbErr.message); imagesFailed++ }
+      }
 
       setBagName('')
       setBagCostPrice('')
       setBagCostCurrency('EUR')
       setBagSellingPrice('')
-      setBagMsg('Bags preorder posted.')
+      setBagImages([])
+      setBagPreviews([])
+      setBagMsg(imagesFailed > 0
+        ? `Bags preorder posted, but ${imagesFailed} image(s) failed to save — open the listing and re-upload them.`
+        : 'Bags preorder posted.')
       setTab('listings')
       setListingType('preorders')
       fetchPreorders()
@@ -637,7 +674,7 @@ export default function AgentListings() {
       <Topbar />
       <div className="tabs">
         <div className={`tab ${tab === 'listings' ? 'active' : ''}`} onClick={() => setTab('listings')}>My listings</div>
-        <div className={`tab ${tab === 'post' ? 'active' : ''}`} onClick={() => setTab('post')}>Post new item</div>
+        <div className={`tab ${tab === 'post' ? 'active' : ''}`} onClick={() => setTab('post')}>Preorders Watches</div>
         <div className={`tab ${tab === 'bagpreorder' ? 'active' : ''}`} onClick={() => setTab('bagpreorder')}>Bags Preorder</div>
         <div className={`tab ${tab === 'offers' ? 'active' : ''}`} onClick={() => setTab('offers')}>
           Offers{offers.filter(o => o.status === 'pending').length > 0 && (
@@ -1057,6 +1094,40 @@ export default function AgentListings() {
           {bagError && <div className="error-msg" style={{ marginBottom: 16 }}>{bagError}</div>}
 
           <form onSubmit={handleBagPost}>
+            {/* Photos */}
+            <label htmlFor="bag-img-upload" style={{ display: 'block', marginBottom: 20, borderRadius: 14, border: '1.5px dashed var(--border)', background: 'var(--surface)', cursor: 'pointer', overflow: 'hidden', minHeight: 90, transition: 'border-color 0.15s' }}>
+              {bagPreviews.length > 0
+                ? <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: 12 }}>
+                    {bagPreviews.map((p, i) => (
+                      <div
+                        key={i}
+                        draggable
+                        onDragStart={e => { e.stopPropagation(); setBagDragIndex(i) }}
+                        onDragOver={e => { e.preventDefault() }}
+                        onDrop={e => { e.preventDefault(); e.stopPropagation(); reorderBagImages(bagDragIndex, i); setBagDragIndex(null) }}
+                        onDragEnd={() => setBagDragIndex(null)}
+                        onClick={e => e.preventDefault()}
+                        style={{ position: 'relative', opacity: bagDragIndex === i ? 0.4 : 1, cursor: 'grab' }}
+                      >
+                        <img src={p} alt="" style={{ width: 68, height: 68, borderRadius: 10, objectFit: 'cover', border: '1px solid #e8e5e0' }} />
+                        <button
+                          type="button"
+                          onClick={e => { e.preventDefault(); e.stopPropagation(); removeBagImage(i) }}
+                          style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', background: '#e00', color: '#fff', border: 'none', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >×</button>
+                      </div>
+                    ))}
+                    <div style={{ width: 68, height: 68, borderRadius: 10, border: '1.5px dashed #ccc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb', fontSize: 22 }}>+</div>
+                  </div>
+                : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 90, gap: 6 }}>
+                    <div style={{ fontSize: 24, lineHeight: 1 }}>&#128247;</div>
+                    <div style={{ fontSize: 13, color: '#888', fontWeight: 500 }}>Tap to upload photos</div>
+                    <div style={{ fontSize: 11, color: '#bbb' }}>JPG, PNG — multiple allowed, drag to reorder</div>
+                  </div>
+              }
+              <input id="bag-img-upload" type="file" accept="image/*" multiple onChange={handleBagImages} style={{ display: 'none' }} />
+            </label>
+
             <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', padding: '16px 16px 4px', marginBottom: 16 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.9px', marginBottom: 14 }}>Bags preorder — quick entry</div>
               <div className="form-row">
