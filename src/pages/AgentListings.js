@@ -298,7 +298,15 @@ export default function AgentListings() {
   const { profile } = useAuth()
   const navigate = useNav()
   const { rate } = useExchangeRate()
+  const { rate: cnyToEurRate } = useExchangeRate('CNY', 'EUR')
   const [tab, setTab] = useState('listings')
+  const [bagName, setBagName] = useState('')
+  const [bagCostPrice, setBagCostPrice] = useState('')
+  const [bagCostCurrency, setBagCostCurrency] = useState('EUR')
+  const [bagSellingPrice, setBagSellingPrice] = useState('')
+  const [bagPosting, setBagPosting] = useState(false)
+  const [bagMsg, setBagMsg] = useState('')
+  const [bagError, setBagError] = useState('')
   const [watches, setWatches] = useState([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -450,6 +458,61 @@ export default function AgentListings() {
     setPosting(false)
   }
 
+  async function handleBagPost(e) {
+    e.preventDefault()
+    setBagError('')
+    if (!bagName.trim()) { setBagError('Name is required.'); return }
+    if (!bagCostPrice) { setBagError('Cost price is required.'); return }
+    setBagPosting(true)
+    try {
+      const parsed = parseQuickPost(bagName)
+      const brand = parsed.brand && parsed.brand !== EMPTY_FORM.brand ? parsed.brand : 'Other'
+      const model = parsed.model || bagName.trim()
+      const condition = parsed.condition || EMPTY_FORM.condition
+
+      const costEur = bagCostCurrency === 'CNY'
+        ? Number(bagCostPrice) * (cnyToEurRate || 0)
+        : Number(bagCostPrice)
+      const sellingEur = bagSellingPrice ? Number(bagSellingPrice) : costEur * 1.4
+      const priceUsd = rate ? Math.round(sellingEur * rate) : null
+
+      const payload = {
+        category: 'Bags',
+        brand,
+        model,
+        reference: null,
+        condition,
+        price_eur: Math.round(sellingEur),
+        price_usd: priceUsd,
+        cost_eur: Math.round(costEur),
+        vendor: parsed.vendor || null,
+        notes: parsed.notes || null,
+        scope_of_delivery: null,
+        metal_type: null,
+        subcategory: null,
+        item_size: null,
+        posted_by: profile.id,
+        status: 'available',
+      }
+
+      const { error: pErr } = await supabase.from('preorders').insert(payload)
+      if (pErr) throw pErr
+
+      setBagName('')
+      setBagCostPrice('')
+      setBagCostCurrency('EUR')
+      setBagSellingPrice('')
+      setBagMsg('Bags preorder posted.')
+      setTab('listings')
+      setListingType('preorders')
+      fetchPreorders()
+    } catch (err) {
+      console.error('Bag preorder post error:', err)
+      setBagError(err?.message || 'Something went wrong. Please try again.')
+    }
+    setBagPosting(false)
+  }
+
   async function handleAcceptOffer(offer) {
     if (agentComments[offer.id]) {
       await supabase.from('offers').update({ agent_comment: agentComments[offer.id] }).eq('id', offer.id)
@@ -575,6 +638,7 @@ export default function AgentListings() {
       <div className="tabs">
         <div className={`tab ${tab === 'listings' ? 'active' : ''}`} onClick={() => setTab('listings')}>My listings</div>
         <div className={`tab ${tab === 'post' ? 'active' : ''}`} onClick={() => setTab('post')}>Post new item</div>
+        <div className={`tab ${tab === 'bagpreorder' ? 'active' : ''}`} onClick={() => setTab('bagpreorder')}>Bags Preorder</div>
         <div className={`tab ${tab === 'offers' ? 'active' : ''}`} onClick={() => setTab('offers')}>
           Offers{offers.filter(o => o.status === 'pending').length > 0 && (
             <span style={{ marginLeft: 6, background: '#b8965a', color: '#fff', borderRadius: 10, fontSize: 10, padding: '1px 6px', fontWeight: 700 }}>
@@ -982,6 +1046,68 @@ export default function AgentListings() {
 
             <button type="submit" className="btn btn-dark btn-full" disabled={posting} style={{ height: 48, fontSize: 15, borderRadius: 12 }}>
               {posting ? <span className="spinner" style={{ width: 18, height: 18 }} /> : form.is_preorder ? 'Post preorder' : 'Post to catalog'}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {tab === 'bagpreorder' && (
+        <div style={{ padding: '16px 16px 40px', maxWidth: 600 }}>
+          {bagMsg && <div className="success-msg" style={{ marginBottom: 16 }}>{bagMsg}</div>}
+          {bagError && <div className="error-msg" style={{ marginBottom: 16 }}>{bagError}</div>}
+
+          <form onSubmit={handleBagPost}>
+            <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', padding: '16px 16px 4px', marginBottom: 16 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.9px', marginBottom: 14 }}>Bags preorder — quick entry</div>
+              <div className="form-row">
+                <label>Name</label>
+                <textarea
+                  value={bagName}
+                  onChange={e => setBagName(e.target.value)}
+                  rows={3}
+                  placeholder={'e.g. Hermès Birkin 30 Togo Gold HW\nor paste full details — brand & condition are detected automatically'}
+                  style={{ width: '100%', boxSizing: 'border-box', fontSize: 13, borderRadius: 8, resize: 'vertical', lineHeight: 1.6 }}
+                  required
+                />
+              </div>
+            </div>
+
+            <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', padding: '16px 16px 4px', marginBottom: 16 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.9px', marginBottom: 14 }}>Pricing</div>
+              <div className="form-row">
+                <label>Cost price</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input type="number" value={bagCostPrice} onChange={e => setBagCostPrice(e.target.value)} placeholder="e.g. 28000" style={{ flex: 1 }} required />
+                  <select value={bagCostCurrency} onChange={e => setBagCostCurrency(e.target.value)} style={{ width: 90 }}>
+                    <option value="EUR">EUR</option>
+                    <option value="CNY">CNY</option>
+                  </select>
+                </div>
+                {bagCostCurrency === 'CNY' && bagCostPrice && (
+                  <div style={{ fontSize: 12, color: '#b0a898', marginTop: 4 }}>
+                    {cnyToEurRate ? `≈ €${Math.round(Number(bagCostPrice) * cnyToEurRate).toLocaleString()}` : 'Loading CNY → EUR rate…'}
+                  </div>
+                )}
+              </div>
+
+              <div className="form-row">
+                <label>Selling price (€) — optional</label>
+                <input type="number" value={bagSellingPrice} onChange={e => setBagSellingPrice(e.target.value)} placeholder="leave blank to auto-calc as cost + 40%" />
+                {bagCostPrice && (() => {
+                  const costEur = bagCostCurrency === 'CNY' ? Number(bagCostPrice) * (cnyToEurRate || 0) : Number(bagCostPrice)
+                  const sellingEur = bagSellingPrice ? Number(bagSellingPrice) : costEur * 1.4
+                  const usd = rate ? Math.round(sellingEur * rate) : null
+                  return (
+                    <div style={{ fontSize: 12, color: '#b0a898', marginTop: 4 }}>
+                      Selling price: €{Math.round(sellingEur).toLocaleString()}{usd ? ` ≈ $${usd.toLocaleString()}` : ''}{!bagSellingPrice ? ' (auto: cost + 40%)' : ''}
+                    </div>
+                  )
+                })()}
+              </div>
+            </div>
+
+            <button type="submit" className="btn btn-dark btn-full" disabled={bagPosting} style={{ height: 48, fontSize: 15, borderRadius: 12 }}>
+              {bagPosting ? <span className="spinner" style={{ width: 18, height: 18 }} /> : 'Post bags preorder'}
             </button>
           </form>
         </div>
