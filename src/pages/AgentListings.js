@@ -448,7 +448,7 @@ export default function AgentListings() {
           setMsg('Preorder posted — dealers will be notified.')
         }
         setTab('listings')
-        setListingType('preorders')
+        setListingType('preorders-watches')
         fetchPreorders()
       } else {
         const { data: watch, error: wErr } = await supabase.from('products').insert({ ...payload, source: 'manual' }).select().single()
@@ -541,7 +541,7 @@ export default function AgentListings() {
         ? `Bags preorder posted, but ${imagesFailed} image(s) failed to save — open the listing and re-upload them.`
         : 'Bags preorder posted.')
       setTab('listings')
-      setListingType('preorders')
+      setListingType('preorders-bags')
       fetchPreorders()
     } catch (err) {
       console.error('Bag preorder post error:', err)
@@ -662,7 +662,10 @@ export default function AgentListings() {
   const filteredWatches = watches.filter(w =>
     !search || w.brand?.toLowerCase().includes(q) || w.model?.toLowerCase().includes(q) || w.reference?.toLowerCase().includes(q)
   )
-  const filteredPreorders = preorders.filter(p => {
+  const watchPreorders = preorders.filter(p => p.category !== 'Bags')
+  const bagPreorders = preorders.filter(p => p.category === 'Bags')
+  const basePreorders = listingType === 'preorders-bags' ? bagPreorders : listingType === 'preorders-watches' ? watchPreorders : preorders
+  const filteredPreorders = basePreorders.filter(p => {
     if (search && !p.brand?.toLowerCase().includes(q) && !p.model?.toLowerCase().includes(q)) return false
     if (dateFrom && new Date(p.created_at) < new Date(dateFrom)) return false
     if (dateTo && new Date(p.created_at) > new Date(dateTo + 'T23:59:59')) return false
@@ -696,10 +699,16 @@ export default function AgentListings() {
               In stock {watches.length > 0 && `(${watches.length})`}
             </button>
             <button
-              className={`btn btn-sm${listingType === 'preorders' ? ' btn-dark' : ''}`}
-              onClick={() => setListingType('preorders')}
+              className={`btn btn-sm${listingType === 'preorders-watches' ? ' btn-dark' : ''}`}
+              onClick={() => setListingType('preorders-watches')}
             >
-              Preorders {preorders.length > 0 && `(${preorders.length})`}
+              Preorders Watches {watchPreorders.length > 0 && `(${watchPreorders.length})`}
+            </button>
+            <button
+              className={`btn btn-sm${listingType === 'preorders-bags' ? ' btn-dark' : ''}`}
+              onClick={() => setListingType('preorders-bags')}
+            >
+              Preorders Bags {bagPreorders.length > 0 && `(${bagPreorders.length})`}
             </button>
           </div>
           <input
@@ -709,7 +718,7 @@ export default function AgentListings() {
             style={{ width: '100%', marginBottom: 12, boxSizing: 'border-box' }}
           />
 
-          {listingType === 'preorders' && (
+          {(listingType === 'preorders-watches' || listingType === 'preorders-bags') && (
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
               <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ flex: 1, fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)' }} />
               <span style={{ color: 'var(--faint)', fontSize: 13 }}>—</span>
@@ -746,7 +755,7 @@ export default function AgentListings() {
               ))
           )}
 
-          {listingType === 'preorders' && (
+          {(listingType === 'preorders-watches' || listingType === 'preorders-bags') && (
             filteredPreorders.length === 0
               ? <div className="empty-state">{search ? 'No preorders match your search' : 'No preorders yet'}</div>
               : filteredPreorders.map(p => (
