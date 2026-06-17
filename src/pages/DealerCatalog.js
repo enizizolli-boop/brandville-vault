@@ -807,15 +807,15 @@ export default function DealerCatalog({ routeCategory }) {
 
                   return (
                     <div className="watch-card" key={w.id}>
-                      <div className="card-img-wrap" onClick={() => navigate(`/catalog/${toSlug(w)}`)}>
+                      <a className="card-img-wrap" href={`/catalog/${toSlug(w)}`} onClick={e => { e.preventDefault(); navigate(`/catalog/${toSlug(w)}`); }}>
                         <CardImages watch={w} />
                         <button className="card-bookmark" onClick={e => e.stopPropagation()} title="Save">
                           <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
                             <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
                           </svg>
                         </button>
-                      </div>
-                      <div className="card-body" onClick={() => navigate(`/catalog/${toSlug(w)}`)}>
+                      </a>
+                      <a className="card-body" href={`/catalog/${toSlug(w)}`} onClick={e => { e.preventDefault(); navigate(`/catalog/${toSlug(w)}`); }}>
                         <div className="card-brand">{w.brand}</div>
                         <div className="card-model">{w.model}</div>
                         <div className="card-ref">{cleanRef(w.reference) ? `Ref. ${cleanRef(w.reference)}` : '—'}</div>
@@ -824,7 +824,7 @@ export default function DealerCatalog({ routeCategory }) {
                           {w.notes && shortenCond(w.condition) && <div className="card-dot" />}
                           {shortenCond(w.condition) && <span className="card-cond-pill">{shortenCond(w.condition)}</span>}
                         </div>
-                      </div>
+                      </a>
                       <div className="card-price-row">
                         <div className="card-price-block">
                           <div className="card-price">{fmtPrice(w, currency, rate)}</div>
@@ -833,7 +833,7 @@ export default function DealerCatalog({ routeCategory }) {
                           <a className="btn-wa" href={`https://wa.me/${waNum}?text=${waMsg}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
                             {WA_SVG}
                           </a>
-                          <button className="btn-inquire" onClick={() => navigate(`/catalog/${toSlug(w)}`)}>Inquire</button>
+                          <a className="btn-inquire" href={`/catalog/${toSlug(w)}`} onClick={e => { e.preventDefault(); navigate(`/catalog/${toSlug(w)}`); }}>Inquire</a>
                         </div>
                       </div>
                     </div>
