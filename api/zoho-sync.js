@@ -400,21 +400,46 @@ export default async function handler(req, res) {
 
     for (const zohoItem of zohoItems) {
       const mapped = mapZohoItem(zohoItem);
-      const isExisting = existingZohoIds.includes(mapped.zoho_item_id);
+      let watchId = existingMap[mapped.zoho_item_id];
 
-      const { data: upserted, error } = await supabase
-        .from('products')
-        .upsert(mapped, { onConflict: 'zoho_item_id' })
-        .select('id')
-        .single();
+      if (watchId) {
+        // Already linked by zoho_item_id — update fields
+        await supabase.from('products').update(mapped).eq('id', watchId);
+        updated++;
+      } else {
+        // Fallback: find a manually-added product with the same SKU/reference
+        // and backfill the zoho_item_id link on first encounter
+        if (mapped.reference) {
+          const { data: byRef } = await supabase
+            .from('products')
+            .select('id')
+            .eq('reference', mapped.reference)
+            .is('zoho_item_id', null)
+            .maybeSingle();
 
-      if (error) {
-        errors.push({ item: mapped.zoho_item_id, error: error.message });
-        continue;
+          if (byRef?.id) {
+            await supabase.from('products').update({ ...mapped }).eq('id', byRef.id);
+            watchId = byRef.id;
+            updated++;
+          }
+        }
+
+        if (!watchId) {
+          // Genuinely new — insert
+          const { data: upserted, error } = await supabase
+            .from('products')
+            .upsert(mapped, { onConflict: 'zoho_item_id' })
+            .select('id')
+            .single();
+
+          if (error) {
+            errors.push({ item: mapped.zoho_item_id, error: error.message });
+            continue;
+          }
+          watchId = upserted?.id;
+          added++;
+        }
       }
-
-      const watchId = upserted?.id || existingMap[mapped.zoho_item_id];
-      isExisting ? updated++ : added++;
 
       if (watchId && !productsWithImages.has(watchId)) {
         imagesAdded += await fetchAndUploadZohoImages(accessToken, zohoItem, watchId);
