@@ -200,8 +200,9 @@ async function fetchAndUploadZohoImages(accessToken, zohoItem, productId) {
       return uploaded;
     }
 
-    // Gallery API returned nothing — fall back to primary image via image_document_id
-    if (!zohoItem.image_document_id) return 0;
+    // Gallery API returned nothing (or ZIP was empty) — try fetching the primary/front
+    // image directly. Zoho's list API often omits image_document_id even for items that
+    // do have a Front View, so we always attempt the endpoint and rely on the HTTP status.
     const { count: existing } = await supabase
       .from('product_images').select('id', { count: 'exact', head: true }).eq('product_id', productId);
     if (existing > 0) return 0;
