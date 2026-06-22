@@ -63,6 +63,15 @@ export default function WatchDetail() {
   const { slug } = useParams()
   const navigate = useNav()
   const { profile } = useAuth()
+
+  function goBack() {
+    if (window.history.state?.idx > 0) {
+      navigate(-1)
+    } else {
+      const cat = watch?.category
+      navigate(cat === 'Bags' ? '/bags' : cat === 'Jewellery' ? '/jewellery' : '/watches')
+    }
+  }
   const { rate } = useExchangeRate()
   const { currency } = useCurrency()
   const [watch, setWatch] = useState(null)
@@ -208,7 +217,7 @@ export default function WatchDetail() {
       await supabase.from('product_images').delete().eq('product_id', watch.id)
       await supabase.from('products').delete().eq('id', watch.id)
     }
-    navigate(-1)
+    goBack()
   }
 
   async function handleReorderImages(fromIndex, toIndex) {
@@ -343,7 +352,7 @@ export default function WatchDetail() {
 
       {/* Back + Edit bar */}
       <div style={{ maxWidth: 940, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px' }}>
-        <button className="btn btn-sm" onClick={() => navigate(-1)}>← Back</button>
+        <button className="btn btn-sm" onClick={goBack}>← Back</button>
         <div style={{ display: 'flex', gap: 8 }}>
           {canEdit && !editing && <button className="btn btn-sm" onClick={() => setEditing(true)}>Edit</button>}
           {editing && <button className="btn btn-sm" onClick={() => setEditing(false)}>Cancel</button>}

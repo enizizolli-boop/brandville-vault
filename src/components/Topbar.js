@@ -175,21 +175,22 @@ export default function Topbar() {
   return (
     <>
       <div className="topbar">
-        <div className="topbar-logo" onClick={() => navigate('/home')} style={{ cursor: 'pointer' }}>
+        <a href="/home" className="topbar-logo" onClick={e => { e.preventDefault(); navigate('/home') }}>
           Brandville <span>Vault</span>
-        </div>
+        </a>
 
         <nav className="topbar-nav">
           {NAV.map(item => (
             <div key={item.label} className="nav-item"
               onMouseEnter={() => item.mega ? openNav(item.mega) : clearTimeout(closeTimer.current)}
               onMouseLeave={item.mega ? closeNav : undefined}>
-              <button
+              <a
+                href={item.route}
                 className={`nav-link ${isActive(item.route) ? 'active' : ''}`}
-                onClick={() => { setOpenMenu(null); navigate(item.route) }}
+                onClick={e => { e.preventDefault(); setOpenMenu(null); navigate(item.route) }}
               >
                 {item.label}
-              </button>
+              </a>
               {item.mega && openMenu === item.mega && (
                 <MegaMenu
                   category={item.mega}

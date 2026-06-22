@@ -729,6 +729,8 @@ button { font-family: inherit; cursor: pointer; }
   user-select: none;
   white-space: nowrap;
   flex-shrink: 0;
+  text-decoration: none;
+  cursor: pointer;
 }
 .topbar-logo span {
   color: var(--gold);
@@ -761,6 +763,8 @@ button { font-family: inherit; cursor: pointer; }
   transition: color 0.15s;
   position: relative;
   white-space: nowrap;
+  text-decoration: none;
+  display: inline-block;
 }
 .nav-link:hover { color: var(--text); }
 .nav-link.active { color: var(--gold); font-weight: 600; }
