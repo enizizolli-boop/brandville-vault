@@ -53,12 +53,9 @@ async function fetchAndUploadZohoImages(accessToken, itemId, productId) {
       return 0;
     }
 
-    // Zoho returns a ZIP file containing all gallery images
-    if (ct.includes('application/zip')) {
-      const { data: existingImgs } = await supabase
-        .from('product_images').select('position').eq('product_id', productId);
-      const existingPositions = new Set((existingImgs || []).map(r => r.position));
-
+    // Zoho returns a ZIP file containing all gallery images. Content-type is usually
+    // application/zip but some items return application/octet-stream for the same ZIP.
+    if (ct.includes('application/zip') || ct.includes('octet-stream')) {
       try {
         const buffer = Buffer.from(await listRes.arrayBuffer());
         const zip = await JSZip.loadAsync(buffer);
@@ -66,24 +63,34 @@ async function fetchAndUploadZohoImages(accessToken, itemId, productId) {
           .filter(f => !f.dir && /\.(jpe?g|png|webp|gif)$/i.test(f.name))
           .sort((a, b) => a.name.localeCompare(b.name));
 
-        let uploaded = 0;
-        for (let i = 0; i < imageFiles.length; i++) {
-          if (existingPositions.has(i)) continue;
-          try {
-            const imgBuffer = Buffer.from(await imageFiles[i].async('arraybuffer'));
-            const path = `${productId}/zoho_${i}.jpg`;
-            const { error: upErr } = await supabase.storage.from('watch-images').upload(path, imgBuffer, { contentType: 'image/jpeg', upsert: true });
-            if (upErr) continue;
-            const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
-            await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position: i });
-            uploaded++;
-          } catch (e) { console.error(`ZIP image ${i} upload error for item ${itemId}:`, e); }
+        if (imageFiles.length > 0) {
+          const { data: existingImgs } = await supabase
+            .from('product_images').select('position').eq('product_id', productId);
+          const existingPositions = new Set((existingImgs || []).map(r => r.position));
+          let uploaded = 0;
+          for (let i = 0; i < imageFiles.length; i++) {
+            if (existingPositions.has(i)) continue;
+            try {
+              const imgBuffer = Buffer.from(await imageFiles[i].async('arraybuffer'));
+              const path = `${productId}/zoho_${i}.jpg`;
+              const { error: upErr } = await supabase.storage.from('watch-images').upload(path, imgBuffer, { contentType: 'image/jpeg', upsert: true });
+              if (upErr) continue;
+              const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
+              await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position: i });
+              uploaded++;
+            } catch (e) { console.error(`ZIP image ${i} upload error for item ${itemId}:`, e); }
+          }
+          console.log(`Item ${itemId}: extracted ${imageFiles.length} images from ZIP, uploaded ${uploaded}`);
+          return uploaded;
         }
-        console.log(`Item ${itemId}: extracted ${imageFiles.length} images from ZIP, uploaded ${uploaded}`);
-        return uploaded;
+        // ZIP was empty (item only has a Front View, no Other Images) — fall through to primary image
       } catch (e) {
-        console.error(`ZIP extract error for item ${itemId}:`, e);
-        return 0;
+        if (ct.includes('application/zip')) {
+          console.error(`ZIP extract error for item ${itemId}:`, e);
+          return 0;
+        }
+        // octet-stream that isn't a valid ZIP — fall through to primary image fallback
+        console.log(`octet-stream was not a valid ZIP for item ${itemId}, trying primary image`);
       }
     }
 
@@ -132,8 +139,6 @@ async function fetchAndUploadZohoImages(accessToken, itemId, productId) {
         { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
       );
       if (!imgRes.ok) return 0;
-      const ct = imgRes.headers.get('content-type') || '';
-      if (!ct.startsWith('image/')) return 0;
       const buffer = Buffer.from(await imgRes.arrayBuffer());
       const path = `${productId}/zoho_0.jpg`;
       const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
