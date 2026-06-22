@@ -127,7 +127,6 @@ async function fetchAndUploadZohoImages(accessToken, zohoItem, productId) {
 
     // Zoho returns a ZIP file containing all gallery images for multi-image items
     if (ct.includes('application/zip')) {
-      await supabase.from('product_images').delete().eq('product_id', productId);
       try {
         const buffer = Buffer.from(await listRes.arrayBuffer());
         const zip = await JSZip.loadAsync(buffer);
@@ -135,6 +134,10 @@ async function fetchAndUploadZohoImages(accessToken, zohoItem, productId) {
           .filter(f => !f.dir && /\.(jpe?g|png|webp|gif)$/i.test(f.name))
           .sort((a, b) => a.name.localeCompare(b.name));
 
+        if (imageFiles.length === 0) return 0;
+
+        // Only wipe existing images once we know the ZIP actually has content
+        await supabase.from('product_images').delete().eq('product_id', productId);
         let uploaded = 0;
         for (let i = 0; i < imageFiles.length; i++) {
           try {
