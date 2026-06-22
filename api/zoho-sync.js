@@ -125,8 +125,9 @@ async function fetchAndUploadZohoImages(accessToken, zohoItem, productId) {
 
     const ct = listRes.headers.get('content-type') || '';
 
-    // Zoho returns a ZIP file containing all gallery images for multi-image items
-    if (ct.includes('application/zip')) {
+    // Zoho returns a ZIP file containing all gallery images. Content-type is usually
+    // application/zip but some items return application/octet-stream for the same ZIP.
+    if (ct.includes('application/zip') || ct.includes('octet-stream')) {
       try {
         const buffer = Buffer.from(await listRes.arrayBuffer());
         const zip = await JSZip.loadAsync(buffer);
@@ -152,8 +153,14 @@ async function fetchAndUploadZohoImages(accessToken, zohoItem, productId) {
         }
         return uploaded;
       } catch (e) {
-        console.error(`ZIP extract error for item ${itemId}:`, e);
-        return 0;
+        // application/zip that fails to parse is a real error — give up.
+        // application/octet-stream that isn't a valid ZIP means Zoho returned something
+        // else; fall through to the JSON / image_document_id fallback below.
+        if (ct.includes('application/zip')) {
+          console.error(`ZIP extract error for item ${itemId}:`, e);
+          return 0;
+        }
+        console.log(`octet-stream was not a valid ZIP for item ${itemId}, trying fallback`);
       }
     }
 
