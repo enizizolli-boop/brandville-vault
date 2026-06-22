@@ -111,107 +111,118 @@ function withTimeout(ms) {
 
 async function fetchAndUploadZohoImages(accessToken, zohoItem, productId) {
   const itemId = zohoItem.item_id;
-  try {
-    const gallery = withTimeout(8000);
-    let listRes;
+
+  // Returns null if rate limited even after retry; otherwise returns the fetch Response
+  async function fetchGallery() {
+    const t1 = withTimeout(8000);
+    let res;
     try {
-      listRes = await fetch(
+      res = await fetch(
         `https://www.zohoapis.eu/inventory/v1/items/${itemId}/images?organization_id=${process.env.ZOHO_ORG_ID}`,
-        { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }, signal: gallery.signal }
+        { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }, signal: t1.signal }
       );
-    } finally { gallery.clear(); }
+    } finally { t1.clear(); }
+    if (res.status !== 429) return res;
+    console.log(`[img] ${itemId}: gallery rate limited (429), waiting 5s then retrying`);
+    await new Promise(r => setTimeout(r, 5000));
+    const t2 = withTimeout(10000);
+    try {
+      res = await fetch(
+        `https://www.zohoapis.eu/inventory/v1/items/${itemId}/images?organization_id=${process.env.ZOHO_ORG_ID}`,
+        { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }, signal: t2.signal }
+      );
+    } finally { t2.clear(); }
+    if (res.status === 429) {
+      console.log(`[img] ${itemId}: gallery still rate limited after retry, skipping gallery`);
+      return null;
+    }
+    return res;
+  }
 
-    if (listRes.status === 429) { console.log(`[img] ${itemId}: gallery rate limited (429)`); return 0; }
+  try {
+    const listRes = await fetchGallery();
 
-    const ct = listRes.headers.get('content-type') || '';
-    console.log(`[img] ${itemId}: gallery status=${listRes.status} ct="${ct}"`);
+    if (listRes !== null) {
+      const ct = listRes.headers.get('content-type') || '';
+      console.log(`[img] ${itemId}: gallery status=${listRes.status} ct="${ct}"`);
 
-    // Zoho returns a ZIP file containing all gallery images. Content-type is usually
-    // application/zip but some items return application/octet-stream for the same ZIP.
-    if (ct.includes('application/zip') || ct.includes('octet-stream')) {
-      try {
-        const buffer = Buffer.from(await listRes.arrayBuffer());
-        console.log(`[img] ${itemId}: buffer size=${buffer.length}`);
-        const zip = await JSZip.loadAsync(buffer);
-        const allZipFiles = Object.values(zip.files);
-        console.log(`[img] ${itemId}: ZIP entries=${allZipFiles.map(f => f.name + (f.dir ? '/' : '')).join(', ')}`);
-        let imageFiles = allZipFiles
-          .filter(f => !f.dir && /\.(jpe?g|png|webp|gif)$/i.test(f.name))
-          .sort((a, b) => a.name.localeCompare(b.name));
-        // Some Zoho items use extensionless filenames in the ZIP — fall back to all non-dir files
-        if (imageFiles.length === 0) {
-          imageFiles = allZipFiles.filter(f => !f.dir).sort((a, b) => a.name.localeCompare(b.name));
-          if (imageFiles.length > 0) console.log(`[img] ${itemId}: using extensionless fallback, ${imageFiles.length} files`);
+      // Zoho returns a ZIP. Content-type is application/zip or application/octet-stream.
+      if (ct.includes('application/zip') || ct.includes('octet-stream')) {
+        try {
+          const buffer = Buffer.from(await listRes.arrayBuffer());
+          console.log(`[img] ${itemId}: buffer size=${buffer.length}`);
+          const zip = await JSZip.loadAsync(buffer);
+          const allZipFiles = Object.values(zip.files);
+          console.log(`[img] ${itemId}: ZIP entries=${allZipFiles.map(f => f.name + (f.dir ? '/' : '')).join(', ')}`);
+          let imageFiles = allZipFiles
+            .filter(f => !f.dir && /\.(jpe?g|png|webp|gif)$/i.test(f.name))
+            .sort((a, b) => a.name.localeCompare(b.name));
+          // Some Zoho items use extensionless filenames in the ZIP
+          if (imageFiles.length === 0) {
+            imageFiles = allZipFiles.filter(f => !f.dir).sort((a, b) => a.name.localeCompare(b.name));
+            if (imageFiles.length > 0) console.log(`[img] ${itemId}: using extensionless fallback, ${imageFiles.length} files`);
+          }
+          if (imageFiles.length > 0) {
+            await supabase.from('product_images').delete().eq('product_id', productId);
+            let uploaded = 0;
+            for (let i = 0; i < imageFiles.length; i++) {
+              try {
+                const imgBuffer = Buffer.from(await imageFiles[i].async('arraybuffer'));
+                const path = `${productId}/zoho_${i}.jpg`;
+                const { error: upErr } = await supabase.storage.from('watch-images').upload(path, imgBuffer, { contentType: 'image/jpeg', upsert: true });
+                if (upErr) { console.error(`[img] ${itemId}: upload error pos ${i}:`, upErr.message); continue; }
+                const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
+                await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position: i });
+                uploaded++;
+              } catch (e) { console.error(`[img] ${itemId}: ZIP image ${i} error:`, e.message); }
+            }
+            console.log(`[img] ${itemId}: ZIP uploaded ${uploaded}/${imageFiles.length}`);
+            return uploaded;
+          }
+          console.log(`[img] ${itemId}: ZIP has no usable files — trying primary image`);
+        } catch (e) {
+          if (ct.includes('application/zip')) { console.error(`[img] ${itemId}: ZIP parse error:`, e.message); return 0; }
+          console.log(`[img] ${itemId}: octet-stream not a valid ZIP (${e.message}), trying primary image`);
         }
-
-        if (imageFiles.length > 0) {
-          // Only wipe existing images once we know the ZIP actually has content
+      } else {
+        // JSON gallery list (body not yet consumed)
+        let listData = null;
+        try {
+          if (ct.includes('application/json') || ct.includes('text/')) listData = await listRes.json();
+        } catch { listData = null; }
+        if (listData?.images && listData.images.length > 0) {
+          console.log(`[img] ${itemId}: JSON gallery has ${listData.images.length} images`);
           await supabase.from('product_images').delete().eq('product_id', productId);
           let uploaded = 0;
-          for (let i = 0; i < imageFiles.length; i++) {
+          for (let i = 0; i < listData.images.length; i++) {
+            const docId = listData.images[i].image_document_id;
+            if (!docId) continue;
             try {
-              const imgBuffer = Buffer.from(await imageFiles[i].async('arraybuffer'));
+              const img = withTimeout(8000);
+              let imgRes;
+              try {
+                imgRes = await fetch(
+                  `https://www.zohoapis.eu/inventory/v1/items/${itemId}/image?organization_id=${process.env.ZOHO_ORG_ID}&document_id=${docId}`,
+                  { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }, signal: img.signal }
+                );
+              } finally { img.clear(); }
+              if (!imgRes.ok) { console.error(`[img] ${itemId}: JSON image ${i} fetch ${imgRes.status}`); continue; }
+              const buffer = Buffer.from(await imgRes.arrayBuffer());
               const path = `${productId}/zoho_${i}.jpg`;
-              const { error: upErr } = await supabase.storage.from('watch-images').upload(path, imgBuffer, { contentType: 'image/jpeg', upsert: true });
-              if (upErr) { console.error(`[img] ${itemId}: upload error position ${i}:`, upErr.message); continue; }
+              const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
+              if (upErr) { console.error(`[img] ${itemId}: JSON image ${i} upload error:`, upErr.message); continue; }
               const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
               await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position: i });
               uploaded++;
-            } catch (e) { console.error(`[img] ${itemId}: ZIP image ${i} error:`, e.message); }
+            } catch (e) { console.error(`[img] ${itemId}: JSON image ${i} error:`, e.message); }
           }
-          console.log(`[img] ${itemId}: ZIP uploaded ${uploaded}/${imageFiles.length}`);
           return uploaded;
         }
-        console.log(`[img] ${itemId}: ZIP has no usable files — falling through to primary image`);
-      } catch (e) {
-        if (ct.includes('application/zip')) {
-          console.error(`[img] ${itemId}: ZIP parse error:`, e.message);
-          return 0;
-        }
-        console.log(`[img] ${itemId}: octet-stream not a valid ZIP (${e.message}), trying primary image`);
       }
     }
 
-    // Some Zoho items return JSON instead of ZIP.
-    // NOTE: only attempt if the body hasn't already been consumed by the ZIP path above.
-    let listData = null;
-    if (!ct.includes('application/zip') && !ct.includes('octet-stream')) {
-      try {
-        if (ct.includes('application/json') || ct.includes('text/')) listData = await listRes.json();
-      } catch { listData = null; }
-    }
-
-    if (listData?.images && listData.images.length > 0) {
-      console.log(`[img] ${itemId}: JSON gallery has ${listData.images.length} images`);
-      await supabase.from('product_images').delete().eq('product_id', productId);
-      let uploaded = 0;
-      for (let i = 0; i < listData.images.length; i++) {
-        const docId = listData.images[i].image_document_id;
-        if (!docId) continue;
-        try {
-          const img = withTimeout(8000);
-          let imgRes;
-          try {
-            imgRes = await fetch(
-              `https://www.zohoapis.eu/inventory/v1/items/${itemId}/image?organization_id=${process.env.ZOHO_ORG_ID}&document_id=${docId}`,
-              { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }, signal: img.signal }
-            );
-          } finally { img.clear(); }
-          if (!imgRes.ok) { console.error(`[img] ${itemId}: JSON image ${i} fetch ${imgRes.status}`); continue; }
-          const buffer = Buffer.from(await imgRes.arrayBuffer());
-          const path = `${productId}/zoho_${i}.jpg`;
-          const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
-          if (upErr) { console.error(`[img] ${itemId}: JSON image ${i} upload error:`, upErr.message); continue; }
-          const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
-          await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position: i });
-          uploaded++;
-        } catch (e) { console.error(`[img] ${itemId}: JSON image ${i} error:`, e.message); }
-      }
-      return uploaded;
-    }
-
-    // No gallery images — fetch item detail to get image_document_id, then download it.
-    // Zoho requires document_id even for the primary/front image.
+    // No gallery images (empty ZIP, rate limited, or no Other Images) —
+    // fetch item detail to get image_document_id and download the primary/front image.
     console.log(`[img] ${itemId}: no gallery images, trying primary image via item detail`);
     const { count: existing } = await supabase
       .from('product_images').select('id', { count: 'exact', head: true })
@@ -250,7 +261,7 @@ async function fetchAndUploadZohoImages(accessToken, zohoItem, productId) {
       return 1;
     } catch (e) { console.error(`[img] ${itemId}: primary image error:`, e.message); return 0; }
   } catch (e) {
-    console.error(`[img] ${itemId}: fetchAndUploadZohoImages error:`, e.message);
+    console.error(`[img] ${itemId}: error:`, e.message);
     return 0;
   }
 }
@@ -478,6 +489,7 @@ export default async function handler(req, res) {
 
       if (watchId && !productsWithImages.has(watchId)) {
         imagesAdded += await fetchAndUploadZohoImages(accessToken, zohoItem, watchId);
+        await new Promise(r => setTimeout(r, 1200));
       }
     }
 
