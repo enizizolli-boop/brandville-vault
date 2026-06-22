@@ -86,9 +86,13 @@ async function fetchAndUploadZohoImages(accessToken, itemId, productId) {
       try {
         const buffer = Buffer.from(await listRes.arrayBuffer());
         const zip = await JSZip.loadAsync(buffer);
-        const imageFiles = Object.values(zip.files)
+        let imageFiles = Object.values(zip.files)
           .filter(f => !f.dir && /\.(jpe?g|png|webp|gif)$/i.test(f.name))
           .sort((a, b) => a.name.localeCompare(b.name));
+        // Some Zoho items use extensionless filenames in the ZIP — fall back to all files
+        if (imageFiles.length === 0) {
+          imageFiles = Object.values(zip.files).filter(f => !f.dir).sort((a, b) => a.name.localeCompare(b.name));
+        }
 
         if (imageFiles.length > 0) {
           const { data: existingImgs } = await supabase

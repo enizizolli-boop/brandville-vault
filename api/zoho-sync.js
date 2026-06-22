@@ -131,9 +131,13 @@ async function fetchAndUploadZohoImages(accessToken, zohoItem, productId) {
       try {
         const buffer = Buffer.from(await listRes.arrayBuffer());
         const zip = await JSZip.loadAsync(buffer);
-        const imageFiles = Object.values(zip.files)
+        let imageFiles = Object.values(zip.files)
           .filter(f => !f.dir && /\.(jpe?g|png|webp|gif)$/i.test(f.name))
           .sort((a, b) => a.name.localeCompare(b.name));
+        // Some Zoho items use extensionless filenames in the ZIP — fall back to all files
+        if (imageFiles.length === 0) {
+          imageFiles = Object.values(zip.files).filter(f => !f.dir).sort((a, b) => a.name.localeCompare(b.name));
+        }
 
         if (imageFiles.length > 0) {
           // Only wipe existing images once we know the ZIP actually has content
@@ -203,7 +207,8 @@ async function fetchAndUploadZohoImages(accessToken, zohoItem, productId) {
     // No gallery images — fetch item detail to get image_document_id, then download it.
     // Zoho requires document_id even for the primary/front image.
     const { count: existing } = await supabase
-      .from('product_images').select('id', { count: 'exact', head: true }).eq('product_id', productId);
+      .from('product_images').select('id', { count: 'exact', head: true })
+      .eq('product_id', productId).like('url', '%supabase.co%');
     if (existing > 0) return 0;
     try {
       const detail = withTimeout(8000);
