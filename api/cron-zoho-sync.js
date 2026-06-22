@@ -120,8 +120,8 @@ async function syncGalleryImages(accessToken, itemId, productId, forceRefresh = 
     const ct = listRes.headers.get('content-type') || '';
     let uploaded = 0;
 
-    // Zoho returns a ZIP file containing all gallery images
-    if (ct.includes('application/zip')) {
+    // Zoho returns a ZIP. Content-type is application/zip or application/octet-stream.
+    if (ct.includes('application/zip') || ct.includes('octet-stream')) {
       try {
         const buffer = Buffer.from(await listRes.arrayBuffer());
         const zip = await JSZip.loadAsync(buffer);
@@ -129,21 +129,26 @@ async function syncGalleryImages(accessToken, itemId, productId, forceRefresh = 
           .filter(f => !f.dir && /\.(jpe?g|png|webp|gif)$/i.test(f.name))
           .sort((a, b) => a.name.localeCompare(b.name));
 
-        for (let i = 0; i < imageFiles.length; i++) {
-          if (existingPositions.has(i)) continue;
-          try {
-            const imgBuffer = Buffer.from(await imageFiles[i].async('arraybuffer'));
-            const path = `${productId}/zoho_${i}.jpg`;
-            const { error: upErr } = await supabase.storage.from('watch-images').upload(path, imgBuffer, { contentType: 'image/jpeg', upsert: true });
-            if (upErr) continue;
-            const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
-            await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position: i });
-            uploaded++;
-          } catch (e) { console.error(`ZIP image ${i} error for ${itemId}:`, e); }
+        if (imageFiles.length > 0) {
+          for (let i = 0; i < imageFiles.length; i++) {
+            if (existingPositions.has(i)) continue;
+            try {
+              const imgBuffer = Buffer.from(await imageFiles[i].async('arraybuffer'));
+              const path = `${productId}/zoho_${i}.jpg`;
+              const { error: upErr } = await supabase.storage.from('watch-images').upload(path, imgBuffer, { contentType: 'image/jpeg', upsert: true });
+              if (upErr) continue;
+              const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
+              await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position: i });
+              uploaded++;
+            } catch (e) { console.error(`ZIP image ${i} error for ${itemId}:`, e); }
+          }
+          return uploaded;
         }
-        console.log(`Item ${itemId}: ${imageFiles.length} images in ZIP, uploaded ${uploaded}`);
-      } catch (e) { console.error(`ZIP extract error for ${itemId}:`, e); }
-      return uploaded;
+        // ZIP empty — fall through to primary image fallback
+      } catch (e) {
+        if (ct.includes('application/zip')) { console.error(`ZIP extract error for ${itemId}:`, e); return 0; }
+        // octet-stream that isn't a valid ZIP — fall through
+      }
     }
 
     // JSON gallery list
@@ -174,6 +179,31 @@ async function syncGalleryImages(accessToken, itemId, productId, forceRefresh = 
       }
       return uploaded;
     }
+
+    // No gallery — fetch item detail to get image_document_id for the Front View
+    if (existingPositions.size > 0) return 0;
+    try {
+      const detailRes = await fetch(
+        `https://www.zohoapis.eu/inventory/v1/items/${itemId}?organization_id=${process.env.ZOHO_ORG_ID}`,
+        { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+      );
+      if (!detailRes.ok) return 0;
+      const detailData = await detailRes.json();
+      const imageDocId = detailData?.item?.image_document_id;
+      if (!imageDocId) return 0;
+      const imgRes = await fetch(
+        `https://www.zohoapis.eu/inventory/v1/items/${itemId}/image?organization_id=${process.env.ZOHO_ORG_ID}&document_id=${imageDocId}`,
+        { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+      );
+      if (!imgRes.ok) return 0;
+      const buffer = Buffer.from(await imgRes.arrayBuffer());
+      const path = `${productId}/zoho_0.jpg`;
+      const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
+      if (upErr) return 0;
+      const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
+      await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position: 0 });
+      return 1;
+    } catch (e) { console.error(`Primary image fallback error for ${itemId}:`, e); return 0; }
 
     return 0;
   } catch (e) {
