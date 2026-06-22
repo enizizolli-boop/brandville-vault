@@ -39,6 +39,33 @@ async function getAccessToken() {
   return data.access_token;
 }
 
+// Reuses the same cache key as zoho-sync.js so consecutive calls share one Zoho fetch
+async function getAllItemsCached(accessToken) {
+  const CACHE_TTL_MS = 10 * 60 * 1000;
+  const { data: cached } = await supabase
+    .from('sync_log').select('result, last_sync_at').eq('key', 'zoho_items_cache').single();
+  if (cached?.result?.items && cached.last_sync_at) {
+    if (Date.now() - new Date(cached.last_sync_at).getTime() < CACHE_TTL_MS) return cached.result.items;
+  }
+  let items = [], page = 1;
+  while (true) {
+    const res = await fetch(
+      `https://www.zohoapis.eu/inventory/v1/items?organization_id=${process.env.ZOHO_ORG_ID}&per_page=200&page=${page}&status=active`,
+      { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+    );
+    const data = await res.json();
+    if (!data.items || data.items.length === 0) break;
+    items = items.concat(data.items);
+    if (data.items.length < 200) break;
+    page++;
+  }
+  await supabase.from('sync_log').upsert(
+    { key: 'zoho_items_cache', last_sync_at: new Date().toISOString(), result: { items } },
+    { onConflict: 'key' }
+  );
+  return items;
+}
+
 async function fetchAndUploadZohoImages(accessToken, itemId, productId) {
   try {
     const listRes = await fetch(
@@ -201,8 +228,39 @@ export default async function handler(req, res) {
         errors.push({ watch_id: watch.id, error: e.message });
       }
       processed++;
-      // Pause between items — Zoho gallery API has a strict per-minute rate limit
       await new Promise(r => setTimeout(r, 1500));
+    }
+
+    // On first batch: also backfill products that have no zoho_item_id yet.
+    // These are items that were never on the Zoho storefront so the main sync skipped them,
+    // but they ARE active in Zoho Inventory and can be matched by reference/SKU.
+    if (offset === 0) {
+      const { data: unlinked } = await supabase
+        .from('products')
+        .select('id, reference')
+        .eq('source', 'zoho')
+        .is('zoho_item_id', null)
+        .not('reference', 'is', null);
+
+      if (unlinked && unlinked.length > 0) {
+        const allZohoItems = await getAllItemsCached(accessToken);
+        const refMap = {};
+        for (const item of allZohoItems) {
+          if (item.sku) refMap[item.sku] = String(item.item_id);
+        }
+        for (const w of unlinked) {
+          const zohoItemId = refMap[w.reference];
+          if (!zohoItemId) continue;
+          await supabase.from('products').update({ zoho_item_id: zohoItemId }).eq('id', w.id);
+          try {
+            imagesAdded += await fetchAndUploadZohoImages(accessToken, zohoItemId, w.id);
+          } catch (e) {
+            errors.push({ watch_id: w.id, error: e.message });
+          }
+          processed++;
+          await new Promise(r => setTimeout(r, 1500));
+        }
+      }
     }
 
     const { count: totalCount } = await supabase
