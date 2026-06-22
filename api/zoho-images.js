@@ -131,8 +131,8 @@ async function fetchAndUploadZohoImages(accessToken, itemId, productId) {
       return uploaded;
     }
 
-    // No gallery — try primary image, only if item has no Supabase-hosted images
-    console.log(`Item ${itemId}: no gallery (ct="${ct}", status=${listRes.status})`);
+    // No gallery — fetch item detail to get image_document_id, then download that image.
+    // Zoho requires the document_id parameter even for the primary/front image.
     const { count: existing } = await supabase
       .from('product_images')
       .select('id', { count: 'exact', head: true })
@@ -140,8 +140,16 @@ async function fetchAndUploadZohoImages(accessToken, itemId, productId) {
       .like('url', '%supabase.co%');
     if (existing > 0) return 0;
     try {
+      const detailRes = await fetch(
+        `https://www.zohoapis.eu/inventory/v1/items/${itemId}?organization_id=${process.env.ZOHO_ORG_ID}`,
+        { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+      );
+      if (!detailRes.ok) return 0;
+      const detailData = await detailRes.json();
+      const imageDocId = detailData?.item?.image_document_id;
+      if (!imageDocId) return 0;
       const imgRes = await fetch(
-        `https://www.zohoapis.eu/inventory/v1/items/${itemId}/image?organization_id=${process.env.ZOHO_ORG_ID}`,
+        `https://www.zohoapis.eu/inventory/v1/items/${itemId}/image?organization_id=${process.env.ZOHO_ORG_ID}&document_id=${imageDocId}`,
         { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
       );
       if (!imgRes.ok) return 0;

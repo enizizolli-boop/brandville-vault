@@ -200,18 +200,29 @@ async function fetchAndUploadZohoImages(accessToken, zohoItem, productId) {
       return uploaded;
     }
 
-    // Gallery API returned nothing (or ZIP was empty) — try fetching the primary/front
-    // image directly. Zoho's list API often omits image_document_id even for items that
-    // do have a Front View, so we always attempt the endpoint and rely on the HTTP status.
+    // No gallery images — fetch item detail to get image_document_id, then download it.
+    // Zoho requires document_id even for the primary/front image.
     const { count: existing } = await supabase
       .from('product_images').select('id', { count: 'exact', head: true }).eq('product_id', productId);
     if (existing > 0) return 0;
     try {
+      const detail = withTimeout(8000);
+      let detailRes;
+      try {
+        detailRes = await fetch(
+          `https://www.zohoapis.eu/inventory/v1/items/${itemId}?organization_id=${process.env.ZOHO_ORG_ID}`,
+          { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }, signal: detail.signal }
+        );
+      } finally { detail.clear(); }
+      if (!detailRes.ok) return 0;
+      const detailData = await detailRes.json();
+      const imageDocId = detailData?.item?.image_document_id;
+      if (!imageDocId) return 0;
       const primary = withTimeout(8000);
       let imgRes;
       try {
         imgRes = await fetch(
-          `https://www.zohoapis.eu/inventory/v1/items/${itemId}/image?organization_id=${process.env.ZOHO_ORG_ID}`,
+          `https://www.zohoapis.eu/inventory/v1/items/${itemId}/image?organization_id=${process.env.ZOHO_ORG_ID}&document_id=${imageDocId}`,
           { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }, signal: primary.signal }
         );
       } finally { primary.clear(); }
