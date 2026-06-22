@@ -135,23 +135,25 @@ async function fetchAndUploadZohoImages(accessToken, zohoItem, productId) {
           .filter(f => !f.dir && /\.(jpe?g|png|webp|gif)$/i.test(f.name))
           .sort((a, b) => a.name.localeCompare(b.name));
 
-        if (imageFiles.length === 0) return 0;
-
-        // Only wipe existing images once we know the ZIP actually has content
-        await supabase.from('product_images').delete().eq('product_id', productId);
-        let uploaded = 0;
-        for (let i = 0; i < imageFiles.length; i++) {
-          try {
-            const imgBuffer = Buffer.from(await imageFiles[i].async('arraybuffer'));
-            const path = `${productId}/zoho_${i}.jpg`;
-            const { error: upErr } = await supabase.storage.from('watch-images').upload(path, imgBuffer, { contentType: 'image/jpeg', upsert: true });
-            if (upErr) continue;
-            const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
-            await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position: i });
-            uploaded++;
-          } catch (e) { console.error(`ZIP image ${i} upload error for item ${itemId}:`, e); }
+        if (imageFiles.length > 0) {
+          // Only wipe existing images once we know the ZIP actually has content
+          await supabase.from('product_images').delete().eq('product_id', productId);
+          let uploaded = 0;
+          for (let i = 0; i < imageFiles.length; i++) {
+            try {
+              const imgBuffer = Buffer.from(await imageFiles[i].async('arraybuffer'));
+              const path = `${productId}/zoho_${i}.jpg`;
+              const { error: upErr } = await supabase.storage.from('watch-images').upload(path, imgBuffer, { contentType: 'image/jpeg', upsert: true });
+              if (upErr) continue;
+              const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
+              await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position: i });
+              uploaded++;
+            } catch (e) { console.error(`ZIP image ${i} upload error for item ${itemId}:`, e); }
+          }
+          return uploaded;
         }
-        return uploaded;
+        // ZIP was empty (item only has a Front View, no Other Images in Zoho) —
+        // fall through to the image_document_id fallback below to get the primary image.
       } catch (e) {
         // application/zip that fails to parse is a real error — give up.
         // application/octet-stream that isn't a valid ZIP means Zoho returned something
