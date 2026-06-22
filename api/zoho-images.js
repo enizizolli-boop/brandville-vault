@@ -65,8 +65,11 @@ async function fetchAndUploadZohoImages(accessToken, itemId, productId) {
 
         if (imageFiles.length > 0) {
           const { data: existingImgs } = await supabase
-            .from('product_images').select('position').eq('product_id', productId);
-          const existingPositions = new Set((existingImgs || []).map(r => r.position));
+            .from('product_images').select('position, url').eq('product_id', productId);
+          // Only treat Supabase-hosted images as already uploaded; skip bad/external URLs
+          const existingPositions = new Set(
+            (existingImgs || []).filter(r => r.url && r.url.includes('supabase.co')).map(r => r.position)
+          );
           let uploaded = 0;
           for (let i = 0; i < imageFiles.length; i++) {
             if (existingPositions.has(i)) continue;
@@ -128,10 +131,13 @@ async function fetchAndUploadZohoImages(accessToken, itemId, productId) {
       return uploaded;
     }
 
-    // No gallery — try primary image, only if item has no images at all
-    console.log(`Item ${itemId}: no gallery (ct="${ct}")`);
+    // No gallery — try primary image, only if item has no Supabase-hosted images
+    console.log(`Item ${itemId}: no gallery (ct="${ct}", status=${listRes.status})`);
     const { count: existing } = await supabase
-      .from('product_images').select('id', { count: 'exact', head: true }).eq('product_id', productId);
+      .from('product_images')
+      .select('id', { count: 'exact', head: true })
+      .eq('product_id', productId)
+      .like('url', '%supabase.co%');
     if (existing > 0) return 0;
     try {
       const imgRes = await fetch(
