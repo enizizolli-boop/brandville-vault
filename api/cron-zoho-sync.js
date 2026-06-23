@@ -53,9 +53,8 @@ async function fetchAllLiveIds(accessToken) {
       const data = await res.json();
       if (!data.items || data.items.length === 0) break;
       for (const item of data.items) {
-        if (item.show_in_storefront !== true && item.show_in_storefront !== 'true') continue;
-        const stock = item.actual_available_stock ?? item.available_stock ?? item.stock_on_hand ?? 0;
-        if (Number(stock) > 0) ids.push(String(item.item_id));
+        if ((item.cf_stage || item.stage || '') === 'Per oferte' && Number(item.available_for_sale_stock ?? 0) >= 1)
+          ids.push(String(item.item_id));
       }
       if (data.items.length < perPage) break;
       page++;
@@ -291,17 +290,9 @@ export default async function handler(req, res) {
 
     const recentItems = await fetchRecentItems(accessToken, 35);
 
-    const liveItems = recentItems.filter(item => {
-      if (item.show_in_storefront !== true && item.show_in_storefront !== 'true') return false;
-      const stock = item.actual_available_stock ?? item.available_stock ?? item.stock_on_hand ?? 0;
-      return Number(stock) > 0;
-    });
-
-    const offItems = recentItems.filter(item => {
-      if (item.show_in_storefront !== true && item.show_in_storefront !== 'true') return true;
-      const stock = item.actual_available_stock ?? item.available_stock ?? item.stock_on_hand ?? 0;
-      return Number(stock) <= 0;
-    });
+    const isLive = item => (item.cf_stage || item.stage || '') === 'Per oferte' && Number(item.available_for_sale_stock ?? 0) >= 1;
+    const liveItems = recentItems.filter(isLive);
+    const offItems = recentItems.filter(item => !isLive(item));
 
     if (offItems.length > 0) {
       const offIds = offItems.map(i => String(i.item_id));
@@ -424,12 +415,7 @@ export default async function handler(req, res) {
               } catch { clearTimeout(timer); break; }
             }
             const missingSet = new Set(missingIds);
-            const toInsert = allFull.filter(item => {
-              if (!missingSet.has(String(item.item_id))) return false;
-              if (item.show_in_storefront !== true && item.show_in_storefront !== 'true') return false;
-              const stock = item.actual_available_stock ?? item.available_stock ?? item.stock_on_hand ?? 0;
-              return Number(stock) > 0;
-            }).map(mapZohoItem);
+            const toInsert = allFull.filter(item => missingSet.has(String(item.item_id)) && isLive(item)).map(mapZohoItem);
             if (toInsert.length > 0) {
               await supabase.from('products').upsert(toInsert, { onConflict: 'zoho_item_id' });
               console.log(`Reconciliation: inserted ${toInsert.length} missing items`);

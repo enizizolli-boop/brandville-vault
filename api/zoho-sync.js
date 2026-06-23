@@ -357,13 +357,9 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: false, error: 'Zoho returned 0 items — aborting to prevent accidental deletion', removed: 0 });
     }
 
-    // Filter: must be on storefront AND have stock available
-    // show_in_storefront can be boolean true or string "true" depending on Zoho API version
-    let zohoItems = allItems.filter(item => {
-      if (item.show_in_storefront !== true && item.show_in_storefront !== 'true') return false;
-      const stock = item.actual_available_stock ?? item.available_stock ?? item.stock_on_hand ?? 0;
-      return Number(stock) > 0;
-    });
+    // Filter: stage must be "Per oferte" AND accounting available_for_sale_stock >= 1
+    const isLive = item => (item.cf_stage || item.stage || '') === 'Per oferte' && Number(item.available_for_sale_stock ?? 0) >= 1;
+    let zohoItems = allItems.filter(isLive);
     const totalOnStore = zohoItems.length;
 
     if (test_mode) {
@@ -419,14 +415,8 @@ export default async function handler(req, res) {
       const { data: allExisting } = await supabase
         .from('products').select('zoho_item_id').eq('source', 'zoho');
       const allExistingIds = (allExisting || []).map(i => i.zoho_item_id);
-      const liveZohoIds = allItems.filter(i => {
-        if (i.show_in_storefront !== true && i.show_in_storefront !== 'true') return false;
-        const stock = i.actual_available_stock ?? i.available_stock ?? i.stock_on_hand ?? 0;
-        return Number(stock) > 0;
-      }).map(i => String(i.item_id));
+      const liveZohoIds = allItems.filter(isLive).map(i => String(i.item_id));
       // Safety guard — abort only if Zoho returned suspiciously few TOTAL items vs DB.
-      // Use allItems.length (all active Zoho items) not liveZohoIds (show_in_storefront=true only),
-      // because a large show_in_storefront=false batch would incorrectly trigger the guard otherwise.
       const minExpected = Math.ceil(allExistingIds.length * 0.5);
       if (allItems.length < minExpected) {
         console.error(`Stale cleanup aborted: Zoho returned only ${allItems.length} total items but DB has ${allExistingIds.length} — looks like a partial API response`);
