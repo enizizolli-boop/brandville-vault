@@ -378,12 +378,14 @@ export default async function handler(req, res) {
       }
     }
 
-    // 12-hour reconciliation: find items missing from DB or stuck as sold, and fix them
+    // Reconciliation: find items missing from DB or stuck as sold, and fix them.
+    // Runs every cron tick (every 15 min) — gated only to skip if it somehow ran
+    // less than 10 min ago (e.g. a manual + cron run overlapping).
     try {
       const { data: logRow } = await supabase.from('sync_log').select('result').eq('key', 'sync_zoho_reconcile').single();
       const lastReconcile = logRow?.result?.last_reconcile_at ? new Date(logRow.result.last_reconcile_at) : null;
-      const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
-      if (!lastReconcile || lastReconcile < twelveHoursAgo) {
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+      if (!lastReconcile || lastReconcile < tenMinutesAgo) {
         const allZohoIds = await fetchAllLiveIds(accessToken);
         if (allZohoIds && allZohoIds.length > 0) {
           const { data: dbRows } = await supabase
