@@ -357,18 +357,6 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: false, error: 'Zoho returned 0 items — aborting to prevent accidental deletion', removed: 0 });
     }
 
-    // TEMP DEBUG — test if the internal inventory.zoho.eu/api/v1 endpoint is reachable with our OAuth token.
-    if (offset === 0) {
-      try {
-        const testRes = await fetch(
-          `https://inventory.zoho.eu/api/v1/items/157296000036115527?organization_id=${process.env.ZOHO_ORG_ID}`,
-          { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
-        );
-        const testText = await testRes.text();
-        console.log(`[debug-internal-api] status=${testRes.status} bodyStart=${testText.slice(0, 300)}`);
-      } catch (e) { console.log('[debug-internal-api] error:', e.message); }
-    }
-
     // Filter: stage must be "Per oferte" AND accounting available_stock >= 1.
     // Confirmed via raw Zoho list response: there is no "available_for_sale_stock" field —
     // the accounting "Available for Sale" value is returned as "available_stock"
