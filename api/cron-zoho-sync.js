@@ -379,13 +379,14 @@ export default async function handler(req, res) {
     }
 
     // Reconciliation: find items missing from DB or stuck as sold, and fix them.
-    // Runs every cron tick (every 15 min) — gated only to skip if it somehow ran
-    // less than 10 min ago (e.g. a manual + cron run overlapping).
+    // Does a full paginated inventory fetch, so it's gated to once every 2 hours
+    // (was 12h, which left items unsynced too long; was briefly every-tick, which
+    // burns far too much of the daily Zoho API quota across all orgs/items).
     try {
       const { data: logRow } = await supabase.from('sync_log').select('result').eq('key', 'sync_zoho_reconcile').single();
       const lastReconcile = logRow?.result?.last_reconcile_at ? new Date(logRow.result.last_reconcile_at) : null;
-      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-      if (!lastReconcile || lastReconcile < tenMinutesAgo) {
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+      if (!lastReconcile || lastReconcile < twoHoursAgo) {
         const allZohoIds = await fetchAllLiveIds(accessToken);
         if (allZohoIds && allZohoIds.length > 0) {
           const { data: dbRows } = await supabase
