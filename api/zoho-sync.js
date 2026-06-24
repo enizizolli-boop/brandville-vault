@@ -366,14 +366,8 @@ export default async function handler(req, res) {
           { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
         );
         const detailJson = await detailRes.json();
-        console.log('[debug-15942c]', JSON.stringify({
-          list_available_stock: listEntry?.available_stock,
-          list_actual_available_stock: listEntry?.actual_available_stock,
-          list_last_modified: listEntry?.last_modified_time,
-          detail_available_stock: detailJson?.item?.available_stock,
-          detail_actual_available_stock: detailJson?.item?.actual_available_stock,
-          detail_last_modified: detailJson?.item?.last_modified_time,
-        }));
+        console.log('[debug-15942c] list raw:', JSON.stringify(listEntry));
+        console.log('[debug-15942c] detail raw:', JSON.stringify(detailJson?.item));
       } catch (e) { console.log('[debug-15942c] error:', e.message); }
     }
 
