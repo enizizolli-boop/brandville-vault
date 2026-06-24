@@ -39,11 +39,12 @@ async function getAccessToken() {
   return data.access_token;
 }
 
-// show_in_storefront can be boolean true or string "true" depending on Zoho API version
+// Stage must be "Per oferte" AND accounting available_stock >= 1.
+// Confirmed via raw Zoho list response: there is no "available_for_sale_stock" field —
+// the accounting "Available for Sale" value is returned as "available_stock"
+// ("actual_available_stock" is the Physical Stock counterpart, not used here).
 function isLiveItem(item) {
-  if (item.show_in_storefront !== true && item.show_in_storefront !== 'true') return false;
-  const stock = item.actual_available_stock ?? item.available_stock ?? item.stock_on_hand ?? 0;
-  return Number(stock) > 0;
+  return (item.cf_stage || '') === 'Per oferte' && Number(item.available_stock ?? 0) >= 1;
 }
 
 async function fetchAllLiveIds(accessToken) {
