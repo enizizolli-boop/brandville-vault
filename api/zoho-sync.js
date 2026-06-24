@@ -357,6 +357,26 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: false, error: 'Zoho returned 0 items — aborting to prevent accidental deletion', removed: 0 });
     }
 
+    // TEMP DEBUG — compare LIST endpoint vs DETAIL endpoint for item 15942 in the same request.
+    if (offset === 0) {
+      const listEntry = allItems.find(i => String(i.item_id) === '157296000036115527');
+      try {
+        const detailRes = await fetch(
+          `https://www.zohoapis.eu/inventory/v1/items/157296000036115527?organization_id=${process.env.ZOHO_ORG_ID}`,
+          { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+        );
+        const detailJson = await detailRes.json();
+        console.log('[debug-15942c]', JSON.stringify({
+          list_available_stock: listEntry?.available_stock,
+          list_actual_available_stock: listEntry?.actual_available_stock,
+          list_last_modified: listEntry?.last_modified_time,
+          detail_available_stock: detailJson?.item?.available_stock,
+          detail_actual_available_stock: detailJson?.item?.actual_available_stock,
+          detail_last_modified: detailJson?.item?.last_modified_time,
+        }));
+      } catch (e) { console.log('[debug-15942c] error:', e.message); }
+    }
+
     // Filter: stage must be "Per oferte" AND accounting available_stock >= 1.
     // Confirmed via raw Zoho list response: there is no "available_for_sale_stock" field —
     // the accounting "Available for Sale" value is returned as "available_stock"
