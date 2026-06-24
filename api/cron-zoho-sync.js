@@ -39,6 +39,13 @@ async function getAccessToken() {
   return data.access_token;
 }
 
+// show_in_storefront can be boolean true or string "true" depending on Zoho API version
+function isLiveItem(item) {
+  if (item.show_in_storefront !== true && item.show_in_storefront !== 'true') return false;
+  const stock = item.actual_available_stock ?? item.available_stock ?? item.stock_on_hand ?? 0;
+  return Number(stock) > 0;
+}
+
 async function fetchAllLiveIds(accessToken) {
   let ids = [];
   let page = 1;
@@ -53,8 +60,7 @@ async function fetchAllLiveIds(accessToken) {
       const data = await res.json();
       if (!data.items || data.items.length === 0) break;
       for (const item of data.items) {
-        if ((item.cf_stage || item.stage || '') === 'Per oferte' && Number(item.available_for_sale_stock ?? 0) >= 1)
-          ids.push(String(item.item_id));
+        if (isLiveItem(item)) ids.push(String(item.item_id));
       }
       if (data.items.length < perPage) break;
       page++;
@@ -290,9 +296,8 @@ export default async function handler(req, res) {
 
     const recentItems = await fetchRecentItems(accessToken, 35);
 
-    const isLive = item => (item.cf_stage || item.stage || '') === 'Per oferte' && Number(item.available_for_sale_stock ?? 0) >= 1;
-    const liveItems = recentItems.filter(isLive);
-    const offItems = recentItems.filter(item => !isLive(item));
+    const liveItems = recentItems.filter(isLiveItem);
+    const offItems = recentItems.filter(item => !isLiveItem(item));
 
     if (offItems.length > 0) {
       const offIds = offItems.map(i => String(i.item_id));
@@ -415,7 +420,7 @@ export default async function handler(req, res) {
               } catch { clearTimeout(timer); break; }
             }
             const missingSet = new Set(missingIds);
-            const toInsert = allFull.filter(item => missingSet.has(String(item.item_id)) && isLive(item)).map(mapZohoItem);
+            const toInsert = allFull.filter(item => missingSet.has(String(item.item_id)) && isLiveItem(item)).map(mapZohoItem);
             if (toInsert.length > 0) {
               await supabase.from('products').upsert(toInsert, { onConflict: 'zoho_item_id' });
               console.log(`Reconciliation: inserted ${toInsert.length} missing items`);

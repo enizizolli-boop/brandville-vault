@@ -357,25 +357,13 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: false, error: 'Zoho returned 0 items — aborting to prevent accidental deletion', removed: 0 });
     }
 
-    // TEMP DEBUG — remove after diagnosing item 157296000036115527 (SKU 15942)
-    const debugItem = allItems.find(i => String(i.item_id) === '157296000036115527');
-    if (debugItem) {
-      console.log('[debug-15942] raw item from LIST endpoint:', JSON.stringify({
-        item_id: debugItem.item_id,
-        sku: debugItem.sku,
-        cf_stage: debugItem.cf_stage,
-        stage: debugItem.stage,
-        available_for_sale_stock: debugItem.available_for_sale_stock,
-        available_stock: debugItem.available_stock,
-        actual_available_stock: debugItem.actual_available_stock,
-        stock_on_hand: debugItem.stock_on_hand,
-      }));
-    } else {
-      console.log('[debug-15942] item 157296000036115527 NOT found in allItems list at all');
-    }
-
-    // Filter: stage must be "Per oferte" AND accounting available_for_sale_stock >= 1
-    const isLive = item => (item.cf_stage || item.stage || '') === 'Per oferte' && Number(item.available_for_sale_stock ?? 0) >= 1;
+    // Filter: must be on storefront AND have stock available
+    // show_in_storefront can be boolean true or string "true" depending on Zoho API version
+    const isLive = item => {
+      if (item.show_in_storefront !== true && item.show_in_storefront !== 'true') return false;
+      const stock = item.actual_available_stock ?? item.available_stock ?? item.stock_on_hand ?? 0;
+      return Number(stock) > 0;
+    };
     let zohoItems = allItems.filter(isLive);
     const totalOnStore = zohoItems.length;
 
@@ -433,10 +421,16 @@ export default async function handler(req, res) {
         .from('products').select('zoho_item_id').eq('source', 'zoho');
       const allExistingIds = (allExisting || []).map(i => i.zoho_item_id);
       const liveZohoIds = allItems.filter(isLive).map(i => String(i.item_id));
-      // Safety guard — abort only if Zoho returned suspiciously few TOTAL items vs DB.
+      // Safety guards: abort if Zoho returned suspiciously few TOTAL items vs DB,
+      // OR if the live-filter itself collapsed (e.g. a field-name bug) and would
+      // wipe out most of the catalog. Both are signs of a broken response/filter,
+      // not a real mass removal.
       const minExpected = Math.ceil(allExistingIds.length * 0.5);
+      const minLiveExpected = Math.ceil(allExistingIds.length * 0.3);
       if (allItems.length < minExpected) {
         console.error(`Stale cleanup aborted: Zoho returned only ${allItems.length} total items but DB has ${allExistingIds.length} — looks like a partial API response`);
+      } else if (allExistingIds.length > 20 && liveZohoIds.length < minLiveExpected) {
+        console.error(`Stale cleanup aborted: live-filter matched only ${liveZohoIds.length} items but DB has ${allExistingIds.length} zoho products — looks like a broken filter, not a real mass removal`);
       } else {
         const toDelete = allExistingIds.filter(id => !liveZohoIds.includes(id));
         if (toDelete.length > 0) {
