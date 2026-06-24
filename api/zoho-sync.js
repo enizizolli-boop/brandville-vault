@@ -357,6 +357,23 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: false, error: 'Zoho returned 0 items — aborting to prevent accidental deletion', removed: 0 });
     }
 
+    // TEMP DEBUG — remove after diagnosing item 157296000036115527 (SKU 15942)
+    const debugItem = allItems.find(i => String(i.item_id) === '157296000036115527');
+    if (debugItem) {
+      console.log('[debug-15942] raw item from LIST endpoint:', JSON.stringify({
+        item_id: debugItem.item_id,
+        sku: debugItem.sku,
+        cf_stage: debugItem.cf_stage,
+        stage: debugItem.stage,
+        available_for_sale_stock: debugItem.available_for_sale_stock,
+        available_stock: debugItem.available_stock,
+        actual_available_stock: debugItem.actual_available_stock,
+        stock_on_hand: debugItem.stock_on_hand,
+      }));
+    } else {
+      console.log('[debug-15942] item 157296000036115527 NOT found in allItems list at all');
+    }
+
     // Filter: stage must be "Per oferte" AND accounting available_for_sale_stock >= 1
     const isLive = item => (item.cf_stage || item.stage || '') === 'Per oferte' && Number(item.available_for_sale_stock ?? 0) >= 1;
     let zohoItems = allItems.filter(isLive);
