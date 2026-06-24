@@ -357,16 +357,6 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: false, error: 'Zoho returned 0 items — aborting to prevent accidental deletion', removed: 0 });
     }
 
-    // TEMP DEBUG — verify available_stock reflects the sales-order commitment. Remove after.
-    const debugItem2 = allItems.find(i => String(i.item_id) === '157296000036115527');
-    console.log('[debug-15942b]', debugItem2 ? JSON.stringify({
-      cf_stage: debugItem2.cf_stage,
-      available_stock: debugItem2.available_stock,
-      actual_available_stock: debugItem2.actual_available_stock,
-      stock_on_hand: debugItem2.stock_on_hand,
-      last_modified_time: debugItem2.last_modified_time,
-    }) : 'NOT FOUND in allItems');
-
     // Filter: stage must be "Per oferte" AND accounting available_stock >= 1.
     // Confirmed via raw Zoho list response: there is no "available_for_sale_stock" field —
     // the accounting "Available for Sale" value is returned as "available_stock"
