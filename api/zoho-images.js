@@ -66,23 +66,33 @@ async function getAllItemsCached(accessToken) {
   return items;
 }
 
+async function fetchGalleryWithRetry(accessToken, itemId) {
+  let res = await fetch(
+    `https://www.zohoapis.eu/inventory/v1/items/${itemId}/images?organization_id=${process.env.ZOHO_ORG_ID}`,
+    { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+  );
+  if (res.status !== 429) return res;
+  console.log(`Gallery API rate limited (429) for item ${itemId}, waiting 5s then retrying`);
+  await new Promise(r => setTimeout(r, 5000));
+  res = await fetch(
+    `https://www.zohoapis.eu/inventory/v1/items/${itemId}/images?organization_id=${process.env.ZOHO_ORG_ID}`,
+    { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+  );
+  if (res.status === 429) {
+    console.log(`Gallery still rate limited for item ${itemId} after retry — falling back to primary image`);
+    return null;
+  }
+  return res;
+}
+
 async function fetchAndUploadZohoImages(accessToken, itemId, productId) {
   try {
-    const listRes = await fetch(
-      `https://www.zohoapis.eu/inventory/v1/items/${itemId}/images?organization_id=${process.env.ZOHO_ORG_ID}`,
-      { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
-    );
-
-    const ct = listRes.headers.get('content-type') || '';
-
-    if (listRes.status === 429) {
-      console.log(`Gallery API rate limited (429) for item ${itemId} — skipping`);
-      return 0;
-    }
+    const listRes = await fetchGalleryWithRetry(accessToken, itemId);
+    const ct = listRes ? (listRes.headers.get('content-type') || '') : '';
 
     // Zoho returns a ZIP file containing all gallery images. Content-type is usually
     // application/zip but some items return application/octet-stream for the same ZIP.
-    if (ct.includes('application/zip') || ct.includes('octet-stream')) {
+    if (listRes && (ct.includes('application/zip') || ct.includes('octet-stream'))) {
       try {
         const buffer = Buffer.from(await listRes.arrayBuffer());
         const zip = await JSZip.loadAsync(buffer);
@@ -128,11 +138,13 @@ async function fetchAndUploadZohoImages(accessToken, itemId, productId) {
       }
     }
 
-    // JSON gallery list
+    // JSON gallery list (body not yet consumed by the ZIP path above)
     let listData = null;
-    try {
-      if (ct.includes('application/json') || ct.includes('text/')) listData = await listRes.json();
-    } catch { listData = null; }
+    if (listRes && !ct.includes('application/zip') && !ct.includes('octet-stream')) {
+      try {
+        if (ct.includes('application/json') || ct.includes('text/')) listData = await listRes.json();
+      } catch { listData = null; }
+    }
 
     if (listData?.images && listData.images.length > 0) {
       const { data: existingImgs } = await supabase
