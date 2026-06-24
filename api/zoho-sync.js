@@ -357,6 +357,14 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: false, error: 'Zoho returned 0 items — aborting to prevent accidental deletion', removed: 0 });
     }
 
+    // TEMP DEBUG — verify field names before re-enabling stage/stock filter. Remove after.
+    const debugItem = allItems.find(i => String(i.item_id) === '157296000036115527');
+    if (debugItem) {
+      console.log('[debug-15942] raw item from LIST endpoint:', JSON.stringify(debugItem));
+    } else {
+      console.log('[debug-15942] item 157296000036115527 NOT found in allItems list at all');
+    }
+
     // Filter: must be on storefront AND have stock available
     // show_in_storefront can be boolean true or string "true" depending on Zoho API version
     const isLive = item => {
