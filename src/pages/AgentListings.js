@@ -31,6 +31,68 @@ const BRANDS = [
   'Van Cleef & Arpels','Zenith'
 ]
 
+// Canonical brand names keyed by the aliases agents commonly paste. Matching is
+// accent-insensitive and the longest alias wins, so e.g. "Christian Dior" is
+// detected before "Dior" and multi-word brands stay intact.
+const BRAND_MAP = {
+  'bvlgari': 'Bulgari', 'bulgari': 'Bulgari',
+  'van cleef': 'Van Cleef & Arpels', 'vca': 'Van Cleef & Arpels',
+  'cartier': 'Cartier', 'chanel': 'Chanel', 'chopard': 'Chopard',
+  'hermes': 'Hermès',
+  'louis vuitton': 'Louis Vuitton', 'lv': 'Louis Vuitton',
+  'gucci': 'Gucci', 'prada': 'Prada',
+  'christian dior': 'Dior', 'dior': 'Dior',
+  'tiffany': 'Tiffany & Co', 'tiffany & co': 'Tiffany & Co',
+  'harry winston': 'Harry Winston', 'graff': 'Graff',
+  'fendi': 'Fendi', 'bottega veneta': 'Bottega Veneta',
+  'saint laurent': 'Saint Laurent', 'ysl': 'Saint Laurent',
+  'balenciaga': 'Balenciaga', 'loewe': 'Loewe',
+  'celine': 'Celine', 'burberry': 'Burberry',
+  'valentino': 'Valentino', 'chloe': 'Chloé',
+  'jacquemus': 'Jacquemus', 'dolce & gabbana': 'Dolce & Gabbana',
+  'dolce': 'Dolce & Gabbana', 'givenchy': 'Givenchy',
+  'alexander mcqueen': 'Alexander McQueen', 'mcm': 'MCM',
+  'coach': 'Coach', 'mulberry': 'Mulberry', 'furla': 'Furla',
+  'michael kors': 'Michael Kors', 'versace': 'Versace',
+  'miu miu': 'Miu Miu', 'marc jacobs': 'Marc Jacobs',
+}
+
+function normalizeForBrandMatch(value = '') {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+}
+
+function findWholeAlias(text, alias) {
+  let from = 0
+  while (from <= text.length - alias.length) {
+    const index = text.indexOf(alias, from)
+    if (index === -1) return null
+    const before = text[index - 1]
+    const after = text[index + alias.length]
+    const startsClean = !before || !/[a-z0-9]/i.test(before)
+    const endsClean = !after || !/[a-z0-9]/i.test(after)
+    if (startsClean && endsClean) return { index, length: alias.length }
+    from = index + 1
+  }
+  return null
+}
+
+function detectBrand(text) {
+  const normalizedText = normalizeForBrandMatch(text)
+  const aliases = [
+    ...Object.entries(BRAND_MAP),
+    ...BRANDS.map(brand => [normalizeForBrandMatch(brand), brand]),
+  ].sort(([a], [b]) => b.length - a.length)
+
+  for (const [rawAlias, canonical] of aliases) {
+    const alias = normalizeForBrandMatch(rawAlias)
+    const match = findWholeAlias(normalizedText, alias)
+    if (match) return { brand: canonical, ...match }
+  }
+  return null
+}
+
+const BAG_FORM_BRANDS = [...new Set([...BRANDS, ...Object.values(BRAND_MAP)])].sort()
+
 const JEWELLERY_BRANDS = new Set([
   'balenciaga','bottega veneta','bulgari','cartier','celine','chanel','de beers',
   'dior','fendi','gucci','hermès','hermes','loewe','louis vuitton','mikimoto',
@@ -71,12 +133,9 @@ function parseQuickPost(text) {
   const fullText = text // keep for keyword scanning
 
   // --- Brand detection (scan all lines) ---
-  const sortedBrands = [...BRANDS].sort((a, b) => b.length - a.length)
-  const fullLower = fullText.toLowerCase()
-  let brandFoundInText = false
-  for (const brand of sortedBrands) {
-    if (fullLower.includes(brand.toLowerCase())) { result.brand = brand; brandFoundInText = true; break }
-  }
+  const brandMatch = detectBrand(fullText)
+  let brandFoundInText = Boolean(brandMatch)
+  if (brandMatch) result.brand = brandMatch.brand
   const abbreviations = { 'Audemars Piguet': /\bAP\b/, 'Patek Philippe': /\bPP\b/, 'Vacheron Constantin': /\bVC\b/i, 'Jaeger-LeCoultre': /\bJLC\b/, 'Richard Mille': /\bRM\b/, 'Van Cleef & Arpels': /\bVCA\b/, 'Louis Vuitton': /\bLV\b/ }
   for (const [brand, re] of Object.entries(abbreviations)) {
     if (re.test(fullText)) { result.brand = brand; brandFoundInText = true; break }
@@ -99,7 +158,11 @@ function parseQuickPost(text) {
   }
 
   // --- Process each line ---
-  let modelLine = ''
+  // Capture the branded line before classifying condition/price lines. This
+  // allows one-line input such as "Hermes Birkin 30 Togo Pre-owned".
+  let modelLine = brandMatch
+    ? lines.find(line => detectBrand(line)?.brand === brandMatch.brand) || ''
+    : ''
   const noteLines = []
   for (const line of lines) {
     const lineLower = line.toLowerCase()
@@ -174,6 +237,7 @@ function parseQuickPost(text) {
 
     // First unmatched line → brand + model only if brand was in text; otherwise → vendor
     if (!modelLine && brandFoundInText) modelLine = line
+    else if (line === modelLine) continue
     else if (!result.vendor) result.vendor = line
   }
 
@@ -184,9 +248,9 @@ function parseQuickPost(text) {
   if (modelLine) {
     let model = modelLine
     // Strip brand name
-    const brandIdx = model.toLowerCase().indexOf(result.brand.toLowerCase())
-    if (brandIdx !== -1) {
-      model = model.slice(brandIdx + result.brand.length).trim()
+    const lineBrandMatch = detectBrand(model)
+    if (lineBrandMatch) {
+      model = model.slice(lineBrandMatch.index + lineBrandMatch.length).trim()
     } else {
       // Try abbreviation
       for (const [brand, re] of Object.entries(abbreviations)) {
@@ -222,7 +286,7 @@ function parseQuickPost(text) {
       }
     }
 
-    // No lookup found — use the raw text as model (includes the ref code)
+    // No lookup found - use the raw text as model (includes the ref code)
     if (model) result.model = model
   }
 
@@ -301,6 +365,10 @@ export default function AgentListings() {
   const { rate: cnyToEurRate } = useExchangeRate('CNY', 'EUR')
   const [tab, setTab] = useState('listings')
   const [bagName, setBagName] = useState('')
+  const [bagCategory, setBagCategory] = useState('Bags')
+  const [bagBrand, setBagBrand] = useState('Other')
+  const [bagModel, setBagModel] = useState('')
+  const [bagCondition, setBagCondition] = useState('Pre-owned')
   const [bagCostPrice, setBagCostPrice] = useState('')
   const [bagCostCurrency, setBagCostCurrency] = useState('EUR')
   const [bagSellingPrice, setBagSellingPrice] = useState('')
@@ -310,7 +378,7 @@ export default function AgentListings() {
   const [bagImages, setBagImages] = useState([])
   const [bagPreviews, setBagPreviews] = useState([])
   const [bagDragIndex, setBagDragIndex] = useState(null)
-  const [bagIsPreorder, setBagIsPreorder] = useState(false)
+  const [bagIsPreorder, setBagIsPreorder] = useState(true)
   const [watches, setWatches] = useState([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -374,6 +442,16 @@ export default function AgentListings() {
     setBagImages(prev => [...prev, ...files])
     setBagPreviews(prev => [...prev, ...files.map(f => URL.createObjectURL(f))])
     e.target.value = ''
+  }
+
+  function handleBagName(value) {
+    setBagError('')
+    setBagName(value)
+    const parsed = parseQuickPost(value)
+    setBagBrand(detectBrand(value)?.brand || 'Other')
+    setBagModel(parsed.model || value.trim())
+    setBagCondition(parsed.condition || 'Pre-owned')
+    setBagCostPrice(parsed.cost_eur || parsed.price_eur || '')
   }
 
   function reorderBagImages(from, to) {
@@ -444,9 +522,9 @@ export default function AgentListings() {
         setImages([])
         setPreviews([])
         if (imagesFailed > 0) {
-          setMsg(`Preorder posted, but ${imagesFailed} image(s) failed to save — open the listing and re-upload them.`)
+          setMsg(`Preorder posted, but ${imagesFailed} image(s) failed to save - open the listing and re-upload them.`)
         } else {
-          setMsg('Preorder posted — dealers will be notified.')
+          setMsg('Preorder posted - dealers will be notified.')
         }
         setTab('listings')
         setListingType('preorders-watches')
@@ -469,7 +547,7 @@ export default function AgentListings() {
         setForm(EMPTY_FORM)
         setImages([])
         setPreviews([])
-        setMsg('Item posted — now live in the dealer catalog.')
+        setMsg('Item posted - now live in the dealer catalog.')
         setTab('listings')
         fetchMyWatches()
       }
@@ -483,38 +561,39 @@ export default function AgentListings() {
   async function handleBagPost(e) {
     e.preventDefault()
     setBagError('')
-    if (!bagName.trim()) { setBagError('Name is required.'); return }
-    if (!bagCostPrice) { setBagError('Cost price is required.'); return }
     setBagPosting(true)
     try {
       const parsed = parseQuickPost(bagName)
-      const brand = parsed.brand && parsed.brand !== EMPTY_FORM.brand ? parsed.brand : 'Other'
-      const model = parsed.model || bagName.trim()
-      const condition = parsed.condition || EMPTY_FORM.condition
 
-      const costEur = bagCostCurrency === 'CNY'
-        ? Number(bagCostPrice) * (cnyToEurRate || 0)
-        : Number(bagCostPrice)
+      const costEur = bagCostPrice
+        ? bagCostCurrency === 'CNY'
+          ? Number(bagCostPrice) * (cnyToEurRate || 0)
+          : Number(bagCostPrice)
+        : null
       const sellingEur = bagSellingPrice ? Number(bagSellingPrice) : costEur * 1.4
       const priceUsd = rate ? Math.round(sellingEur * rate) : null
 
       const payload = {
-        category: 'Bags',
-        brand,
-        model,
+        category: bagCategory,
+        brand: bagBrand,
+        model: bagModel.trim(),
         reference: null,
-        condition,
+        condition: bagCondition,
         price_eur: Math.round(sellingEur),
         price_usd: priceUsd,
-        cost_eur: Math.round(costEur),
-        vendor: parsed.vendor || null,
+        cost_eur: costEur === null ? null : Math.round(costEur),
+        vendor: null,
         notes: parsed.notes || null,
         scope_of_delivery: null,
         metal_type: null,
         subcategory: null,
         item_size: null,
         posted_by: profile.id,
-        status: 'available',
+        // TODO: needs to be deleted later
+        posted_bg: 'posted',
+        posted_individual: 'posted',
+        posted_pierre: 'posted',
+        status: 'sold',
       }
 
       const table = bagIsPreorder ? 'preorders' : 'products'
@@ -538,15 +617,19 @@ export default function AgentListings() {
       }
 
       setBagName('')
+      setBagCategory('Bags')
+      setBagBrand('Other')
+      setBagModel('')
+      setBagCondition('Pre-owned')
       setBagCostPrice('')
       setBagCostCurrency('EUR')
       setBagSellingPrice('')
       setBagImages([])
       setBagPreviews([])
-      setBagIsPreorder(false)
+      setBagIsPreorder(true)
       setBagMsg(imagesFailed > 0
-        ? `Bag ${bagIsPreorder ? 'preorder' : 'listing'} posted, but ${imagesFailed} image(s) failed to save — open the listing and re-upload them.`
-        : bagIsPreorder ? 'Bags preorder posted.' : 'Item posted — now live in the dealer catalog.')
+        ? `Bag ${bagIsPreorder ? 'preorder' : 'listing'} posted, but ${imagesFailed} image(s) failed to save - open the listing and re-upload them.`
+        : bagIsPreorder ? 'Bags preorder posted.' : 'Item posted - now live in the dealer catalog.')
       setTab('listings')
       setListingType(bagIsPreorder ? 'preorders-bags' : 'instock')
       fetchPreorders()
@@ -655,10 +738,10 @@ export default function AgentListings() {
     if (currency === 'USD') {
       if (w.price_usd) return '$' + Number(w.price_usd).toLocaleString()
       if (w.price_eur && rate) return '$' + Math.round(Number(w.price_eur) * rate).toLocaleString()
-      return '—'
+      return '-'
     }
     if (w.price_eur) return '€' + Number(w.price_eur).toLocaleString()
-    return '—'
+    return '-'
   }
 
   function getThumb(w) {
@@ -729,7 +812,7 @@ export default function AgentListings() {
           {(listingType === 'preorders-watches' || listingType === 'preorders-bags') && (
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
               <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ flex: 1, fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)' }} />
-              <span style={{ color: 'var(--faint)', fontSize: 13 }}>—</span>
+              <span style={{ color: 'var(--faint)', fontSize: 13 }}>-</span>
               <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ flex: 1, fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)' }} />
               {(dateFrom || dateTo) && (
                 <button className="btn btn-sm" onClick={() => { setDateFrom(''); setDateTo('') }} style={{ whiteSpace: 'nowrap' }}>Clear</button>
@@ -773,7 +856,7 @@ export default function AgentListings() {
                 </div>
                 <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => navigate(`/catalog/${toSlug(p)}`)}>
                   <div style={{ fontSize: 13, fontWeight: 500 }}>{p.brand} {p.model}</div>
-                  <div style={{ fontSize: 11, color: '#aaa' }}>{p.price_eur ? `€${Number(p.price_eur).toLocaleString()}` : '—'} · {p.condition}{p.category ? ` · ${p.category}` : ''}</div>
+                  <div style={{ fontSize: 11, color: '#aaa' }}>{p.price_eur ? `€${Number(p.price_eur).toLocaleString()}` : '-'} · {p.condition}{p.category ? ` · ${p.category}` : ''}</div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
                   <span className={`badge badge-${p.status}`}>{p.status}</span>
@@ -842,7 +925,7 @@ export default function AgentListings() {
                         <div style={{ marginTop: 10, display: 'flex', gap: 20, flexWrap: 'wrap' }}>
                           <div>
                             <div style={{ fontSize: 10, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Listing price</div>
-                            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--muted)' }}>{watch?.price_eur ? `€${Number(watch.price_eur).toLocaleString()}` : '—'}</div>
+                            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--muted)' }}>{watch?.price_eur ? `€${Number(watch.price_eur).toLocaleString()}` : '-'}</div>
                           </div>
                           <div>
                             <div style={{ fontSize: 10, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Offer</div>
@@ -930,7 +1013,7 @@ export default function AgentListings() {
                 : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 90, gap: 6 }}>
                     <div style={{ fontSize: 24, lineHeight: 1 }}>&#128247;</div>
                     <div style={{ fontSize: 13, color: '#888', fontWeight: 500 }}>Tap to upload photos</div>
-                    <div style={{ fontSize: 11, color: '#bbb' }}>JPG, PNG — multiple allowed</div>
+                    <div style={{ fontSize: 11, color: '#bbb' }}>JPG, PNG - multiple allowed</div>
                   </div>
               }
               <input id="img-upload" type="file" accept="image/*" multiple onChange={handleImages} style={{ display: 'none' }} />
@@ -939,7 +1022,7 @@ export default function AgentListings() {
             {/* Quick Post */}
             <div style={{ marginBottom: 20, background: 'var(--surface)', borderRadius: 14, padding: '14px 16px', border: '1px solid var(--border)' }}>
               <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4, letterSpacing: '-0.1px' }}>Quick Post</div>
-              <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 10, lineHeight: 1.5 }}>Paste all info — brand, model, price, vendor — and the fields fill automatically.</div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 10, lineHeight: 1.5 }}>Paste all info - brand, model, price, vendor - and the fields fill automatically.</div>
               <textarea
                 rows={4}
                 placeholder={'Panerai PAM00359\nCard & Box 2014\n3300\n2380\nDingsp'}
@@ -1094,7 +1177,7 @@ export default function AgentListings() {
               </div>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: form.is_preorder ? 'var(--gold)' : 'var(--text)' }}>Preorder</div>
-                <div style={{ fontSize: 11, color: '#b0a898', marginTop: 1 }}>{form.is_preorder ? 'No SKU required — item not yet in stock' : 'Toggle on if item is not yet in stock'}</div>
+                <div style={{ fontSize: 11, color: '#b0a898', marginTop: 1 }}>{form.is_preorder ? 'No SKU required - item not yet in stock' : 'Toggle on if item is not yet in stock'}</div>
               </div>
             </div>
 
@@ -1139,24 +1222,63 @@ export default function AgentListings() {
                 : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 90, gap: 6 }}>
                     <div style={{ fontSize: 24, lineHeight: 1 }}>&#128247;</div>
                     <div style={{ fontSize: 13, color: '#888', fontWeight: 500 }}>Tap to upload photos</div>
-                    <div style={{ fontSize: 11, color: '#bbb' }}>JPG, PNG — multiple allowed, drag to reorder</div>
+                    <div style={{ fontSize: 11, color: '#bbb' }}>JPG, PNG - multiple allowed</div>
                   </div>
               }
               <input id="bag-img-upload" type="file" accept="image/*" multiple onChange={handleBagImages} style={{ display: 'none' }} />
             </label>
 
             <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', padding: '16px 16px 4px', marginBottom: 16 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.9px', marginBottom: 14 }}>Bags preorder — quick entry</div>
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4, letterSpacing: '-0.1px' }}>Bags preorder - quick entry</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.9px', marginBottom: 14 }}>Paste all info - brand, model, price, vendor - and the fields fill automatically.
+              </div>
               <div className="form-row">
                 <label>Name</label>
                 <textarea
                   value={bagName}
-                  onChange={e => setBagName(e.target.value)}
+                  onChange={e => handleBagName(e.target.value)}
                   rows={3}
-                  placeholder={'e.g. Hermès Birkin 30 Togo Gold HW\nor paste full details — brand & condition are detected automatically'}
+                  placeholder={'Hermès Birkin 30 Togo Gold HW Repaired\n2800\n'}
                   style={{ width: '100%', boxSizing: 'border-box', fontSize: 13, borderRadius: 8, resize: 'vertical', lineHeight: 1.6 }}
                   required
                 />
+              </div>
+            </div>
+
+            <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', padding: '16px 16px 4px', marginBottom: 16 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.9px', marginBottom: 14 }}>Item details</div>
+
+              <div className="form-row">
+                <label>Category</label>
+                <select value={bagCategory} onChange={e => setBagCategory(e.target.value)}>
+                  {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+
+              <div className="form-row">
+                <label>Model name</label>
+                <input
+                  type="text"
+                  value={bagModel}
+                  onChange={e => { setBagError(''); setBagModel(e.target.value) }}
+                  placeholder="e.g. Birkin 30 Togo Gold HW Repaired"
+                  required
+                />
+              </div>
+
+              <div className="form-2col">
+                <div className="form-row">
+                  <label>Brand</label>
+                  <select value={bagBrand} onChange={e => setBagBrand(e.target.value)}>
+                    {BAG_FORM_BRANDS.map(b => <option key={b}>{b}</option>)}
+                  </select>
+                </div>
+                <div className="form-row">
+                  <label>Condition</label>
+                  <select value={bagCondition} onChange={e => setBagCondition(e.target.value)}>
+                    {CONDITIONS.map(c => <option key={c}>{c}</option>)}
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -1165,7 +1287,18 @@ export default function AgentListings() {
               <div className="form-row">
                 <label>Cost price</label>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <input type="number" value={bagCostPrice} onChange={e => setBagCostPrice(e.target.value)} placeholder="e.g. 28000" style={{ flex: 1 }} required />
+                  <input
+                    type="number"
+                    min="0"
+                    value={bagCostPrice}
+                    onChange={e => {
+                      setBagError('')
+                      setBagCostPrice(e.target.value === '' ? '' : String(Math.max(0, Number(e.target.value))))
+                    }}
+                    placeholder="2800"
+                    style={{ flex: 1 }}
+                    required={!bagSellingPrice}
+                  />
                   <select value={bagCostCurrency} onChange={e => setBagCostCurrency(e.target.value)} style={{ width: 90 }}>
                     <option value="EUR">EUR</option>
                     <option value="CNY">CNY</option>
@@ -1179,10 +1312,22 @@ export default function AgentListings() {
               </div>
 
               <div className="form-row">
-                <label>Selling price (€) — optional</label>
-                <input type="number" value={bagSellingPrice} onChange={e => setBagSellingPrice(e.target.value)} placeholder="leave blank to auto-calc as cost + 40%" />
-                {bagCostPrice && (() => {
-                  const costEur = bagCostCurrency === 'CNY' ? Number(bagCostPrice) * (cnyToEurRate || 0) : Number(bagCostPrice)
+                <label>Selling price (€) - optional</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={bagSellingPrice}
+                  onChange={e => {
+                    setBagError('')
+                    setBagSellingPrice(e.target.value === '' ? '' : String(Math.max(0, Number(e.target.value))))
+                  }}
+                  placeholder="leave blank to auto-calc as cost + 40%"
+                  required={!bagCostPrice}
+                />
+                {(bagCostPrice || bagSellingPrice) && (() => {
+                  const costEur = bagCostPrice
+                    ? bagCostCurrency === 'CNY' ? Number(bagCostPrice) * (cnyToEurRate || 0) : Number(bagCostPrice)
+                    : null
                   const sellingEur = bagSellingPrice ? Number(bagSellingPrice) : costEur * 1.4
                   const usd = rate ? Math.round(sellingEur * rate) : null
                   return (
@@ -1204,7 +1349,7 @@ export default function AgentListings() {
               </div>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: bagIsPreorder ? 'var(--gold)' : 'var(--text)' }}>Preorder</div>
-                <div style={{ fontSize: 11, color: '#b0a898', marginTop: 1 }}>{bagIsPreorder ? 'No SKU required — item not yet in stock' : 'Toggle on if item is not yet in stock'}</div>
+                <div style={{ fontSize: 11, color: '#b0a898', marginTop: 1 }}>{bagIsPreorder ? 'No SKU required - item not yet in stock' : 'Toggle on if item is not yet in stock'}</div>
               </div>
             </div>
 
