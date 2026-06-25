@@ -21,6 +21,14 @@ const CONDITIONS = [
   'Pre-owned',
 ]
 
+const BAG_CONDITIONS = [
+  'Excellent',
+  'Very Good',
+  'Good',
+  'Preowned',
+  'Preowned/Excellent condition',
+]
+
 const BRANDS = [
   'A. Lange & Söhne','Audemars Piguet','Balenciaga','Blancpain','Bottega Veneta',
   'Breguet','Breitling','Bulgari','Cartier','Celine','Chanel','Chopard','De Beers',
@@ -92,6 +100,38 @@ function detectBrand(text) {
 }
 
 const BAG_FORM_BRANDS = [...new Set([...BRANDS, ...Object.values(BRAND_MAP)])].sort()
+
+function parseBagPriceLine(line = '') {
+  const match = line.match(/-?[\d]['\d,.\s]*[\d]|-?\d+/)
+  if (!match) return ''
+  const raw = match[0].replace(/['\s]/g, '')
+  const dots = (raw.match(/\./g) || []).length
+  const commas = (raw.match(/,/g) || []).length
+  let normalized = raw
+  if (dots > 1) normalized = raw.replace(/\./g, '')
+  else if (commas > 1) normalized = raw.replace(/,/g, '')
+  else if (dots === 1 && commas > 0) normalized = raw.replace(/[.,]/g, '')
+  else if (commas === 1 && raw.indexOf(',') > raw.length - 4) normalized = raw.replace(',', '.')
+  else normalized = raw.replace(/,/g, '')
+  const value = Number(normalized)
+  return Number.isFinite(value) ? String(Math.max(0, Math.round(value))) : ''
+}
+
+function detectBagCondition(text = '') {
+  if (/pre[- ]?owned\s*\/\s*excellent\s+condition/i.test(text)) return 'Preowned/Excellent condition'
+  if (/\bvery\s+good\b/i.test(text)) return 'Very Good'
+  if (/\bexcellent\b/i.test(text)) return 'Excellent'
+  if (/\bgood\b/i.test(text)) return 'Good'
+  if (/\bpre[- ]?owned\b/i.test(text)) return 'Preowned'
+  return null
+}
+
+function stripBagCondition(value = '') {
+  return value
+    .replace(/\b(?:pre[- ]?owned\s*\/\s*excellent\s+condition|very\s+good|excellent|good|pre[- ]?owned)\b.*$/i, '')
+    .replace(/[\s,\-·]+$/g, '')
+    .trim()
+}
 
 const JEWELLERY_BRANDS = new Set([
   'balenciaga','bottega veneta','bulgari','cartier','celine','chanel','de beers',
@@ -368,7 +408,7 @@ export default function AgentListings() {
   const [bagCategory, setBagCategory] = useState('Bags')
   const [bagBrand, setBagBrand] = useState('Other')
   const [bagModel, setBagModel] = useState('')
-  const [bagCondition, setBagCondition] = useState('Pre-owned')
+  const [bagCondition, setBagCondition] = useState('Preowned')
   const [bagCostPrice, setBagCostPrice] = useState('')
   const [bagCostCurrency, setBagCostCurrency] = useState('EUR')
   const [bagSellingPrice, setBagSellingPrice] = useState('')
@@ -448,10 +488,12 @@ export default function AgentListings() {
     setBagError('')
     setBagName(value)
     const parsed = parseQuickPost(value)
+    const lines = value.split('\n').map(line => line.trim()).filter(Boolean)
     setBagBrand(detectBrand(value)?.brand || 'Other')
-    setBagModel(parsed.model || value.trim())
-    setBagCondition(parsed.condition || 'Pre-owned')
-    setBagCostPrice(parsed.cost_eur || parsed.price_eur || '')
+    setBagModel(stripBagCondition(parsed.model || lines[0] || ''))
+    setBagCondition(detectBagCondition(lines[0]) || 'Preowned')
+    setBagCostPrice(parseBagPriceLine(lines[1]))
+    setBagSellingPrice(parseBagPriceLine(lines[2]))
   }
 
   function reorderBagImages(from, to) {
@@ -620,7 +662,7 @@ export default function AgentListings() {
       setBagCategory('Bags')
       setBagBrand('Other')
       setBagModel('')
-      setBagCondition('Pre-owned')
+      setBagCondition('Preowned')
       setBagCostPrice('')
       setBagCostCurrency('EUR')
       setBagSellingPrice('')
@@ -1230,7 +1272,7 @@ export default function AgentListings() {
 
             <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', padding: '16px 16px 4px', marginBottom: 16 }}>
             <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4, letterSpacing: '-0.1px' }}>Bags preorder - quick entry</div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.9px', marginBottom: 14 }}>Paste all info - brand, model, price, vendor - and the fields fill automatically.
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 10, lineHeight: 1.5 }}>Paste all info - brand, model, price, vendor - and the fields fill automatically.
               </div>
               <div className="form-row">
                 <label>Name</label>
@@ -1238,7 +1280,7 @@ export default function AgentListings() {
                   value={bagName}
                   onChange={e => handleBagName(e.target.value)}
                   rows={3}
-                  placeholder={'Hermès Birkin 30 Togo Gold HW Repaired\n2800\n'}
+                  placeholder={'Hermès Birkin 30 Togo Gold HW Repaired\n2800\n3920'}
                   style={{ width: '100%', boxSizing: 'border-box', fontSize: 13, borderRadius: 8, resize: 'vertical', lineHeight: 1.6 }}
                   required
                 />
@@ -1276,7 +1318,7 @@ export default function AgentListings() {
                 <div className="form-row">
                   <label>Condition</label>
                   <select value={bagCondition} onChange={e => setBagCondition(e.target.value)}>
-                    {CONDITIONS.map(c => <option key={c}>{c}</option>)}
+                    {BAG_CONDITIONS.map(c => <option key={c}>{c}</option>)}
                   </select>
                 </div>
               </div>
