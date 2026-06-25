@@ -78,61 +78,32 @@ async function fetchAllItems(accessToken) {
   return items;
 }
 
-// The Items API never reflects stock committed to an open Sales Order (confirmed
-// but not yet invoiced/shipped) — verified directly against Zoho, not a timing lag.
-// So we cross-check open Sales Orders directly and exclude their items from the
-// storefront regardless of what the item's own stock fields say.
-// Returns null on failure so callers can fail open (skip this guard) rather than
-// risk wrongly excluding everything if Zoho's API/shape changes.
-async function fetchCommittedItemIds(accessToken) {
-  const committed = new Set();
-  let page = 1;
-  const perPage = 200;
-  let detailFetches = 0;
-  const MAX_DETAIL_FETCHES = 100;
-  while (true) {
+// The List API's available_stock never reflects Sales Order commitments. The
+// authoritative field, available_for_sale_stock, only exists on the per-item
+// Detail endpoint (verified directly against Zoho — confirmed via OAuth scope
+// fix). Checking every item via Detail doesn't scale for the full catalog, but
+// it's cheap for the handful of items actually being written in one batch.
+// Returns null on failure — caller should fail open (treat as available)
+// rather than risk wrongly hiding an item over a transient API error.
+async function fetchAvailableForSale(accessToken, itemId) {
+  try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 15000);
+    const timer = setTimeout(() => controller.abort(), 8000);
+    let res;
     try {
-      const url = `https://www.zohoapis.eu/inventory/v1/salesorders?organization_id=${process.env.ZOHO_ORG_ID}&per_page=${perPage}&page=${page}&status=confirmed`;
-      const res = await fetch(url, { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }, signal: controller.signal });
-      clearTimeout(timer);
-      const data = await parseJsonSafe(res, `Zoho sales orders page ${page}`);
-      const orders = data.salesorders || [];
-      if (orders.length === 0) break;
-      for (const order of orders) {
-        if (Array.isArray(order.line_items) && order.line_items.length > 0) {
-          for (const li of order.line_items) {
-            if (li.item_id) committed.add(String(li.item_id));
-          }
-        } else if (order.salesorder_id && detailFetches < MAX_DETAIL_FETCHES) {
-          // List endpoint omitted line_items — fetch the order detail instead.
-          detailFetches++;
-          try {
-            const dCtrl = new AbortController();
-            const dTimer = setTimeout(() => dCtrl.abort(), 10000);
-            const dRes = await fetch(
-              `https://www.zohoapis.eu/inventory/v1/salesorders/${order.salesorder_id}?organization_id=${process.env.ZOHO_ORG_ID}`,
-              { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }, signal: dCtrl.signal }
-            );
-            clearTimeout(dTimer);
-            const dData = await dRes.json();
-            for (const li of dData?.salesorder?.line_items || []) {
-              if (li.item_id) committed.add(String(li.item_id));
-            }
-          } catch (e) { console.error(`Sales order detail fetch failed for ${order.salesorder_id}:`, e.message); }
-        }
-      }
-      if (orders.length < perPage) break;
-      page++;
-    } catch (e) {
-      clearTimeout(timer);
-      console.error(`fetchCommittedItemIds failed on page ${page}:`, e.message);
-      return null;
-    }
+      res = await fetch(
+        `https://www.zohoapis.eu/inventory/v1/items/${itemId}?organization_id=${process.env.ZOHO_ORG_ID}`,
+        { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }, signal: controller.signal }
+      );
+    } finally { clearTimeout(timer); }
+    if (!res.ok) return null;
+    const data = await res.json();
+    const val = data?.item?.available_for_sale_stock;
+    return val === undefined ? null : Number(val);
+  } catch (e) {
+    console.error(`fetchAvailableForSale failed for ${itemId}:`, e.message);
+    return null;
   }
-  console.log(`fetchCommittedItemIds: ${committed.size} items have an open confirmed sales order`);
-  return committed;
 }
 
 // Cache Zoho items in sync_log for 10 minutes so each batch call in a sync session
@@ -158,32 +129,6 @@ async function getAllItemsCached(accessToken, forceRefresh = false) {
     { onConflict: 'key' }
   );
   return items;
-}
-
-// Same 10-minute cache pattern as getAllItemsCached, so each batch in a sync
-// session reuses one snapshot instead of re-querying sales orders every batch.
-async function getCommittedItemIdsCached(accessToken, forceRefresh = false) {
-  if (!forceRefresh) {
-    const CACHE_TTL_MS = 10 * 60 * 1000;
-    const { data: cached } = await supabase
-      .from('sync_log')
-      .select('result, last_sync_at')
-      .eq('key', 'zoho_committed_items_cache')
-      .single();
-
-    if (cached?.result?.ids && cached.last_sync_at) {
-      const ageMs = Date.now() - new Date(cached.last_sync_at).getTime();
-      if (ageMs < CACHE_TTL_MS) return new Set(cached.result.ids);
-    }
-  }
-
-  const committed = await fetchCommittedItemIds(accessToken);
-  if (committed === null) return null;
-  await supabase.from('sync_log').upsert(
-    { key: 'zoho_committed_items_cache', last_sync_at: new Date().toISOString(), result: { ids: [...committed] } },
-    { onConflict: 'key' }
-  );
-  return committed;
 }
 
 function withTimeout(ms) {
@@ -440,20 +385,11 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: false, error: 'Zoho returned 0 items — aborting to prevent accidental deletion', removed: 0 });
     }
 
-    // The Items API's available_stock never reflects stock committed to an open
-    // confirmed Sales Order, so cross-check Sales Orders directly and exclude
-    // those items. committedItemIds is null on fetch failure — fail open (don't
-    // exclude anything extra) rather than risk a broken filter wiping the catalog.
-    const committedItemIds = await getCommittedItemIdsCached(accessToken, offset === 0);
-
-    // Filter: stage must be "Per oferte" AND accounting available_stock >= 1
-    // AND not currently committed to an open confirmed sales order.
-    const isLive = item => {
-      if ((item.cf_stage || '') !== 'Per oferte') return false;
-      if (Number(item.available_stock ?? 0) < 1) return false;
-      if (committedItemIds && committedItemIds.has(String(item.item_id))) return false;
-      return true;
-    };
+    // Cheap pre-filter using the List API (cf_stage + available_stock). This does NOT
+    // reflect Sales Order commitments — that's checked per-item below via the Detail
+    // API's available_for_sale_stock, which is the authoritative field but only exists
+    // on the per-item Detail endpoint, not the bulk List endpoint (verified directly).
+    const isLive = item => (item.cf_stage || '') === 'Per oferte' && Number(item.available_stock ?? 0) >= 1;
     let zohoItems = allItems.filter(isLive);
     const totalOnStore = zohoItems.length;
 
@@ -537,6 +473,17 @@ export default async function handler(req, res) {
 
     for (const zohoItem of zohoItems) {
       const mapped = mapZohoItem(zohoItem);
+
+      // Authoritative check: does this item actually have stock free of Sales
+      // Order commitments right now? available_stock (used in the pre-filter
+      // above) doesn't reflect this; available_for_sale_stock does, but only
+      // via the per-item Detail endpoint. null on failure means fail open
+      // (leave status as 'available' from mapZohoItem rather than wrongly hide it).
+      const availForSale = await fetchAvailableForSale(accessToken, zohoItem.item_id);
+      if (availForSale !== null && availForSale < 1) {
+        mapped.status = 'sold';
+      }
+
       let watchId = existingMap[mapped.zoho_item_id];
 
       if (watchId) {

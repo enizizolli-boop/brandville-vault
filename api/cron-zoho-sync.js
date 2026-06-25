@@ -39,68 +39,36 @@ async function getAccessToken() {
   return data.access_token;
 }
 
-// Stage must be "Per oferte" AND accounting available_stock >= 1 AND not
-// currently committed to an open confirmed sales order. The Items API never
-// reflects sales-order commitments in available_stock, so that's checked
-// separately via fetchCommittedItemIds. committedItemIds may be null
-// (fetch failed) — fail open in that case rather than exclude extra items.
-function isLiveItem(item, committedItemIds) {
-  if ((item.cf_stage || '') !== 'Per oferte') return false;
-  if (Number(item.available_stock ?? 0) < 1) return false;
-  if (committedItemIds && committedItemIds.has(String(item.item_id))) return false;
-  return true;
+// Cheap pre-filter using the List API. Does NOT reflect Sales Order commitments —
+// the authoritative field, available_for_sale_stock, only exists on the per-item
+// Detail endpoint (verified directly against Zoho). See fetchAvailableForSale,
+// used per-item for the small set actually being written, not the whole catalog.
+function isLiveItem(item) {
+  return (item.cf_stage || '') === 'Per oferte' && Number(item.available_stock ?? 0) >= 1;
 }
 
-async function fetchCommittedItemIds(accessToken) {
-  const committed = new Set();
-  let page = 1;
-  const perPage = 200;
-  let detailFetches = 0;
-  const MAX_DETAIL_FETCHES = 100;
-  while (true) {
+async function fetchAvailableForSale(accessToken, itemId) {
+  try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 15000);
+    const timer = setTimeout(() => controller.abort(), 8000);
+    let res;
     try {
-      const url = `https://www.zohoapis.eu/inventory/v1/salesorders?organization_id=${process.env.ZOHO_ORG_ID}&per_page=${perPage}&page=${page}&status=confirmed`;
-      const res = await fetch(url, { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }, signal: controller.signal });
-      clearTimeout(timer);
-      const data = await res.json();
-      const orders = data.salesorders || [];
-      if (orders.length === 0) break;
-      for (const order of orders) {
-        if (Array.isArray(order.line_items) && order.line_items.length > 0) {
-          for (const li of order.line_items) {
-            if (li.item_id) committed.add(String(li.item_id));
-          }
-        } else if (order.salesorder_id && detailFetches < MAX_DETAIL_FETCHES) {
-          detailFetches++;
-          try {
-            const dCtrl = new AbortController();
-            const dTimer = setTimeout(() => dCtrl.abort(), 10000);
-            const dRes = await fetch(
-              `https://www.zohoapis.eu/inventory/v1/salesorders/${order.salesorder_id}?organization_id=${process.env.ZOHO_ORG_ID}`,
-              { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }, signal: dCtrl.signal }
-            );
-            clearTimeout(dTimer);
-            const dData = await dRes.json();
-            for (const li of dData?.salesorder?.line_items || []) {
-              if (li.item_id) committed.add(String(li.item_id));
-            }
-          } catch (e) { console.error(`Sales order detail fetch failed for ${order.salesorder_id}:`, e.message); }
-        }
-      }
-      if (orders.length < perPage) break;
-      page++;
-    } catch (e) {
-      clearTimeout(timer);
-      console.error(`fetchCommittedItemIds failed on page ${page}:`, e.message);
-      return null;
-    }
+      res = await fetch(
+        `https://www.zohoapis.eu/inventory/v1/items/${itemId}?organization_id=${process.env.ZOHO_ORG_ID}`,
+        { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }, signal: controller.signal }
+      );
+    } finally { clearTimeout(timer); }
+    if (!res.ok) return null;
+    const data = await res.json();
+    const val = data?.item?.available_for_sale_stock;
+    return val === undefined ? null : Number(val);
+  } catch (e) {
+    console.error(`fetchAvailableForSale failed for ${itemId}:`, e.message);
+    return null;
   }
-  return committed;
 }
 
-async function fetchAllLiveIds(accessToken, committedItemIds) {
+async function fetchAllLiveIds(accessToken) {
   let ids = [];
   let page = 1;
   const perPage = 200;
@@ -114,7 +82,7 @@ async function fetchAllLiveIds(accessToken, committedItemIds) {
       const data = await res.json();
       if (!data.items || data.items.length === 0) break;
       for (const item of data.items) {
-        if (isLiveItem(item, committedItemIds)) ids.push(String(item.item_id));
+        if (isLiveItem(item)) ids.push(String(item.item_id));
       }
       if (data.items.length < perPage) break;
       page++;
@@ -349,10 +317,23 @@ export default async function handler(req, res) {
     const accessToken = await getAccessToken();
 
     const recentItems = await fetchRecentItems(accessToken, 35);
-    const committedItemIds = await fetchCommittedItemIds(accessToken);
 
-    const liveItems = recentItems.filter(item => isLiveItem(item, committedItemIds));
-    const offItems = recentItems.filter(item => !isLiveItem(item, committedItemIds));
+    const stageStockLive = recentItems.filter(isLiveItem);
+    let offItems = recentItems.filter(item => !isLiveItem(item));
+
+    // Authoritative per-item check: stage+stock passing doesn't mean the item is
+    // actually free of Sales Order commitments. recentItems is a small, bounded
+    // set (items modified in the last 35 min), so a per-item Detail check here
+    // is cheap — unlike checking the whole catalog.
+    const liveItems = [];
+    for (const item of stageStockLive) {
+      const availForSale = await fetchAvailableForSale(accessToken, item.item_id);
+      if (availForSale !== null && availForSale < 1) {
+        offItems.push(item);
+      } else {
+        liveItems.push(item);
+      }
+    }
 
     if (offItems.length > 0) {
       const offIds = offItems.map(i => String(i.item_id));
@@ -441,7 +422,7 @@ export default async function handler(req, res) {
       const lastReconcile = logRow?.result?.last_reconcile_at ? new Date(logRow.result.last_reconcile_at) : null;
       const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
       if (!lastReconcile || lastReconcile < twoHoursAgo) {
-        const allZohoIds = await fetchAllLiveIds(accessToken, committedItemIds);
+        const allZohoIds = await fetchAllLiveIds(accessToken);
         if (allZohoIds && allZohoIds.length > 0) {
           const { data: dbRows } = await supabase
             .from('products').select('zoho_item_id, status').eq('source', 'zoho');
@@ -478,7 +459,7 @@ export default async function handler(req, res) {
               } catch { clearTimeout(timer); break; }
             }
             const missingSet = new Set(missingIds);
-            const toInsert = allFull.filter(item => missingSet.has(String(item.item_id)) && isLiveItem(item, committedItemIds)).map(mapZohoItem);
+            const toInsert = allFull.filter(item => missingSet.has(String(item.item_id)) && isLiveItem(item)).map(mapZohoItem);
             if (toInsert.length > 0) {
               await supabase.from('products').upsert(toInsert, { onConflict: 'zoho_item_id' });
               console.log(`Reconciliation: inserted ${toInsert.length} missing items`);
