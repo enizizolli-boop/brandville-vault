@@ -296,21 +296,32 @@ export default async function handler(req, res) {
 
     const candidates = allItems.filter(isLiveItem);
 
-    // Authoritative per-item check against the small candidate set (~150-200
-    // items), not the whole catalog. Small delay between calls to avoid
-    // hammering the same rate-limited endpoint pattern we hit on the gallery API.
-    const liveItems = [];
-    const committedExclusions = [];
-    for (const item of candidates) {
-      const availForSale = await fetchAvailableForSale(accessToken, item.item_id);
-      if (availForSale !== null && availForSale < 1) {
-        committedExclusions.push(item);
-      } else {
-        liveItems.push(item);
+    // The authoritative per-item commitment check is the expensive part (~150-200
+    // extra API calls). Running it every 30-min tick was ~15k calls/day, half the
+    // daily quota. So it only runs once an hour; every tick reuses the cached
+    // result in between, so a fast cheap-check tick can't undo a commitment
+    // exclusion the last hourly check found.
+    const { data: commLog } = await supabase.from('sync_log').select('result, last_sync_at').eq('key', 'zoho_committed_ids_cache').single();
+    const commAge = commLog?.last_sync_at ? Date.now() - new Date(commLog.last_sync_at).getTime() : Infinity;
+    let committedIds;
+    let commitmentCheckRefreshed = false;
+    if (commAge < 55 * 60 * 1000 && commLog?.result?.ids) {
+      committedIds = new Set(commLog.result.ids);
+    } else {
+      committedIds = new Set();
+      for (const item of candidates) {
+        const availForSale = await fetchAvailableForSale(accessToken, item.item_id);
+        if (availForSale !== null && availForSale < 1) committedIds.add(String(item.item_id));
+        await new Promise(r => setTimeout(r, 120));
       }
-      await new Promise(r => setTimeout(r, 120));
+      commitmentCheckRefreshed = true;
+      await supabase.from('sync_log').upsert(
+        { key: 'zoho_committed_ids_cache', last_sync_at: new Date().toISOString(), result: { ids: [...committedIds] } },
+        { onConflict: 'key' }
+      );
     }
 
+    const liveItems = candidates.filter(item => !committedIds.has(String(item.item_id)));
     const liveZohoIds = liveItems.map(i => String(i.item_id));
 
     // Stale cleanup with the same safety guards as the manual sync: abort if
@@ -419,8 +430,8 @@ export default async function handler(req, res) {
       last_sync_at: new Date().toISOString(),
       result: {
         status: 'done', upserted, marked_sold: markedSold,
-        total_candidates: candidates.length, committed_exclusions: committedExclusions.length,
-        images_added: imagesAdded,
+        total_candidates: candidates.length, committed_ids: committedIds.size,
+        commitment_check_refreshed: commitmentCheckRefreshed, images_added: imagesAdded,
       },
     });
 
@@ -429,7 +440,8 @@ export default async function handler(req, res) {
       upserted,
       marked_sold: markedSold,
       total_candidates: candidates.length,
-      committed_exclusions: committedExclusions.length,
+      committed_ids: committedIds.size,
+      commitment_check_refreshed: commitmentCheckRefreshed,
       images_added: imagesAdded,
     });
   } catch (err) {
