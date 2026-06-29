@@ -331,6 +331,11 @@ export default function AgentListings() {
   const [listingType, setListingType] = useState('instock')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [preorderStatusFilter, setPreorderStatusFilter] = useState('all')
+  const [preorderBrandFilter, setPreorderBrandFilter] = useState('all')
+  const [preorderPriceMin, setPreorderPriceMin] = useState('')
+  const [preorderPriceMax, setPreorderPriceMax] = useState('')
+  const [preorderSort, setPreorderSort] = useState('newest')
 
   const fetchMyWatches = useCallback(async () => {
     const q = profile?.role === 'admin'
@@ -625,6 +630,18 @@ export default function AgentListings() {
     fetchPreorders()
   }
 
+  // Extend an active preorder by 7 more days, or bring an archived one back —
+  // identical operation, since "reactivating" just means giving it a future expiry again.
+  async function extendPreorder(id) {
+    await supabase.from('preorders').update({ expires_at: new Date(Date.now() + 7 * 86400000).toISOString() }).eq('id', id)
+    fetchPreorders()
+  }
+
+  function daysUntilExpiry(expiresAt) {
+    if (!expiresAt) return null
+    return Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000)
+  }
+
   function fmtDate(iso) {
     if (!iso) return ''
     const d = new Date(iso)
@@ -670,14 +687,35 @@ export default function AgentListings() {
   const filteredWatches = watches.filter(w =>
     !search || w.brand?.toLowerCase().includes(q) || w.model?.toLowerCase().includes(q) || w.reference?.toLowerCase().includes(q)
   )
-  const watchPreorders = preorders.filter(p => p.category !== 'Bags')
-  const bagPreorders = preorders.filter(p => p.category === 'Bags')
-  const basePreorders = listingType === 'preorders-bags' ? bagPreorders : listingType === 'preorders-watches' ? watchPreorders : preorders
+  const isArchived = p => daysUntilExpiry(p.expires_at) !== null && daysUntilExpiry(p.expires_at) <= 0
+  const activePreorders = preorders.filter(p => !isArchived(p))
+  const archivedPreorders = preorders.filter(isArchived)
+  const watchPreorders = activePreorders.filter(p => p.category !== 'Bags')
+  const bagPreorders = activePreorders.filter(p => p.category === 'Bags')
+  const basePreorders = listingType === 'preorders-bags' ? bagPreorders
+    : listingType === 'preorders-watches' ? watchPreorders
+    : listingType === 'preorders-archived' ? archivedPreorders
+    : preorders
+  const preorderBrandOptions = [...new Set(preorders.map(p => p.brand).filter(Boolean))].sort()
   const filteredPreorders = basePreorders.filter(p => {
     if (search && !p.brand?.toLowerCase().includes(q) && !p.model?.toLowerCase().includes(q)) return false
     if (dateFrom && new Date(p.created_at) < new Date(dateFrom)) return false
     if (dateTo && new Date(p.created_at) > new Date(dateTo + 'T23:59:59')) return false
+    if (preorderStatusFilter === 'available' && p.status !== 'available') return false
+    if (preorderStatusFilter === 'sold' && p.status !== 'sold') return false
+    if (preorderStatusFilter === 'expiring') {
+      const days = daysUntilExpiry(p.expires_at)
+      if (days === null || days > 2 || days <= 0) return false
+    }
+    if (preorderBrandFilter !== 'all' && p.brand !== preorderBrandFilter) return false
+    if (preorderPriceMin && Number(p.price_eur || 0) < Number(preorderPriceMin)) return false
+    if (preorderPriceMax && Number(p.price_eur || 0) > Number(preorderPriceMax)) return false
     return true
+  }).sort((a, b) => {
+    if (preorderSort === 'price_asc') return Number(a.price_eur || 0) - Number(b.price_eur || 0)
+    if (preorderSort === 'price_desc') return Number(b.price_eur || 0) - Number(a.price_eur || 0)
+    if (preorderSort === 'expiring') return new Date(a.expires_at || 0) - new Date(b.expires_at || 0)
+    return new Date(b.created_at || 0) - new Date(a.created_at || 0)
   })
 
   return (
@@ -718,6 +756,12 @@ export default function AgentListings() {
             >
               Preorders Bags {bagPreorders.length > 0 && `(${bagPreorders.length})`}
             </button>
+            <button
+              className={`btn btn-sm${listingType === 'preorders-archived' ? ' btn-dark' : ''}`}
+              onClick={() => setListingType('preorders-archived')}
+            >
+              Archived {archivedPreorders.length > 0 && `(${archivedPreorders.length})`}
+            </button>
           </div>
           <input
             placeholder="Search brand, model or reference..."
@@ -726,15 +770,50 @@ export default function AgentListings() {
             style={{ width: '100%', marginBottom: 12, boxSizing: 'border-box' }}
           />
 
-          {(listingType === 'preorders-watches' || listingType === 'preorders-bags') && (
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
-              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ flex: 1, fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)' }} />
-              <span style={{ color: 'var(--faint)', fontSize: 13 }}>—</span>
-              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ flex: 1, fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)' }} />
-              {(dateFrom || dateTo) && (
-                <button className="btn btn-sm" onClick={() => { setDateFrom(''); setDateTo('') }} style={{ whiteSpace: 'nowrap' }}>Clear</button>
-              )}
-            </div>
+          {(listingType === 'preorders-watches' || listingType === 'preorders-bags' || listingType === 'preorders-archived') && (
+            <>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: 11, color: 'var(--faint)', marginBottom: 4 }}>Listed from</label>
+                  <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ width: '100%', fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', boxSizing: 'border-box' }} />
+                </div>
+                <span style={{ color: 'var(--faint)', fontSize: 13, paddingBottom: 8 }}>—</span>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: 11, color: 'var(--faint)', marginBottom: 4 }}>Listed to</label>
+                  <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ width: '100%', fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', boxSizing: 'border-box' }} />
+                </div>
+                {(dateFrom || dateTo) && (
+                  <button className="btn btn-sm" onClick={() => { setDateFrom(''); setDateTo('') }} style={{ whiteSpace: 'nowrap' }}>Clear</button>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                <select value={preorderStatusFilter} onChange={e => setPreorderStatusFilter(e.target.value)} style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)' }}>
+                  <option value="all">All statuses</option>
+                  <option value="available">Available</option>
+                  <option value="sold">Sold</option>
+                  <option value="expiring">Expiring soon</option>
+                </select>
+                <select value={preorderBrandFilter} onChange={e => setPreorderBrandFilter(e.target.value)} style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)' }}>
+                  <option value="all">All brands</option>
+                  {preorderBrandOptions.map(b => <option key={b} value={b}>{b}</option>)}
+                </select>
+                <input
+                  type="number" placeholder="Min €" value={preorderPriceMin} onChange={e => setPreorderPriceMin(e.target.value)}
+                  style={{ width: 90, fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)' }}
+                />
+                <input
+                  type="number" placeholder="Max €" value={preorderPriceMax} onChange={e => setPreorderPriceMax(e.target.value)}
+                  style={{ width: 90, fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)' }}
+                />
+                <select value={preorderSort} onChange={e => setPreorderSort(e.target.value)} style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)' }}>
+                  <option value="newest">Newest</option>
+                  <option value="price_asc">Price ↑</option>
+                  <option value="price_desc">Price ↓</option>
+                  <option value="expiring">Expiring soon</option>
+                </select>
+              </div>
+            </>
           )}
 
           {listingType === 'instock' && (
@@ -763,10 +842,13 @@ export default function AgentListings() {
               ))
           )}
 
-          {(listingType === 'preorders-watches' || listingType === 'preorders-bags') && (
+          {(listingType === 'preorders-watches' || listingType === 'preorders-bags' || listingType === 'preorders-archived') && (
             filteredPreorders.length === 0
-              ? <div className="empty-state">{search ? 'No preorders match your search' : 'No preorders yet'}</div>
-              : filteredPreorders.map(p => (
+              ? <div className="empty-state">{search ? 'No preorders match your search' : listingType === 'preorders-archived' ? 'No archived preorders' : 'No preorders yet'}</div>
+              : filteredPreorders.map(p => {
+              const days = daysUntilExpiry(p.expires_at)
+              const archived = listingType === 'preorders-archived'
+              return (
               <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid var(--border-light)', borderRadius: 10, marginBottom: 8, background: 'var(--surface)' }}>
                 <div onClick={() => navigate(`/catalog/${toSlug(p)}`)} style={{ width: 50, height: 50, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}>
                   {getPreorderThumb(p) ? <img src={getPreorderThumb(p)} alt={p.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20 }}>🔖</span>}
@@ -777,6 +859,18 @@ export default function AgentListings() {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
                   <span className={`badge badge-${p.status}`}>{p.status}</span>
+                  {!archived && days !== null && (
+                    <span style={{
+                      fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 8,
+                      color: days <= 2 ? '#fff' : '#888',
+                      background: days <= 2 ? '#d9534f' : 'var(--surface2)',
+                    }}>
+                      Expires in {days}d
+                    </span>
+                  )}
+                  {archived && (
+                    <span style={{ fontSize: 10, color: '#bbb' }}>Expired {fmtDate(p.expires_at)}</span>
+                  )}
                   {p.status === 'posted' && p.posted_at && (
                     <span style={{ fontSize: 10, color: '#bbb' }}>Posted {fmtDate(p.posted_at)}</span>
                   )}
@@ -785,11 +879,15 @@ export default function AgentListings() {
                   ? <button className="btn btn-sm" onClick={() => markPreorderAvailable(p.id)}>Mark available</button>
                   : <button className="btn btn-sm" onClick={() => markPreorderSold(p.id)}>Mark sold</button>
                 }
+                <button className="btn btn-sm" onClick={() => extendPreorder(p.id)}>
+                  {archived ? 'Reactivate' : 'Extend 7 days'}
+                </button>
                 {(profile?.role === 'admin' || p.posted_by === profile?.id) && (
                   <button className="btn btn-sm btn-danger" onClick={() => deletePreorder(p.id)}>Delete</button>
                 )}
               </div>
-            ))
+              )
+            })
           )}
         </div>
       )}
