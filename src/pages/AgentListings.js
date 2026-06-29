@@ -687,11 +687,14 @@ export default function AgentListings() {
   const filteredWatches = watches.filter(w =>
     !search || w.brand?.toLowerCase().includes(q) || w.model?.toLowerCase().includes(q) || w.reference?.toLowerCase().includes(q)
   )
-  const isArchived = p => daysUntilExpiry(p.expires_at) !== null && daysUntilExpiry(p.expires_at) <= 0
+  // Bags always count as archived for this agent-side grouping (the Preorders Bags
+  // tab below still shows all of them unaffected — this only changes which bucket
+  // they fall into for the Archived tab). Watches archive normally after 7 days.
+  const isArchived = p => p.category === 'Bags' || (daysUntilExpiry(p.expires_at) !== null && daysUntilExpiry(p.expires_at) <= 0)
   const activePreorders = preorders.filter(p => !isArchived(p))
   const archivedPreorders = preorders.filter(isArchived)
   const watchPreorders = activePreorders.filter(p => p.category !== 'Bags')
-  const bagPreorders = activePreorders.filter(p => p.category === 'Bags')
+  const bagPreorders = preorders.filter(p => p.category === 'Bags')
   const basePreorders = listingType === 'preorders-bags' ? bagPreorders
     : listingType === 'preorders-watches' ? watchPreorders
     : listingType === 'preorders-archived' ? archivedPreorders
