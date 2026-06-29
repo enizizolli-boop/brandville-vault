@@ -85,7 +85,7 @@ async function fetchAllItems(accessToken) {
 // it's cheap for the handful of items actually being written in one batch.
 // Returns null on failure — caller should fail open (treat as available)
 // rather than risk wrongly hiding an item over a transient API error.
-async function fetchAvailableForSale(accessToken, itemId) {
+async function fetchAvailableForSale(accessToken, itemId, isRetry = false) {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
@@ -96,9 +96,17 @@ async function fetchAvailableForSale(accessToken, itemId) {
         { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }, signal: controller.signal }
       );
     } finally { clearTimeout(timer); }
-    if (!res.ok) return null;
+    if (res.status === 429 && !isRetry) {
+      await new Promise(r => setTimeout(r, 3000));
+      return fetchAvailableForSale(accessToken, itemId, true);
+    }
+    if (!res.ok) {
+      console.error(`fetchAvailableForSale: ${itemId} returned HTTP ${res.status}`);
+      return null;
+    }
     const data = await res.json();
     const val = data?.item?.available_for_sale_stock;
+    if (val === undefined) console.error(`fetchAvailableForSale: ${itemId} response missing available_for_sale_stock`);
     return val === undefined ? null : Number(val);
   } catch (e) {
     console.error(`fetchAvailableForSale failed for ${itemId}:`, e.message);

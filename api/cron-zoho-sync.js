@@ -47,7 +47,7 @@ function isLiveItem(item) {
   return (item.cf_stage || '') === 'Per oferte' && Number(item.available_stock ?? 0) >= 1;
 }
 
-async function fetchAvailableForSale(accessToken, itemId) {
+async function fetchAvailableForSale(accessToken, itemId, isRetry = false) {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
@@ -58,9 +58,17 @@ async function fetchAvailableForSale(accessToken, itemId) {
         { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }, signal: controller.signal }
       );
     } finally { clearTimeout(timer); }
-    if (!res.ok) return null;
+    if (res.status === 429 && !isRetry) {
+      await new Promise(r => setTimeout(r, 3000));
+      return fetchAvailableForSale(accessToken, itemId, true);
+    }
+    if (!res.ok) {
+      console.error(`fetchAvailableForSale: ${itemId} returned HTTP ${res.status}`);
+      return null;
+    }
     const data = await res.json();
     const val = data?.item?.available_for_sale_stock;
+    if (val === undefined) console.error(`fetchAvailableForSale: ${itemId} response missing available_for_sale_stock`);
     return val === undefined ? null : Number(val);
   } catch (e) {
     console.error(`fetchAvailableForSale failed for ${itemId}:`, e.message);
@@ -309,11 +317,14 @@ export default async function handler(req, res) {
       committedIds = new Set(commLog.result.ids);
     } else {
       committedIds = new Set();
+      let nullResults = 0;
       for (const item of candidates) {
         const availForSale = await fetchAvailableForSale(accessToken, item.item_id);
-        if (availForSale !== null && availForSale < 1) committedIds.add(String(item.item_id));
-        await new Promise(r => setTimeout(r, 120));
+        if (availForSale === null) nullResults++;
+        else if (availForSale < 1) committedIds.add(String(item.item_id));
+        await new Promise(r => setTimeout(r, 250));
       }
+      if (nullResults > 0) console.error(`Commitment check: ${nullResults}/${candidates.length} items returned null (failed/missing field)`);
       commitmentCheckRefreshed = true;
       await supabase.from('sync_log').upsert(
         { key: 'zoho_committed_ids_cache', last_sync_at: new Date().toISOString(), result: { ids: [...committedIds] } },
