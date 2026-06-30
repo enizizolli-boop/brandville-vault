@@ -99,6 +99,6 @@ export default async function handler(req, res) {
   // Just acknowledge — full sync is handled by cron-zoho-sync every 30 minutes.
   // Doing a full inventory fetch here caused rate limit errors and mass status changes
   // when Zoho fires multiple webhook calls in quick succession.
-  console.log('Zoho webhook received:', JSON.stringify(req.body)?.slice(0, 200));
+  console.log('Zoho webhook full payload:', JSON.stringify(req.body)?.slice(0, 3000));
   return res.status(200).json({ ok: true });
 }

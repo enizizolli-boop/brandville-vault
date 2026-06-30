@@ -100,17 +100,19 @@ async function fetchAllActiveItems(accessToken) {
   return items;
 }
 
-// Sync all gallery images for an item. Handles both ZIP and JSON responses from Zoho.
-// forceRefresh=true deletes existing images first (used for re-activated items).
+// Sync gallery images for an item.
+// forceRefresh=true: replace all existing images, but ONLY after confirming we
+// have new ones to replace them with. Never delete first — a 429 or timeout
+// after an upfront delete leaves the item with zero images on a live site.
 async function syncGalleryImages(accessToken, itemId, productId, forceRefresh = false) {
   try {
-    if (forceRefresh) {
-      await supabase.from('product_images').delete().eq('product_id', productId);
-    }
-
     const { data: existingImgs } = await supabase
       .from('product_images').select('position').eq('product_id', productId);
-    const existingPositions = new Set((existingImgs || []).map(r => r.position));
+    // For forceRefresh: treat all positions as empty so we upload all images fresh.
+    // The actual DB delete happens below, only after we've confirmed we have images.
+    const existingPositions = forceRefresh
+      ? new Set()
+      : new Set((existingImgs || []).map(r => r.position));
 
     const listRes = await fetch(
       `https://www.zohoapis.eu/inventory/v1/items/${itemId}/images?organization_id=${process.env.ZOHO_ORG_ID}`,
@@ -118,14 +120,13 @@ async function syncGalleryImages(accessToken, itemId, productId, forceRefresh = 
     );
 
     if (listRes.status === 429) {
-      console.log(`Gallery rate limited (429) for item ${itemId}`);
+      console.log(`Gallery rate limited (429) for item ${itemId} — keeping existing images`);
       return 0;
     }
 
     const ct = listRes.headers.get('content-type') || '';
     let uploaded = 0;
 
-    // Zoho returns a ZIP. Content-type is application/zip or application/octet-stream.
     if (ct.includes('application/zip') || ct.includes('octet-stream')) {
       try {
         const buffer = Buffer.from(await listRes.arrayBuffer());
@@ -133,12 +134,12 @@ async function syncGalleryImages(accessToken, itemId, productId, forceRefresh = 
         let imageFiles = Object.values(zip.files)
           .filter(f => !f.dir && /\.(jpe?g|png|webp|gif)$/i.test(f.name))
           .sort((a, b) => a.name.localeCompare(b.name));
-        // Some Zoho items use extensionless filenames in the ZIP — fall back to all files
         if (imageFiles.length === 0) {
           imageFiles = Object.values(zip.files).filter(f => !f.dir).sort((a, b) => a.name.localeCompare(b.name));
         }
-
         if (imageFiles.length > 0) {
+          // We have replacement images — safe to clear old records now
+          if (forceRefresh) await supabase.from('product_images').delete().eq('product_id', productId);
           for (let i = 0; i < imageFiles.length; i++) {
             if (existingPositions.has(i)) continue;
             try {
@@ -153,20 +154,18 @@ async function syncGalleryImages(accessToken, itemId, productId, forceRefresh = 
           }
           return uploaded;
         }
-        // ZIP empty — fall through to primary image fallback
       } catch (e) {
         if (ct.includes('application/zip')) { console.error(`ZIP extract error for ${itemId}:`, e); return 0; }
-        // octet-stream that isn't a valid ZIP — fall through
       }
     }
 
-    // JSON gallery list
     let listData = null;
     try {
       if (ct.includes('application/json') || ct.includes('text/')) listData = await listRes.json();
     } catch { listData = null; }
 
     if (listData?.images?.length > 0) {
+      if (forceRefresh) await supabase.from('product_images').delete().eq('product_id', productId);
       for (let i = 0; i < listData.images.length; i++) {
         if (existingPositions.has(i)) continue;
         const docId = listData.images[i].image_document_id;
@@ -177,9 +176,9 @@ async function syncGalleryImages(accessToken, itemId, productId, forceRefresh = 
             { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
           );
           if (!imgRes.ok) continue;
-          const buffer = Buffer.from(await imgRes.arrayBuffer());
+          const buf = Buffer.from(await imgRes.arrayBuffer());
           const path = `${productId}/zoho_${i}.jpg`;
-          const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
+          const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buf, { contentType: 'image/jpeg', upsert: true });
           if (upErr) continue;
           const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
           await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position: i });
@@ -189,7 +188,7 @@ async function syncGalleryImages(accessToken, itemId, productId, forceRefresh = 
       return uploaded;
     }
 
-    // No gallery — fetch item detail to get image_document_id for the Front View
+    // No gallery images — try Front View via image_document_id
     if (existingPositions.size > 0) return 0;
     try {
       const detailRes = await fetch(
@@ -205,16 +204,14 @@ async function syncGalleryImages(accessToken, itemId, productId, forceRefresh = 
         { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
       );
       if (!imgRes.ok) return 0;
-      const buffer = Buffer.from(await imgRes.arrayBuffer());
+      const buf = Buffer.from(await imgRes.arrayBuffer());
       const path = `${productId}/zoho_0.jpg`;
-      const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
+      const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buf, { contentType: 'image/jpeg', upsert: true });
       if (upErr) return 0;
       const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
       await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position: 0 });
       return 1;
     } catch (e) { console.error(`Primary image fallback error for ${itemId}:`, e); return 0; }
-
-    return 0;
   } catch (e) {
     console.error(`syncGalleryImages error for ${itemId}:`, e);
     return 0;
@@ -313,7 +310,7 @@ export default async function handler(req, res) {
     const commAge = commLog?.last_sync_at ? Date.now() - new Date(commLog.last_sync_at).getTime() : Infinity;
     let committedIds;
     let commitmentCheckRefreshed = false;
-    if (commAge < 55 * 60 * 1000 && commLog?.result?.ids) {
+    if (commAge < 6 * 60 * 60 * 1000 && commLog?.result?.ids) {
       committedIds = new Set(commLog.result.ids);
     } else {
       committedIds = new Set();
