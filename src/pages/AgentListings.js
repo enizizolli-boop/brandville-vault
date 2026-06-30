@@ -430,6 +430,7 @@ export default function AgentListings() {
   const [bagCostPrice, setBagCostPrice] = useState('')
   const [bagCostCurrency, setBagCostCurrency] = useState('EUR')
   const [bagSellingPrice, setBagSellingPrice] = useState('')
+  const [bagSellingCurrency, setBagSellingCurrency] = useState('EUR')
   const [bagPosting, setBagPosting] = useState(false)
   const [bagMsg, setBagMsg] = useState('')
   const [bagError, setBagError] = useState('')
@@ -529,6 +530,44 @@ export default function AgentListings() {
     ? '$' + Math.round(Number(form.price_eur) * rate).toLocaleString()
     : null
 
+  function isValidRate(value) {
+    return Number.isFinite(Number(value)) && Number(value) > 0
+  }
+
+  function convertBagSellingPrices(amount, currencyCode, includeCny = true) {
+    const sellingAmount = Number(amount)
+    const eurUsdRate = Number(rate)
+    const cnyEurRate = Number(cnyToEurRate)
+
+    if (!Number.isFinite(sellingAmount) || sellingAmount <= 0) return null
+    if (!isValidRate(eurUsdRate)) return null
+    if ((currencyCode === 'CNY' || includeCny) && !isValidRate(cnyEurRate)) return null
+
+    if (currencyCode === 'USD') {
+      const priceEur = sellingAmount / eurUsdRate
+      return {
+        priceEur,
+        priceUsd: sellingAmount,
+        priceCny: includeCny ? priceEur / cnyEurRate : null,
+      }
+    }
+
+    if (currencyCode === 'CNY') {
+      const priceEur = sellingAmount * cnyEurRate
+      return {
+        priceEur,
+        priceUsd: priceEur * eurUsdRate,
+        priceCny: sellingAmount,
+      }
+    }
+
+    return {
+      priceEur: sellingAmount,
+      priceUsd: sellingAmount * eurUsdRate,
+      priceCny: includeCny ? sellingAmount / cnyEurRate : null,
+    }
+  }
+
   async function handlePost(e) {
     e.preventDefault()
     setError('')
@@ -621,17 +660,40 @@ export default function AgentListings() {
   async function handleBagPost(e) {
     e.preventDefault()
     setBagError('')
-    setBagPosting(true)
     try {
       const parsed = parseQuickPost(bagName)
+      const sellingCurrency = bagSellingPrice ? bagSellingCurrency : 'EUR'
+
+      const needsCnyRate = bagIsPreorder || sellingCurrency === 'CNY' || (bagCostCurrency === 'CNY' && bagCostPrice)
+
+      if (needsCnyRate && !isValidRate(cnyToEurRate)) {
+        setBagError('CNY to EUR exchange rate is not available yet. Please try again in a moment.')
+        return
+      }
+      if (!isValidRate(rate)) {
+        setBagError('EUR to USD exchange rate is not available yet. Please try again in a moment.')
+        return
+      }
 
       const costEur = bagCostPrice
         ? bagCostCurrency === 'CNY'
-          ? Number(bagCostPrice) * (cnyToEurRate || 0)
+          ? Number(bagCostPrice) * Number(cnyToEurRate)
           : Number(bagCostPrice)
         : null
-      const sellingEur = bagSellingPrice ? Number(bagSellingPrice) : costEur * 1.4
-      const priceUsd = rate ? Math.round(sellingEur * rate) : null
+      const sellingAmount = bagSellingPrice ? Number(bagSellingPrice) : costEur * 1.4
+      const convertedPrices = convertBagSellingPrices(sellingAmount, sellingCurrency, bagIsPreorder)
+
+      if (!convertedPrices) {
+        setBagError('Could not calculate converted prices. Please check the amount and exchange rates.')
+        return
+      }
+
+      const { priceEur, priceUsd, priceCny } = convertedPrices
+      const requiredPrices = bagIsPreorder ? [priceEur, priceUsd, priceCny] : [priceEur, priceUsd]
+      if (!requiredPrices.every(v => Number.isFinite(v) && v > 0)) {
+        setBagError('Could not calculate valid converted prices. Please check the amount and exchange rates.')
+        return
+      }
 
       const payload = {
         category: bagCategory,
@@ -639,8 +701,8 @@ export default function AgentListings() {
         model: bagModel.trim(),
         reference: null,
         condition: bagCondition,
-        price_eur: Math.round(sellingEur),
-        price_usd: priceUsd,
+        price_eur: Math.round(priceEur),
+        price_usd: Math.round(priceUsd),
         cost_eur: costEur === null ? null : Math.round(costEur),
         vendor: null,
         notes: parsed.notes || null,
@@ -659,8 +721,11 @@ export default function AgentListings() {
       const table = bagIsPreorder ? 'preorders' : 'products'
       const imgTable = bagIsPreorder ? 'preorder_images' : 'product_images'
       const fkCol = bagIsPreorder ? 'preorder_id' : 'product_id'
-      const insertPayload = bagIsPreorder ? payload : { ...payload, source: 'manual' }
+      const insertPayload = bagIsPreorder
+        ? { ...payload, price_cny: Math.round(priceCny), price_currency: sellingCurrency }
+        : { ...payload, source: 'manual' }
 
+      setBagPosting(true)
       const { data: item, error: pErr } = await supabase.from(table).insert(insertPayload).select().single()
       if (pErr) throw pErr
 
@@ -690,6 +755,7 @@ export default function AgentListings() {
       setBagCostPrice('')
       setBagCostCurrency('EUR')
       setBagSellingPrice('')
+      setBagSellingCurrency('EUR')
       setBagImages([])
       setBagPreviews([])
       setBagIsPreorder(true)
@@ -1378,27 +1444,45 @@ export default function AgentListings() {
               </div>
 
               <div className="form-row">
-                <label>Selling price (€) - optional</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={bagSellingPrice}
-                  onChange={e => {
-                    setBagError('')
-                    setBagSellingPrice(e.target.value === '' ? '' : String(Math.max(0, Number(e.target.value))))
-                  }}
-                  placeholder="leave blank to auto-calc as cost + 40%"
-                  required={!bagCostPrice}
-                />
+                <label>Selling price - optional</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    type="number"
+                    min="0"
+                    value={bagSellingPrice}
+                    onChange={e => {
+                      setBagError('')
+                      setBagSellingPrice(e.target.value === '' ? '' : String(Math.max(0, Number(e.target.value))))
+                    }}
+                    placeholder="leave blank to auto-calc as cost + 40%"
+                    style={{ flex: 1 }}
+                    required={!bagCostPrice}
+                  />
+                  <select value={bagSellingCurrency} onChange={e => setBagSellingCurrency(e.target.value)} style={{ width: 90 }}>
+                    <option value="EUR">EUR</option>
+                    <option value="USD">USD</option>
+                    <option value="CNY">CNY</option>
+                  </select>
+                </div>
                 {(bagCostPrice || bagSellingPrice) && (() => {
                   const costEur = bagCostPrice
                     ? bagCostCurrency === 'CNY' ? Number(bagCostPrice) * (cnyToEurRate || 0) : Number(bagCostPrice)
                     : null
-                  const sellingEur = bagSellingPrice ? Number(bagSellingPrice) : costEur * 1.4
-                  const usd = rate ? Math.round(sellingEur * rate) : null
+                  const sellingAmount = bagSellingPrice ? Number(bagSellingPrice) : costEur * 1.4
+                  const sellingCurrency = bagSellingPrice ? bagSellingCurrency : 'EUR'
+                  const includeCny = bagIsPreorder || sellingCurrency === 'CNY' || bagCostCurrency === 'CNY'
+                  const converted = convertBagSellingPrices(sellingAmount, sellingCurrency, includeCny)
+                  if (!converted) {
+                    return (
+                      <div style={{ fontSize: 12, color: '#b0a898', marginTop: 4 }}>
+                        Loading exchange rates…
+                      </div>
+                    )
+                  }
+                  const cnyPreview = converted.priceCny ? ` ≈ CNY ${Math.round(converted.priceCny).toLocaleString()}` : ''
                   return (
                     <div style={{ fontSize: 12, color: '#b0a898', marginTop: 4 }}>
-                      Selling price: €{Math.round(sellingEur).toLocaleString()}{usd ? ` ≈ $${usd.toLocaleString()}` : ''}{!bagSellingPrice ? ' (auto: cost + 40%)' : ''}
+                      Selling price: €{Math.round(converted.priceEur).toLocaleString()} ≈ ${Math.round(converted.priceUsd).toLocaleString()}{cnyPreview}{!bagSellingPrice ? ' (auto: cost + 40%)' : ''}
                     </div>
                   )
                 })()}
