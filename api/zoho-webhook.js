@@ -5,100 +5,91 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const STORE_DOMAIN = 'thewatchstore.zohocommerce.eu';
-const STORE_ID = 'e332ab1967';
-
-async function parseJsonSafe(res, context) {
-  const text = await res.text();
-  if (!text) throw new Error(`${context} returned empty body (status ${res.status})`);
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new Error(`${context} returned non-JSON (status ${res.status}): ${text.slice(0, 200)}`);
+function extractStage(item) {
+  // Try the flat hash first, then scan the custom_fields array
+  if (item.custom_field_hash?.cf_stage) return item.custom_field_hash.cf_stage;
+  if (Array.isArray(item.custom_fields)) {
+    const f = item.custom_fields.find(f => f.api_name === 'cf_stage');
+    if (f?.value) return f.value;
   }
-}
-
-async function getAccessToken() {
-  const res = await fetch('https://accounts.zoho.eu/oauth/v2/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      refresh_token: process.env.ZOHO_REFRESH_TOKEN,
-      client_id: process.env.ZOHO_CLIENT_ID,
-      client_secret: process.env.ZOHO_CLIENT_SECRET,
-      grant_type: 'refresh_token',
-    }),
-  });
-  const data = await parseJsonSafe(res, 'Zoho OAuth token');
-  if (!data.access_token) throw new Error('Failed to get Zoho access token: ' + JSON.stringify(data));
-  return data.access_token;
-}
-
-async function fetchAllItems(accessToken) {
-  let page = 1;
-  let allItems = [];
-  while (true) {
-    const url = `https://www.zohoapis.eu/inventory/v1/items?organization_id=${process.env.ZOHO_ORG_ID}&per_page=200&page=${page}&status=active`;
-    const res = await fetch(url, {
-      headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }
-    });
-    const data = await parseJsonSafe(res, `Zoho items page ${page}`);
-    const items = data.items || [];
-    allItems = allItems.concat(items);
-    if (items.length < 200) break;
-    page++;
-  }
-  return allItems;
-}
-
-async function fetchImagesFromStorePage(itemId) {
-  try {
-    const pageUrl = `https://${STORE_DOMAIN}/products/${itemId}`;
-    const res = await fetch(pageUrl);
-    const html = await res.text();
-    const matches = [...html.matchAll(/https:\/\/[^"']*zohocommerce[^"']*\.(jpg|jpeg|png|webp)/gi)];
-    const unique = [...new Set(matches.map(m => m[0].split('?')[0]))];
-    return unique.filter(u => !u.includes('thumb') && !u.includes('icon')).slice(0, 10);
-  } catch { return []; }
-}
-
-
-const WATCH_BRANDS = new Set([
-  'rolex','audemars piguet','patek philippe','omega','iwc','jaeger-lecoultre',
-  'breitling','tag heuer','tudor','hublot','richard mille','vacheron constantin',
-  'a. lange & söhne','panerai','blancpain','breguet','zenith','grand seiko',
-  'ulysse nardin','girard-perregaux','piaget','chopard',
-]);
-
-function mapZohoItem(item) {
-  const name = item.name || '';
-  // Zoho items are always Watches — Jewellery comes exclusively from Odoo
-  return {
-    zoho_item_id: String(item.item_id),
-    source: 'zoho',
-    brand: item.brand || 'Unknown',
-    model: name.trim(),
-    reference: item.sku || null,
-    price_eur: item.price ? parseFloat(item.price) : null,
-    status: 'available',
-    category: 'Watches',
-    subcategory: null,
-    notes: item.description || null,
-  };
+  return null;
 }
 
 export default async function handler(req, res) {
-  // Accept both GET (Zoho verification) and POST (actual webhook)
-  if (req.method === 'GET') {
-    return res.status(200).send('OK');
-  }
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  // Accept both GET (Zoho verification ping) and POST (actual webhook event)
+  if (req.method === 'GET') return res.status(200).send('OK');
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // Just acknowledge — full sync is handled by cron-zoho-sync every 30 minutes.
-  // Doing a full inventory fetch here caused rate limit errors and mass status changes
-  // when Zoho fires multiple webhook calls in quick succession.
-  console.log('Zoho webhook full payload:', JSON.stringify(req.body)?.slice(0, 3000));
-  return res.status(200).json({ ok: true });
+  // Always acknowledge immediately — Zoho retries on non-200 and we never
+  // want a slow DB write to cause duplicate processing.
+  res.status(200).json({ ok: true });
+
+  try {
+    const item = req.body?.item;
+    if (!item) return;
+
+    const sku = item.sku;
+    if (!sku) return; // can't identify which product without SKU
+
+    const availForSale = item.available_for_sale_stock;
+    const stage = extractStage(item);
+    const purchaseRate = item.purchase_rate;
+
+    // Determine whether this item should be live on the storefront.
+    // Fail open: if we can't read the critical fields, do nothing rather
+    // than wrongly marking something sold on a live dealer site.
+    if (availForSale === undefined || availForSale === null) {
+      console.log(`Webhook: skipping ${sku} — available_for_sale_stock missing from payload`);
+      return;
+    }
+    if (!stage) {
+      console.log(`Webhook: skipping ${sku} — cf_stage missing from payload`);
+      return;
+    }
+
+    const shouldBeLive = stage === 'Per oferte' && Number(availForSale) >= 1;
+
+    // Find the product in our DB by SKU/reference (Zoho source only)
+    const { data: products, error: fetchErr } = await supabase
+      .from('products')
+      .select('id, status, cost_eur')
+      .eq('reference', sku)
+      .eq('source', 'zoho');
+
+    if (fetchErr || !products?.length) {
+      console.log(`Webhook: no Zoho product found for SKU ${sku}`);
+      return;
+    }
+
+    for (const product of products) {
+      const updates = {};
+
+      // Only update status if it actually needs to change
+      const newStatus = shouldBeLive ? 'available' : 'sold';
+      if (product.status !== newStatus && product.status !== 'reserved') {
+        updates.status = newStatus;
+      }
+
+      // Bonus: persist cost_eur from purchase_rate if present and not already set
+      // (solves the cost_eur gap for Zoho watches without touching sync scripts)
+      if (purchaseRate && Number(purchaseRate) > 0 && !product.cost_eur) {
+        updates.cost_eur = Number(purchaseRate);
+      }
+
+      if (Object.keys(updates).length === 0) continue;
+
+      const { error: updateErr } = await supabase
+        .from('products')
+        .update(updates)
+        .eq('id', product.id);
+
+      if (updateErr) {
+        console.error(`Webhook: update failed for ${sku} (${product.id}):`, updateErr.message);
+      } else {
+        console.log(`Webhook: updated ${sku} →`, updates);
+      }
+    }
+  } catch (e) {
+    console.error('Webhook processing error:', e.message);
+  }
 }
