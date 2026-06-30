@@ -372,6 +372,16 @@ export default function DealerCatalog({ routeCategory }) {
     .sort((a, b) => {
       if (sortBy === 'price_asc') return (a.price_eur || 0) - (b.price_eur || 0)
       if (sortBy === 'price_desc') return (b.price_eur || 0) - (a.price_eur || 0)
+      if (sortBy === 'sku_asc' || sortBy === 'sku_desc') {
+        const aSku = parseInt(a.reference, 10)
+        const bSku = parseInt(b.reference, 10)
+        const aValid = !Number.isNaN(aSku)
+        const bValid = !Number.isNaN(bSku)
+        if (!aValid && !bValid) return 0
+        if (!aValid) return 1 // non-numeric SKUs sort last regardless of direction
+        if (!bValid) return -1
+        return sortBy === 'sku_asc' ? aSku - bSku : bSku - aSku
+      }
       return 0
     })
 
@@ -518,6 +528,8 @@ export default function DealerCatalog({ routeCategory }) {
                 <option value="">Newest First</option>
                 <option value="price_asc">Price: Low → High</option>
                 <option value="price_desc">Price: High → Low</option>
+                <option value="sku_desc">SKU: High → Low</option>
+                <option value="sku_asc">SKU: Low → High</option>
               </select>
             </div>
             {(profile?.role === 'agent' || profile?.role === 'admin') && (
@@ -766,6 +778,8 @@ export default function DealerCatalog({ routeCategory }) {
                 <option value="">Newest First</option>
                 <option value="price_asc">Price: Low → High</option>
                 <option value="price_desc">Price: High → Low</option>
+                <option value="sku_desc">SKU: High → Low</option>
+                <option value="sku_asc">SKU: Low → High</option>
               </select>
             </div>
           </div>
