@@ -32,10 +32,10 @@ export default async function handler(req, res) {
     if (!sku) return; // can't identify which product without SKU
 
     const availForSale = item.available_for_sale_stock;
+    const committedStock = item.committed_stock;
     const stage = extractStage(item);
     const purchaseRate = item.purchase_rate;
 
-    // Determine whether this item should be live on the storefront.
     // Fail open: if we can't read the critical fields, do nothing rather
     // than wrongly marking something sold on a live dealer site.
     if (availForSale === undefined || availForSale === null) {
@@ -47,7 +47,12 @@ export default async function handler(req, res) {
       return;
     }
 
-    const shouldBeLive = stage === 'Per oferte' && Number(availForSale) >= 1;
+    // committed_stock updates immediately when a SO is confirmed; available_for_sale_stock
+    // is a derived field that Zoho recalculates asynchronously and can lag behind.
+    // If committed_stock > 0 the item is definitively committed regardless of whether
+    // available_for_sale_stock has caught up yet — this catches brand-new SO events.
+    const isCommitted = Number(committedStock ?? 0) > 0;
+    const shouldBeLive = stage === 'Per oferte' && Number(availForSale) >= 1 && !isCommitted;
 
     // Find the product in our DB by SKU/reference (Zoho source only)
     const { data: products, error: fetchErr } = await supabase
