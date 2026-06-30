@@ -398,6 +398,24 @@ async function notifyDealers(watch) {
   }
 }
 
+async function notifyN8nBagPreorder(item, imageUrls = []) {
+  try {
+    const res = await fetch('/api/n8n-bag-preorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event: 'bag_preorder_created',
+        item,
+        image_urls: imageUrls,
+      }),
+    })
+    const result = await res.json().catch(() => null)
+    if (!result?.ok) console.warn('n8n webhook did not complete:', result)
+  } catch (err) {
+    console.error('n8n webhook failed:', err)
+  }
+}
+
 export default function AgentListings() {
   const { profile } = useAuth()
   const navigate = useNav()
@@ -647,6 +665,7 @@ export default function AgentListings() {
       if (pErr) throw pErr
 
       let imagesFailed = 0
+      const imageUrls = []
       for (let i = 0; i < bagImages.length; i++) {
         const file = bagImages[i]
         const ext = file.name.split('.').pop()
@@ -654,8 +673,13 @@ export default function AgentListings() {
         const { error: upErr } = await supabase.storage.from('watch-images').upload(path, file)
         if (upErr) { console.error('Bag image upload error:', upErr.message); imagesFailed++; continue }
         const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path)
+        imageUrls.push(publicUrl)
         const { error: dbErr } = await supabase.from(imgTable).insert({ [fkCol]: item.id, url: publicUrl, position: i })
         if (dbErr) { console.error('Bag image DB error:', dbErr.message); imagesFailed++ }
+      }
+
+      if (bagIsPreorder && bagCategory === 'Bags' && imageUrls.length > 0) {
+        await notifyN8nBagPreorder(item, imageUrls)
       }
 
       setBagName('')

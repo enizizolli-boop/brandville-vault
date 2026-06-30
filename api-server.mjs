@@ -27,6 +27,7 @@ const routes = [
   '/api/zoho-sync',
   '/api/zoho-images',
   '/api/extract-jewellery-types',
+  '/api/n8n-bag-preorder',
 ]
 
 for (const route of routes) {
