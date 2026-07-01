@@ -417,7 +417,7 @@ async function notifyN8nBagPreorder(item, imageUrls = []) {
 }
 
 export default function AgentListings() {
-  const { profile } = useAuth()
+  const { user, profile } = useAuth()
   const navigate = useNav()
   const { rate } = useExchangeRate()
   const { rate: cnyToEurRate } = useExchangeRate('CNY', 'EUR')
@@ -455,6 +455,8 @@ export default function AgentListings() {
   const [counterOpen, setCounterOpen] = useState({})
   const [offerStatusTab, setOfferStatusTab] = useState('pending')
   const [preorders, setPreorders] = useState([])
+  const [preorderReposts, setPreorderReposts] = useState({})
+  const [repostingPreorderId, setRepostingPreorderId] = useState(null)
   const [listingType, setListingType] = useState('instock')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -471,7 +473,33 @@ export default function AgentListings() {
   const fetchPreorders = useCallback(async () => {
     const q = supabase.from('preorders').select('*, preorder_images(url, position)').order('created_at', { ascending: false })
     const { data } = await q
-    setPreorders(data || [])
+    const rows = data || []
+    setPreorders(rows)
+
+    const bagIds = rows.filter(p => p.category === 'Bags').map(p => p.id)
+    if (bagIds.length === 0) {
+      setPreorderReposts({})
+      return
+    }
+
+    const { data: repostRows, error: repostErr } = await supabase
+      .from('repost_requests')
+      .select('id, preorder_id, status, requested_at, completed_at, error_message')
+      .in('preorder_id', bagIds)
+      .order('requested_at', { ascending: false })
+      .limit(300)
+
+    if (repostErr) {
+      console.error('fetch preorder reposts error:', repostErr)
+      setPreorderReposts({})
+      return
+    }
+
+    const latestByPreorder = {}
+    for (const row of repostRows || []) {
+      if (!latestByPreorder[row.preorder_id]) latestByPreorder[row.preorder_id] = row
+    }
+    setPreorderReposts(latestByPreorder)
   }, [profile])
 
   const fetchOffers = useCallback(async () => {
@@ -840,6 +868,26 @@ export default function AgentListings() {
     fetchPreorders()
   }
 
+  async function requestPreorderRepost(preorder) {
+    if (!user?.id || repostingPreorderId) return
+    setMsg('')
+    setRepostingPreorderId(preorder.id)
+    const { error } = await supabase.from('repost_requests').insert({
+      preorder_id: preorder.id,
+      requested_by: user.id,
+    })
+
+    if (error) {
+      console.error('request repost error:', error)
+      const isDuplicatePending = error.code === '23505'
+      setMsg(isDuplicatePending ? 'Repost already pending.' : `Could not request repost: ${error.message}`)
+    } else {
+      setMsg(`Repost requested for ${preorder.brand} ${preorder.model}.`)
+      await fetchPreorders()
+    }
+    setRepostingPreorderId(null)
+  }
+
   function fmtDate(iso) {
     if (!iso) return ''
     const d = new Date(iso)
@@ -847,6 +895,14 @@ export default function AgentListings() {
     const mm = String(d.getMonth() + 1).padStart(2, '0')
     const yy = String(d.getFullYear()).slice(2)
     return `${dd}/${mm}/${yy}`
+  }
+
+  function repostStatusText(repost) {
+    if (!repost) return null
+    if (repost.status === 'pending') return `Repost pending since ${fmtDate(repost.requested_at)}`
+    if (repost.status === 'completed') return `Last reposted ${fmtDate(repost.completed_at || repost.requested_at)}`
+    if (repost.status === 'failed') return `Repost failed ${fmtDate(repost.requested_at)}`
+    return null
   }
 
   function getPreorderThumb(p) {
@@ -981,7 +1037,11 @@ export default function AgentListings() {
           {(listingType === 'preorders-watches' || listingType === 'preorders-bags') && (
             filteredPreorders.length === 0
               ? <div className="empty-state">{search ? 'No preorders match your search' : 'No preorders yet'}</div>
-              : filteredPreorders.map(p => (
+              : filteredPreorders.map(p => {
+                const latestRepost = preorderReposts[p.id]
+                const isRepostPending = latestRepost?.status === 'pending'
+                const canRepost = listingType === 'preorders-bags' && (profile?.role === 'admin' || p.posted_by === profile?.id)
+                return (
               <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid var(--border-light)', borderRadius: 10, marginBottom: 8, background: 'var(--surface)' }}>
                 <div onClick={() => navigate(`/catalog/${toSlug(p)}`)} style={{ width: 50, height: 50, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}>
                   {getPreorderThumb(p) ? <img src={getPreorderThumb(p)} alt={p.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20 }}>🔖</span>}
@@ -989,6 +1049,11 @@ export default function AgentListings() {
                 <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => navigate(`/catalog/${toSlug(p)}`)}>
                   <div style={{ fontSize: 13, fontWeight: 500 }}>{p.brand} {p.model}</div>
                   <div style={{ fontSize: 11, color: '#aaa' }}>{p.price_eur ? `€${Number(p.price_eur).toLocaleString()}` : '-'} · {p.condition}{p.category ? ` · ${p.category}` : ''}</div>
+                  {listingType === 'preorders-bags' && repostStatusText(latestRepost) && (
+                    <div style={{ fontSize: 10, color: latestRepost.status === 'failed' ? '#c62828' : '#b8965a', marginTop: 2 }}>
+                      {repostStatusText(latestRepost)}
+                    </div>
+                  )}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
                   <span className={`badge badge-${p.status}`}>{p.status}</span>
@@ -996,6 +1061,15 @@ export default function AgentListings() {
                     <span style={{ fontSize: 10, color: '#bbb' }}>Posted {fmtDate(p.posted_at)}</span>
                   )}
                 </div>
+                {canRepost && (
+                  <button
+                    className="btn btn-sm"
+                    onClick={() => requestPreorderRepost(p)}
+                    disabled={isRepostPending || repostingPreorderId === p.id}
+                  >
+                    {repostingPreorderId === p.id ? 'Requesting...' : isRepostPending ? 'Repost pending' : 'Repost'}
+                  </button>
+                )}
                 {p.status === 'sold'
                   ? <button className="btn btn-sm" onClick={() => markPreorderAvailable(p.id)}>Mark available</button>
                   : <button className="btn btn-sm" onClick={() => markPreorderSold(p.id)}>Mark sold</button>
@@ -1004,7 +1078,7 @@ export default function AgentListings() {
                   <button className="btn btn-sm btn-danger" onClick={() => deletePreorder(p.id)}>Delete</button>
                 )}
               </div>
-            ))
+            )})
           )}
         </div>
       )}
