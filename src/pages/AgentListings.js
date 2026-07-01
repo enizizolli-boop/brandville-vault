@@ -434,7 +434,7 @@ export default function AgentListings() {
   const { user, profile } = useAuth()
   const navigate = useNav()
   const { rate } = useExchangeRate()
-  const { rate: cnyToEurRate } = useExchangeRate('CNY', 'EUR')
+  const { rate: cnyToEurRate } = useExchangeRate('CNY', 'EUR', { fallback: false })
   const [tab, setTab] = useState('listings')
   const [bagName, setBagName] = useState('')
   const [bagCategory, setBagCategory] = useState('Bags')
@@ -561,8 +561,8 @@ export default function AgentListings() {
     setBagCondition(detectBagCondition(lines[0]) || 'Preowned')
     setBagCostPrice(cost.amount)
     setBagSellingPrice(selling.amount)
-    if (cost.currency) setBagCostCurrency(cost.currency)
-    if (selling.currency) setBagSellingCurrency(selling.currency)
+    setBagCostCurrency(cost.currency || 'EUR')
+    setBagSellingCurrency(selling.currency || 'EUR')
   }
 
   function reorderBagImages(from, to) {
