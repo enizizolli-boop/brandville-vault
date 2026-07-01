@@ -117,6 +117,20 @@ function parseBagPriceLine(line = '') {
   return Number.isFinite(value) ? String(Math.max(0, Math.round(value))) : ''
 }
 
+function detectPriceCurrency(line = '') {
+  if (/\b(?:cny|rmb|yuan)\b|¥|￥/i.test(line)) return 'CNY'
+  if (/\b(?:usd|dollar|dollars)\b|\$/i.test(line)) return 'USD'
+  if (/\b(?:eur|euro|euros)\b|€/i.test(line)) return 'EUR'
+  return null
+}
+
+function parseBagPriceInput(line = '') {
+  return {
+    amount: parseBagPriceLine(line),
+    currency: detectPriceCurrency(line),
+  }
+}
+
 function detectBagCondition(text = '') {
   if (/pre[- ]?owned\s*\/\s*excellent\s+condition/i.test(text)) return 'Preowned/Excellent condition'
   if (/\bvery\s+good\b/i.test(text)) return 'Very Good'
@@ -500,7 +514,7 @@ export default function AgentListings() {
       if (!latestByPreorder[row.preorder_id]) latestByPreorder[row.preorder_id] = row
     }
     setPreorderReposts(latestByPreorder)
-  }, [profile])
+  }, [])
 
   const fetchOffers = useCallback(async () => {
     setOffersLoading(true)
@@ -513,7 +527,11 @@ export default function AgentListings() {
     setOffersLoading(false)
   }, [])
 
-  useEffect(() => { if (profile) { fetchMyWatches(); fetchPreorders() } }, [profile, fetchMyWatches, fetchPreorders])
+  useEffect(() => {
+    if (!profile) return
+    if (listingType === 'instock') fetchMyWatches()
+    if (listingType === 'preorders-watches' || listingType === 'preorders-bags') fetchPreorders()
+  }, [profile, listingType, fetchMyWatches, fetchPreorders])
   useEffect(() => { if (profile && tab === 'offers') fetchOffers() }, [profile, tab, fetchOffers])
 
   function handleField(k, v) { setForm(f => ({ ...f, [k]: v })) }
@@ -536,11 +554,15 @@ export default function AgentListings() {
     setBagName(value)
     const parsed = parseQuickPost(value)
     const lines = value.split('\n').map(line => line.trim()).filter(Boolean)
+    const cost = parseBagPriceInput(lines[1])
+    const selling = parseBagPriceInput(lines[2])
     setBagBrand(detectBrand(value)?.brand || 'Other')
     setBagModel(stripBagCondition(parsed.model || lines[0] || ''))
     setBagCondition(detectBagCondition(lines[0]) || 'Preowned')
-    setBagCostPrice(parseBagPriceLine(lines[1]))
-    setBagSellingPrice(parseBagPriceLine(lines[2]))
+    setBagCostPrice(cost.amount)
+    setBagSellingPrice(selling.amount)
+    if (cost.currency) setBagCostCurrency(cost.currency)
+    if (selling.currency) setBagSellingCurrency(selling.currency)
   }
 
   function reorderBagImages(from, to) {
@@ -872,18 +894,22 @@ export default function AgentListings() {
     if (!user?.id || repostingPreorderId) return
     setMsg('')
     setRepostingPreorderId(preorder.id)
-    const { error } = await supabase.from('repost_requests').insert({
-      preorder_id: preorder.id,
-      requested_by: user.id,
-    })
+    const { data: request, error } = await supabase
+      .from('repost_requests')
+      .insert({
+        preorder_id: preorder.id,
+        requested_by: user.id,
+      })
+      .select('id, preorder_id, status, requested_at, completed_at, error_message')
+      .single()
 
     if (error) {
       console.error('request repost error:', error)
       const isDuplicatePending = error.code === '23505'
       setMsg(isDuplicatePending ? 'Repost already pending.' : `Could not request repost: ${error.message}`)
     } else {
+      setPreorderReposts(prev => ({ ...prev, [preorder.id]: request }))
       setMsg(`Repost requested for ${preorder.brand} ${preorder.model}.`)
-      await fetchPreorders()
     }
     setRepostingPreorderId(null)
   }
