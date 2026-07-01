@@ -524,10 +524,15 @@ export default function WatchDetail() {
               </div>
 
               {/* Status */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 24, paddingBottom: 24, borderBottom: '1px solid var(--border-light)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: watch.ready_to_ship ? 8 : 24, paddingBottom: watch.ready_to_ship ? 0 : 24, borderBottom: watch.ready_to_ship ? 'none' : '1px solid var(--border-light)' }}>
                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: watch.status === 'available' ? '#16a34a' : watch.status === 'reserved' ? '#d97706' : '#dc2626', flexShrink: 0 }} />
                 <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: watch.status === 'available' ? '#16a34a' : watch.status === 'reserved' ? '#d97706' : '#dc2626' }}>{watch.status}</span>
               </div>
+              {watch.ready_to_ship && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 24, paddingBottom: 24, borderBottom: '1px solid var(--border-light)' }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', background: 'rgba(15,118,110,0.12)', color: '#0f766e', padding: '3px 10px', borderRadius: 20 }}>Ready to ship</span>
+                </div>
+              )}
 
               {/* Price */}
               <div style={{ marginBottom: 24, paddingBottom: 24, borderBottom: '1px solid var(--border-light)' }}>

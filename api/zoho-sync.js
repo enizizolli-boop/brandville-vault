@@ -102,15 +102,18 @@ async function fetchAvailableForSale(accessToken, itemId, isRetry = false) {
     }
     if (!res.ok) {
       console.error(`fetchAvailableForSale: ${itemId} returned HTTP ${res.status}`);
-      return null;
+      return { availForSale: null, readyToShip: false };
     }
     const data = await res.json();
     const val = data?.item?.available_for_sale_stock;
     if (val === undefined) console.error(`fetchAvailableForSale: ${itemId} response missing available_for_sale_stock`);
-    return val === undefined ? null : Number(val);
+    const warehouses = data?.item?.warehouses || [];
+    const nikoBG = warehouses.find(w => w.warehouse_name === 'Niko BG');
+    const readyToShip = nikoBG ? Number(nikoBG.warehouse_available_for_sale_stock) > 0 : false;
+    return { availForSale: val === undefined ? null : Number(val), readyToShip };
   } catch (e) {
     console.error(`fetchAvailableForSale failed for ${itemId}:`, e.message);
-    return null;
+    return { availForSale: null, readyToShip: false };
   }
 }
 
@@ -487,10 +490,11 @@ export default async function handler(req, res) {
       // above) doesn't reflect this; available_for_sale_stock does, but only
       // via the per-item Detail endpoint. null on failure means fail open
       // (leave status as 'available' from mapZohoItem rather than wrongly hide it).
-      const availForSale = await fetchAvailableForSale(accessToken, zohoItem.item_id);
+      const { availForSale, readyToShip } = await fetchAvailableForSale(accessToken, zohoItem.item_id);
       if (availForSale !== null && availForSale < 1) {
         mapped.status = 'sold';
       }
+      mapped.ready_to_ship = readyToShip;
 
       let watchId = existingMap[mapped.zoho_item_id];
 

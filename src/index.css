@@ -617,6 +617,7 @@ button { font-family: inherit; cursor: pointer; }
 .card-badge-available { background: rgba(22,163,74,0.9); color: #fff; }
 .card-badge-new { background: rgba(99,102,241,0.9); color: #fff; }
 .card-badge-reserved { background: rgba(217,119,6,0.9); color: #fff; }
+.card-badge-ready { background: rgba(15,118,110,0.9); color: #fff; }
 
 /* Card bookmark */
 .card-bookmark {

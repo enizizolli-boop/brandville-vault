@@ -823,6 +823,7 @@ export default function DealerCatalog({ routeCategory }) {
                     <div className="watch-card" key={w.id}>
                       <a className="card-img-wrap" href={`/catalog/${toSlug(w)}`} onClick={e => { e.preventDefault(); navigate(`/catalog/${toSlug(w)}`); }}>
                         <CardImages watch={w} />
+                        {w.ready_to_ship && <span className="card-badge card-badge-ready">Ready to ship</span>}
                         <button className="card-bookmark" onClick={e => e.stopPropagation()} title="Save">
                           <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
                             <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>

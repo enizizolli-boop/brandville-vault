@@ -64,15 +64,18 @@ async function fetchAvailableForSale(accessToken, itemId, isRetry = false) {
     }
     if (!res.ok) {
       console.error(`fetchAvailableForSale: ${itemId} returned HTTP ${res.status}`);
-      return null;
+      return { availForSale: null, readyToShip: false };
     }
     const data = await res.json();
     const val = data?.item?.available_for_sale_stock;
     if (val === undefined) console.error(`fetchAvailableForSale: ${itemId} response missing available_for_sale_stock`);
-    return val === undefined ? null : Number(val);
+    const warehouses = data?.item?.warehouses || [];
+    const nikoBG = warehouses.find(w => w.warehouse_name === 'Niko BG');
+    const readyToShip = nikoBG ? Number(nikoBG.warehouse_available_for_sale_stock) > 0 : false;
+    return { availForSale: val === undefined ? null : Number(val), readyToShip };
   } catch (e) {
     console.error(`fetchAvailableForSale failed for ${itemId}:`, e.message);
-    return null;
+    return { availForSale: null, readyToShip: false };
   }
 }
 
@@ -309,6 +312,7 @@ export default async function handler(req, res) {
     const { data: commLog } = await supabase.from('sync_log').select('result, last_sync_at').eq('key', 'zoho_committed_ids_cache').single();
     const commAge = commLog?.last_sync_at ? Date.now() - new Date(commLog.last_sync_at).getTime() : Infinity;
     let committedIds;
+    const readyToShipMap = new Map();
     let commitmentCheckRefreshed = false;
     if (commAge < 6 * 60 * 60 * 1000 && commLog?.result?.ids) {
       committedIds = new Set(commLog.result.ids);
@@ -316,9 +320,10 @@ export default async function handler(req, res) {
       committedIds = new Set();
       let nullResults = 0;
       for (const item of candidates) {
-        const availForSale = await fetchAvailableForSale(accessToken, item.item_id);
+        const { availForSale, readyToShip } = await fetchAvailableForSale(accessToken, item.item_id);
         if (availForSale === null) nullResults++;
         else if (availForSale < 1) committedIds.add(String(item.item_id));
+        readyToShipMap.set(String(item.item_id), readyToShip);
         await new Promise(r => setTimeout(r, 250));
       }
       if (nullResults > 0) console.error(`Commitment check: ${nullResults}/${candidates.length} items returned null (failed/missing field)`);
@@ -367,7 +372,12 @@ export default async function handler(req, res) {
         .from('products').select('zoho_item_id').in('zoho_item_id', liveIds).eq('source', 'zoho').eq('status', 'reserved');
       const reservedIds = new Set((reservedRows || []).map(r => r.zoho_item_id));
 
-      const rows = liveItems.map(mapZohoItem);
+      const rows = liveItems.map(item => {
+        const mapped = mapZohoItem(item);
+        const itemId = String(item.item_id);
+        if (readyToShipMap.has(itemId)) mapped.ready_to_ship = readyToShipMap.get(itemId);
+        return mapped;
+      });
       const { data: upsertedRows } = await supabase
         .from('products')
         .upsert(rows, { onConflict: 'zoho_item_id' })
