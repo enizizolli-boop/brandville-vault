@@ -20,11 +20,28 @@ export default async function handler(req, res) {
   if (req.method === 'GET') return res.status(200).send('OK');
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // Always acknowledge immediately — Zoho retries on non-200 and we never
-  // want a slow DB write to cause duplicate processing.
-  res.status(200).json({ ok: true });
-
   try {
+    // SO-triggered payload from Zoho Deluge: { committed_sku, action: "sold" }
+    // Process BEFORE responding — Vercel kills the execution context after res.end()
+    const { committed_sku, action } = req.body || {};
+    if (committed_sku && action === 'sold') {
+      const { data: products } = await supabase
+        .from('products')
+        .select('id, status')
+        .eq('reference', committed_sku)
+        .eq('source', 'zoho');
+
+      for (const product of products || []) {
+        if (product.status !== 'sold' && product.status !== 'reserved') {
+          await supabase.from('products').update({ status: 'sold' }).eq('id', product.id);
+          console.log(`Webhook: SO committed — marked ${committed_sku} as sold`);
+        }
+      }
+      return res.status(200).json({ ok: true });
+    }
+
+    res.status(200).json({ ok: true });
+
     const item = req.body?.item;
     if (!item) return;
 
