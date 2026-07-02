@@ -261,6 +261,7 @@ export default function DealerCatalog({ routeCategory }) {
   const [filterYearMax, setFilterYearMax] = useState('')
   const [sortBy, setSortBy] = useState('')
   const [filterSourceType, setFilterSourceType] = useState('')
+  const [filterReadyToShip, setFilterReadyToShip] = useState(false)
 
   // UI state
   const [visibleCount, setVisibleCount] = useState(40)
@@ -365,6 +366,7 @@ export default function DealerCatalog({ routeCategory }) {
       if (filterYearMax && w.year && Number(w.year) > Number(filterYearMax)) return false
       if (filterSourceType === 'express' && !w.zoho_item_id) return false
       if (filterSourceType === 'sourced' && w.zoho_item_id) return false
+      if (filterReadyToShip && !w.ready_to_ship) return false
       if (!search) return true
       const q = search.toLowerCase()
       return w.model?.toLowerCase().includes(q) || w.reference?.toLowerCase().includes(q) || w.brand?.toLowerCase().includes(q)
@@ -390,7 +392,7 @@ export default function DealerCatalog({ routeCategory }) {
   useEffect(() => setVisibleCount(40), [
     filterBrand, filterCond, filterStatus, search, sortBy,
     filterPriceMin, filterPriceMax, filterYearMin, filterYearMax,
-    filterJewelleryType, filterMetal, filterSize, filterNewOnly, filterSourceType
+    filterJewelleryType, filterMetal, filterSize, filterNewOnly, filterSourceType, filterReadyToShip
   ])
 
   useEffect(() => {
@@ -426,11 +428,12 @@ export default function DealerCatalog({ routeCategory }) {
     setFilterStatus('available')
     setActiveTab('available')
     setFilterSourceType('')
+    setFilterReadyToShip(false)
   }
 
   const hasActiveFilters = filterBrand || filterCond || filterMetal || filterSize ||
     filterJewelleryType || search || sortBy || filterPriceMin > 1000 || filterPriceMax < 150000 ||
-    filterYearMin || filterYearMax || filterNewOnly || (!lockedCategory && filterCategory) || filterSourceType
+    filterYearMin || filterYearMax || filterNewOnly || (!lockedCategory && filterCategory) || filterSourceType || filterReadyToShip
 
   const brandOptions = (
     lockedCategory === 'Watches' ? WATCH_BRANDS :
@@ -624,6 +627,15 @@ export default function DealerCatalog({ routeCategory }) {
               )}
             </div>
           )}
+
+          {/* Ready to Ship */}
+          <div className="sidebar-acc-section">
+            <label className="sidebar-radio-row" style={{ padding: '10px 0', cursor: 'pointer' }}>
+              <input type="checkbox" checked={filterReadyToShip} onChange={e => setFilterReadyToShip(e.target.checked)} />
+              <span style={{ fontWeight: filterReadyToShip ? 600 : 400 }}>Ready to Ship</span>
+              {filterReadyToShip && <span className="sidebar-acc-count">✓</span>}
+            </label>
+          </div>
 
           {/* Condition */}
           <div className="sidebar-acc-section">
