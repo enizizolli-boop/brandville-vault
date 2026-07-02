@@ -407,6 +407,7 @@ export default function DealerCatalog({ routeCategory }) {
 
   // Tab counts from full loaded data (before client filters)
   const allWatchesCount = watches.length
+  const readyToShipCount = watches.filter(w => w.ready_to_ship).length
   const availableCount = watches.filter(w => w.status === 'available').length
   const newArrivalsCount = watches.filter(w => new Date(w.created_at) > cutoff).length
   const reservedCount = watches.filter(w => w.status === 'reserved').length
@@ -633,7 +634,7 @@ export default function DealerCatalog({ routeCategory }) {
             <div className="sidebar-acc-header" style={{ cursor: 'pointer' }} onClick={() => setFilterReadyToShip(v => !v)}>
               <span>Ready to Ship</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {filterReadyToShip && <span className="sidebar-acc-count">1</span>}
+                <span className="sidebar-acc-count">{readyToShipCount}</span>
                 <div style={{ width: 30, height: 16, borderRadius: 8, background: filterReadyToShip ? '#b8965a' : '#d8d4ce', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
                   <div style={{ position: 'absolute', top: 2, left: filterReadyToShip ? 14 : 2, width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
                 </div>
