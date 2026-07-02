@@ -314,7 +314,7 @@ export default async function handler(req, res) {
     let committedIds;
     const readyToShipMap = new Map();
     let commitmentCheckRefreshed = false;
-    if (commAge < 6 * 60 * 60 * 1000 && commLog?.result?.ids) {
+    if (commAge < 60 * 60 * 1000 && commLog?.result?.ids) {
       committedIds = new Set(commLog.result.ids);
     } else {
       committedIds = new Set();
