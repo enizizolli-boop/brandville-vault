@@ -318,23 +318,36 @@ export default async function handler(req, res) {
       committedIds = new Set(commLog.result.ids);
     } else {
       committedIds = new Set();
+      const unknownIds = new Set(); // null result — availability unknown, don't touch their status
       let nullResults = 0;
       for (const item of candidates) {
         const { availForSale, readyToShip } = await fetchAvailableForSale(accessToken, item.item_id);
-        if (availForSale === null) nullResults++;
-        else if (availForSale < 1) committedIds.add(String(item.item_id));
+        if (availForSale === null) {
+          nullResults++;
+          unknownIds.add(String(item.item_id));
+        } else if (availForSale < 1) {
+          committedIds.add(String(item.item_id));
+        }
         readyToShipMap.set(String(item.item_id), readyToShip);
         await new Promise(r => setTimeout(r, 250));
       }
       if (nullResults > 0) console.error(`Commitment check: ${nullResults}/${candidates.length} items returned null (failed/missing field)`);
       commitmentCheckRefreshed = true;
       await supabase.from('sync_log').upsert(
-        { key: 'zoho_committed_ids_cache', last_sync_at: new Date().toISOString(), result: { ids: [...committedIds] } },
+        { key: 'zoho_committed_ids_cache', last_sync_at: new Date().toISOString(), result: { ids: [...committedIds], unknownIds: [...unknownIds] } },
         { onConflict: 'key' }
       );
     }
 
-    const liveItems = candidates.filter(item => !committedIds.has(String(item.item_id)));
+    const cachedUnknownIds = new Set(commLog?.result?.unknownIds || []);
+    // Exclude committed items AND items with unknown availability (null check result)
+    // Unknown items keep their existing DB status rather than being reset to 'available'
+    const liveItems = candidates.filter(item => {
+      const id = String(item.item_id);
+      if (committedIds.has(id)) return false;
+      if (cachedUnknownIds.has(id)) return false;
+      return true;
+    });
     const liveZohoIds = liveItems.map(i => String(i.item_id));
 
     // Stale cleanup with the same safety guards as the manual sync: abort if
