@@ -630,11 +630,15 @@ export default function DealerCatalog({ routeCategory }) {
 
           {/* Ready to Ship */}
           <div className="sidebar-acc-section">
-            <label className="sidebar-radio-row" style={{ padding: '10px 0', cursor: 'pointer' }}>
-              <input type="checkbox" checked={filterReadyToShip} onChange={e => setFilterReadyToShip(e.target.checked)} />
-              <span style={{ fontWeight: filterReadyToShip ? 600 : 400 }}>Ready to Ship</span>
-              {filterReadyToShip && <span className="sidebar-acc-count">✓</span>}
-            </label>
+            <div className="sidebar-acc-header" style={{ cursor: 'pointer' }} onClick={() => setFilterReadyToShip(v => !v)}>
+              <span>Ready to Ship</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {filterReadyToShip && <span className="sidebar-acc-count">1</span>}
+                <div style={{ width: 30, height: 16, borderRadius: 8, background: filterReadyToShip ? '#b8965a' : '#d8d4ce', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                  <div style={{ position: 'absolute', top: 2, left: filterReadyToShip ? 14 : 2, width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Condition */}
