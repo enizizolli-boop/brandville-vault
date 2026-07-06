@@ -27,6 +27,7 @@ function RoleRedirect() {
   if (!profile) return <Navigate to="/login" replace />
   if (profile.role === 'admin') return <Navigate to="/admin" replace />
   if (profile.role === 'agent') return <Navigate to="/home" replace />
+  if (profile.role === 'b2c') return <Navigate to="/home" replace />
   return <Navigate to="/home" replace />
 }
 
@@ -40,11 +41,11 @@ export default function App() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/" element={<PrivateRoute><RoleRedirect /></PrivateRoute>} />
-          <Route path="/home" element={<PrivateRoute allowedRoles={['dealer', 'agent', 'admin']}><Home /></PrivateRoute>} />
-          <Route path="/catalog" element={<PrivateRoute allowedRoles={['dealer', 'admin', 'agent']}><DealerCatalog /></PrivateRoute>} />
-          <Route path="/watches" element={<PrivateRoute allowedRoles={['dealer', 'admin', 'agent']}><DealerCatalog routeCategory="Watches" /></PrivateRoute>} />
-          <Route path="/jewellery" element={<PrivateRoute allowedRoles={['dealer', 'admin', 'agent']}><DealerCatalog routeCategory="Jewellery" /></PrivateRoute>} />
-          <Route path="/bags" element={<PrivateRoute allowedRoles={['dealer', 'admin', 'agent']}><DealerCatalog routeCategory="Bags" /></PrivateRoute>} />
+          <Route path="/home" element={<PrivateRoute allowedRoles={['dealer', 'agent', 'admin', 'b2c']}><Home /></PrivateRoute>} />
+          <Route path="/catalog" element={<PrivateRoute allowedRoles={['dealer', 'admin', 'agent', 'b2c']}><DealerCatalog /></PrivateRoute>} />
+          <Route path="/watches" element={<PrivateRoute allowedRoles={['dealer', 'admin', 'agent', 'b2c']}><DealerCatalog routeCategory="Watches" /></PrivateRoute>} />
+          <Route path="/jewellery" element={<PrivateRoute allowedRoles={['dealer', 'admin', 'agent', 'b2c']}><DealerCatalog routeCategory="Jewellery" /></PrivateRoute>} />
+          <Route path="/bags" element={<PrivateRoute allowedRoles={['dealer', 'admin', 'agent', 'b2c']}><DealerCatalog routeCategory="Bags" /></PrivateRoute>} />
           <Route path="/catalog/:slug" element={<PrivateRoute><WatchDetail /></PrivateRoute>} />
           <Route path="/agent" element={<PrivateRoute allowedRoles={['agent', 'admin']}><AgentListings /></PrivateRoute>} />
           <Route path="/agent/:agentId" element={<PrivateRoute allowedRoles={['agent', 'admin']}><AgentProfile /></PrivateRoute>} />

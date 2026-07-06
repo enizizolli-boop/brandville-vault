@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { useCurrency } from '../context/CurrencyContext'
 import { useExchangeRate } from '../hooks/useExchangeRate'
 import { useAuth } from '../context/AuthContext'
+import { applyB2CMarkup } from '../lib/b2cPricing'
 import Topbar from '../components/Topbar'
 import Footer from '../components/Footer'
 
@@ -75,13 +76,14 @@ function cleanRef(ref) {
   return ref
 }
 
-function fmtPrice(watch, currency, rate) {
+function fmtPrice(watch, currency, rate, isB2C) {
+  const baseEur = watch.price_eur ? (isB2C ? applyB2CMarkup(Number(watch.price_eur)) : Number(watch.price_eur)) : null
   if (currency === 'USD') {
-    if (watch.price_eur && rate) return '$' + Math.round(Number(watch.price_eur) * rate).toLocaleString()
-    if (watch.price_usd) return '$' + Number(watch.price_usd).toLocaleString()
+    if (baseEur && rate) return '$' + Math.round(baseEur * rate).toLocaleString()
+    if (!isB2C && watch.price_usd) return '$' + Number(watch.price_usd).toLocaleString()
     return '—'
   }
-  if (watch.price_eur) return '€' + Number(watch.price_eur).toLocaleString()
+  if (baseEur) return '€' + baseEur.toLocaleString()
   return '—'
 }
 
@@ -228,6 +230,7 @@ export default function DealerCatalog({ routeCategory }) {
   const navigate = useNav()
   const location = useLocation()
   const { profile } = useAuth()
+  const isB2C = profile?.role === 'b2c'
   const params = new URLSearchParams(location.search)
   const urlBrand = params.get('brand') || ''
   const urlType = params.get('type') || ''
@@ -360,8 +363,9 @@ export default function DealerCatalog({ routeCategory }) {
       if (filterNewOnly && new Date(w.created_at) < cutoff) return false
       if (filterCond && w.condition !== filterCond) return false
       if (filterJewelleryType && inferJewelleryType(w) !== filterJewelleryType) return false
-      if (filterPriceMin > 1000 && Number(w.price_eur) < filterPriceMin) return false
-      if (filterPriceMax < 150000 && Number(w.price_eur) > filterPriceMax) return false
+      const effectivePrice = w.price_eur ? (isB2C ? applyB2CMarkup(Number(w.price_eur)) : Number(w.price_eur)) : 0
+      if (filterPriceMin > 1000 && effectivePrice < filterPriceMin) return false
+      if (filterPriceMax < 150000 && effectivePrice > filterPriceMax) return false
       if (filterYearMin && w.year && Number(w.year) < Number(filterYearMin)) return false
       if (filterYearMax && w.year && Number(w.year) > Number(filterYearMax)) return false
       if (filterSourceType === 'express' && !w.zoho_item_id) return false
@@ -372,8 +376,10 @@ export default function DealerCatalog({ routeCategory }) {
       return w.model?.toLowerCase().includes(q) || w.reference?.toLowerCase().includes(q) || w.brand?.toLowerCase().includes(q)
     })
     .sort((a, b) => {
-      if (sortBy === 'price_asc') return (a.price_eur || 0) - (b.price_eur || 0)
-      if (sortBy === 'price_desc') return (b.price_eur || 0) - (a.price_eur || 0)
+      const aP = isB2C ? applyB2CMarkup(a.price_eur || 0) : (a.price_eur || 0)
+      const bP = isB2C ? applyB2CMarkup(b.price_eur || 0) : (b.price_eur || 0)
+      if (sortBy === 'price_asc') return aP - bP
+      if (sortBy === 'price_desc') return bP - aP
       if (sortBy === 'sku_asc' || sortBy === 'sku_desc') {
         const aSku = parseInt(a.reference, 10)
         const bSku = parseInt(b.reference, 10)
@@ -858,7 +864,7 @@ export default function DealerCatalog({ routeCategory }) {
                       </a>
                       <div className="card-price-row">
                         <div className="card-price-block">
-                          <div className="card-price">{fmtPrice(w, currency, rate)}</div>
+                          <div className="card-price">{fmtPrice(w, currency, rate, isB2C)}</div>
                         </div>
                         <div className="card-cta">
                           <a className="btn-wa" href={`https://wa.me/${waNum}?text=${waMsg}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>

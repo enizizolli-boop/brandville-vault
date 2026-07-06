@@ -4,6 +4,7 @@ import { useNav } from '../hooks/useNav'
 import { supabase } from '../lib/supabase'
 import { idFromSlug } from '../lib/slug'
 import { useAuth } from '../context/AuthContext'
+import { applyB2CMarkup } from '../lib/b2cPricing'
 import { useExchangeRate } from '../hooks/useExchangeRate'
 import { useCurrency } from '../context/CurrencyContext'
 import Topbar from '../components/Topbar'
@@ -316,9 +317,9 @@ export default function WatchDetail() {
   }
 
   function handleWhatsApp() {
-    const price = currency === 'EUR' && watch.price_eur
-      ? `€${Number(watch.price_eur).toLocaleString()}`
-      : watch.price_usd ? `$${Number(watch.price_usd).toLocaleString()}` : ''
+    const price = currency === 'EUR' && displayEur
+      ? `€${displayEur.toLocaleString()}`
+      : (!isB2C && watch.price_usd) ? `$${Number(watch.price_usd).toLocaleString()}` : (displayEur && rate ? `$${Math.round(displayEur * rate).toLocaleString()}` : '')
     const text = `Hi, I'm interested in this item from Brandville Vault:\n\n${watch.brand} ${watch.model}${watch.reference ? ` (${watch.reference})` : ''}\n${price}\n\n${window.location.href}`
     const waNumber = WHATSAPP_NUMBERS[watch.category] || WHATSAPP_NUMBERS.Watches
     window.open(`https://wa.me/${waNumber}?text=${encodeURIComponent(text)}`, '_blank')
@@ -327,16 +328,21 @@ export default function WatchDetail() {
   if (loading) return <div className="loading-page"><div className="spinner" /></div>
   if (!watch) return <div className="page"><div className="empty-state">Item not found</div></div>
 
-  const priceMain = currency === 'USD'
-    ? (watch.price_eur && rate
-        ? `$${Math.round(Number(watch.price_eur) * rate).toLocaleString()}`
-        : watch.price_usd ? `$${Number(watch.price_usd).toLocaleString()}` : '—')
-    : (watch.price_eur ? `€${Number(watch.price_eur).toLocaleString()}` : '—')
+  const isB2C = profile?.role === 'b2c'
+  const displayEur = watch.price_eur
+    ? (isB2C ? applyB2CMarkup(Number(watch.price_eur)) : Number(watch.price_eur))
+    : null
 
-  const priceSecondary = currency === 'USD' && watch.price_eur
-    ? `€${Number(watch.price_eur).toLocaleString()} EUR`
-    : currency === 'EUR' && watch.price_eur && rate
-      ? `$${Math.round(Number(watch.price_eur) * rate).toLocaleString()} USD`
+  const priceMain = currency === 'USD'
+    ? (displayEur && rate
+        ? `$${Math.round(displayEur * rate).toLocaleString()}`
+        : (!isB2C && watch.price_usd) ? `$${Number(watch.price_usd).toLocaleString()}` : '—')
+    : (displayEur ? `€${displayEur.toLocaleString()}` : '—')
+
+  const priceSecondary = currency === 'USD' && displayEur
+    ? `€${displayEur.toLocaleString()} EUR`
+    : currency === 'EUR' && displayEur && rate
+      ? `$${Math.round(displayEur * rate).toLocaleString()} USD`
       : null
 
   const canEdit = profile?.role === 'admin' || profile?.role === 'agent'
