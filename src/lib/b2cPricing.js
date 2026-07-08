@@ -12,11 +12,17 @@ const B2C_MARKUP_BRACKETS = [
 const BAGS_B2C_MULTIPLIER = 1.45
 
 export function applyB2CMarkup(priceEur, { category, costEur } = {}) {
+  // Jewellery: show dealer price unchanged
+  if (category === 'Jewellery') return priceEur ? Number(priceEur) : null
+
+  // Bags: cost + 45%
   if (category === 'Bags') {
     if (!costEur) return priceEur ? Number(priceEur) : null
     return Math.round(Number(costEur) * BAGS_B2C_MULTIPLIER)
   }
-  if (!priceEur) return priceEur
+
+  // Watches (and anything else): tiered bracket on dealer price
+  if (!priceEur) return null
   const price = Number(priceEur)
   const bracket = B2C_MARKUP_BRACKETS.find(b => price <= b.max)
   return Math.round(price * (1 + (bracket ? bracket.pct : 0.08)))
