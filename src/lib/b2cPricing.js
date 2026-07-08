@@ -12,7 +12,6 @@ const B2C_MARKUP_BRACKETS = [
 const BAGS_B2C_MULTIPLIER = 1.45
 
 export function applyB2CMarkup(priceEur, { category, costEur } = {}) {
-  console.log('[B2C MARKUP]', { priceEur, category, costEur })
   // Jewellery: show dealer price unchanged
   if (category === 'Jewellery') return priceEur ? Number(priceEur) : null
 
