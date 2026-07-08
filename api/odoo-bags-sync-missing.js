@@ -317,6 +317,7 @@ export default async function handler(req, res) {
         model: (n.name || '').trim(),
         reference: n.default_code || null,
         price_eur: priceEur,
+        cost_eur: cost > 0 ? cost : null,
         category,
         subcategory: subcategory || null,
         condition: n.x_studio_condition || '',

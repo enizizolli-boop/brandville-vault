@@ -427,6 +427,7 @@ export default async function handler(req, res) {
         model: (item.name || '').trim(),
         reference: item.default_code || null,
         price_eur: priceEur,
+        cost_eur: cost > 0 ? cost : null,
         category,
         subcategory: subcategory || null,
         condition,
