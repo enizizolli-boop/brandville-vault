@@ -15,8 +15,8 @@ export function applyB2CMarkup(priceEur, { category, costEur } = {}) {
   // Jewellery: show dealer price unchanged
   if (category === 'Jewellery') return priceEur ? Number(priceEur) : null
 
-  // Bags & Accessories (belts, wallets, scarves, etc.): cost + 45%
-  if (category === 'Bags' || category === 'Accessories') {
+  // Bags, Accessories (belts, wallets, scarves, etc.) and Shoes: cost + 45%
+  if (category === 'Bags' || category === 'Accessories' || category === 'Shoes') {
     if (!costEur) return priceEur ? Number(priceEur) : null
     return Math.round(Number(costEur) * BAGS_B2C_MULTIPLIER)
   }
