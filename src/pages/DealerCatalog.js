@@ -233,6 +233,7 @@ export default function DealerCatalog({ routeCategory }) {
   const location = useLocation()
   const { profile } = useAuth()
   const isB2C = profile?.role === 'b2c'
+  console.log('[B2C DEBUG] role:', profile?.role, 'isB2C:', isB2C)
   const params = new URLSearchParams(location.search)
   const urlBrand = params.get('brand') || ''
   const urlType = params.get('type') || ''
