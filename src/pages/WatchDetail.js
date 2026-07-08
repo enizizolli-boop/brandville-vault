@@ -329,9 +329,9 @@ export default function WatchDetail() {
   if (!watch) return <div className="page"><div className="empty-state">Item not found</div></div>
 
   const isB2C = profile?.role === 'b2c'
-  const displayEur = watch.price_eur
-    ? (isB2C ? applyB2CMarkup(Number(watch.price_eur)) : Number(watch.price_eur))
-    : null
+  const displayEur = isB2C
+    ? applyB2CMarkup(watch.price_eur, { category: watch.category, costEur: watch.cost_eur })
+    : (watch.price_eur ? Number(watch.price_eur) : null)
 
   const priceMain = currency === 'USD'
     ? (displayEur && rate

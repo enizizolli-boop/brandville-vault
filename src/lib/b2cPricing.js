@@ -1,14 +1,21 @@
 // B2C markup brackets applied to the dealer EUR price before currency conversion.
 // Bands and percentages derived from Brandville's actual cost-to-price data (6,651 items).
 const B2C_MARKUP_BRACKETS = [
-  { max: 5000,    pct: 0.25 }, // €1k–5k:   +25%
-  { max: 10000,   pct: 0.18 }, // €5k–10k:  +18%
-  { max: 25000,   pct: 0.12 }, // €10k–25k: +12%
-  { max: 50000,   pct: 0.10 }, // €25k–50k: +10%
+  { max: 5000,     pct: 0.25 }, // €1k–5k:   +25%
+  { max: 10000,    pct: 0.18 }, // €5k–10k:  +18%
+  { max: 25000,    pct: 0.12 }, // €10k–25k: +12%
+  { max: 50000,    pct: 0.10 }, // €25k–50k: +10%
   { max: Infinity, pct: 0.08 }, // €50k+:    +8%
 ]
 
-export function applyB2CMarkup(priceEur) {
+// Bags use a flat markup on cost price rather than on the dealer selling price.
+const BAGS_B2C_MULTIPLIER = 1.45
+
+export function applyB2CMarkup(priceEur, { category, costEur } = {}) {
+  if (category === 'Bags') {
+    if (!costEur) return priceEur ? Number(priceEur) : null
+    return Math.round(Number(costEur) * BAGS_B2C_MULTIPLIER)
+  }
   if (!priceEur) return priceEur
   const price = Number(priceEur)
   const bracket = B2C_MARKUP_BRACKETS.find(b => price <= b.max)
