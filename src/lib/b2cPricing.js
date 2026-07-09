@@ -8,17 +8,20 @@ const B2C_MARKUP_BRACKETS = [
   { max: Infinity, pct: 0.08 }, // €50k+:    +8%
 ]
 
-// Bags use a flat markup on cost price rather than on the dealer selling price.
+// Bags dealer price = cost × 1.40 (matches PRICE_MARKUP in odoo-bags-sync.js)
+const BAGS_DEALER_MARKUP = 1.40
 const BAGS_B2C_MULTIPLIER = 1.45
 
 export function applyB2CMarkup(priceEur, { category, costEur } = {}) {
   // Jewellery: show dealer price unchanged
   if (category === 'Jewellery') return priceEur ? Number(priceEur) : null
 
-  // Bags, Accessories (belts, wallets, scarves, etc.) and Shoes: cost + 45%
+  // Bags, Accessories and Shoes: cost + 45%
+  // Use cost_eur if available; otherwise derive cost from price_eur (price_eur = cost × 1.40)
   if (category === 'Bags' || category === 'Accessories' || category === 'Shoes') {
-    if (!costEur) return priceEur ? Number(priceEur) : null
-    return Math.round(Number(costEur) * BAGS_B2C_MULTIPLIER)
+    if (!priceEur && !costEur) return null
+    const cost = costEur ? Number(costEur) : Number(priceEur) / BAGS_DEALER_MARKUP
+    return Math.round(cost * BAGS_B2C_MULTIPLIER)
   }
 
   // Watches (and anything else): tiered bracket on dealer price
