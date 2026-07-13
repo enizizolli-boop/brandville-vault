@@ -423,6 +423,12 @@ export default function WatchDetail() {
                   {editing && (
                     <button onClick={() => handleDeleteImage(img)} style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', background: '#e00', color: '#fff', border: 'none', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
                   )}
+                  {editing && (
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: 2, marginTop: 3 }}>
+                      <button onClick={() => i > 0 && handleReorderImages(i, i - 1)} disabled={i === 0} style={{ width: 32, height: 20, fontSize: 12, border: '1px solid var(--border)', borderRadius: 4, background: 'var(--surface)', cursor: i === 0 ? 'default' : 'pointer', opacity: i === 0 ? 0.3 : 1 }}>←</button>
+                      <button onClick={() => i < images.length - 1 && handleReorderImages(i, i + 1)} disabled={i === images.length - 1} style={{ width: 32, height: 20, fontSize: 12, border: '1px solid var(--border)', borderRadius: 4, background: 'var(--surface)', cursor: i === images.length - 1 ? 'default' : 'pointer', opacity: i === images.length - 1 ? 0.3 : 1 }}>→</button>
+                    </div>
+                  )}
                 </div>
               ))}
               {editing && (
