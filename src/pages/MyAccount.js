@@ -139,6 +139,16 @@ export default function MyAccount() {
 
         {/* Profile tab */}
         {tab === 'profile' && (
+          <>
+            {(profile?.role === 'agent' || profile?.role === 'admin') && (
+              <div className="card" style={{ padding: '18px 24px', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => navigate('/agent?tab=clients')}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>Clients</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Invite dealers and manage your clients</div>
+                </div>
+                <span style={{ fontSize: 18, color: 'var(--muted)' }}>›</span>
+              </div>
+            )}
           <div className="card" style={{ padding: '24px' }}>
             {profileMsg && (
               <div className={profileMsg.includes('Failed') ? 'error-msg' : 'success-msg'} style={{ marginBottom: 16 }}>
@@ -161,6 +171,7 @@ export default function MyAccount() {
               {saving ? '...' : 'Save changes'}
             </button>
           </div>
+          </>
         )}
 
         {/* Offers tab */}

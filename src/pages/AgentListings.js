@@ -299,7 +299,10 @@ export default function AgentListings() {
   const navigate = useNav()
   const { rate } = useExchangeRate()
   const { rate: cnyToEurRate } = useExchangeRate('CNY', 'EUR')
-  const [tab, setTab] = useState('listings')
+  const [tab, setTab] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('tab') || 'listings'
+  })
   const [bagName, setBagName] = useState('')
   const [bagCostPrice, setBagCostPrice] = useState('')
   const [bagCostCurrency, setBagCostCurrency] = useState('EUR')
