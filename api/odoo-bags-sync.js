@@ -473,6 +473,8 @@ export default async function handler(req, res) {
                 const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
                 await supabase.from('product_images').insert({ product_id: watchId, url: publicUrl, position });
                 position++; imagesAdded++;
+              } else {
+                console.error('Primary img upload error for', watchId, ':', upErr.message);
               }
             } catch (e) { console.error('Primary img error:', e); }
           }
@@ -490,10 +492,19 @@ export default async function handler(req, res) {
                 const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
                 await supabase.from('product_images').insert({ product_id: watchId, url: publicUrl, position });
                 position++; imagesAdded++;
+              } else {
+                console.error('Extra img upload error for', watchId, ':', upErr.message);
               }
             } catch (e) { console.error('Extra img error:', e); }
           }
 
+          // Odoo had images but none were stored — remove the product rather than
+          // leaving it imageless in the catalog
+          if (position === existing) {
+            console.log('No images stored for', watchId, '(odooTotal:', odooTotal, ') — removing');
+            await supabase.from('products').delete().eq('id', watchId);
+            isExisting ? updated-- : added--;
+          }
         }
       }
     }
