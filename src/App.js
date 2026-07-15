@@ -11,6 +11,7 @@ import AgentProfile from './pages/AgentProfile'
 import AdminPanel from './pages/AdminPanel'
 import DealerOffers from './pages/DealerOffers'
 import MyAccount from './pages/MyAccount'
+import JoinPage from './pages/JoinPage'
 
 function PrivateRoute({ children, allowedRoles }) {
   const { user, profile, loading } = useAuth()
@@ -37,6 +38,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/join/:token" element={<JoinPage />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/" element={<PrivateRoute><RoleRedirect /></PrivateRoute>} />
           <Route path="/home" element={<PrivateRoute allowedRoles={['dealer', 'agent', 'admin', 'b2c']}><Home /></PrivateRoute>} />

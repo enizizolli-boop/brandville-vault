@@ -336,14 +336,13 @@ export default function AgentListings() {
   const [preorderPriceMin, setPreorderPriceMin] = useState('')
   const [preorderPriceMax, setPreorderPriceMax] = useState('')
   const [preorderSort, setPreorderSort] = useState('newest')
-  const [inviteName, setInviteName] = useState('')
-  const [inviteEmail, setInviteEmail] = useState('')
-  const [invitePhone, setInvitePhone] = useState('')
-  const [inviting, setInviting] = useState(false)
-  const [inviteMsg, setInviteMsg] = useState('')
-  const [inviteError, setInviteError] = useState('')
   const [clients, setClients] = useState([])
+  const [pendingTokens, setPendingTokens] = useState([])
   const [clientsLoading, setClientsLoading] = useState(false)
+  const [generatedLink, setGeneratedLink] = useState('')
+  const [generating, setGenerating] = useState(false)
+  const [linkError, setLinkError] = useState('')
+  const [copied, setCopied] = useState('')
 
   const fetchMyWatches = useCallback(async () => {
     const q = profile?.role === 'admin'
@@ -374,31 +373,37 @@ export default function AgentListings() {
   const fetchClients = useCallback(async () => {
     if (!profile?.id) return
     setClientsLoading(true)
-    const { data } = await supabase.from('profiles').select('id, full_name, email, phone, created_at').eq('invited_by', profile.id).order('created_at', { ascending: false })
-    setClients(data || [])
+    const [{ data: dealers }, { data: tokens }] = await Promise.all([
+      supabase.from('profiles').select('id, full_name, email, phone, created_at').eq('invited_by', profile.id).order('created_at', { ascending: false }),
+      supabase.from('invite_tokens').select('id, token, created_at').eq('created_by', profile.id).eq('used', false).order('created_at', { ascending: false })
+    ])
+    setClients(dealers || [])
+    setPendingTokens(tokens || [])
     setClientsLoading(false)
   }, [profile])
 
-  async function handleAgentInvite(e) {
-    e.preventDefault()
-    setInviteError(''); setInviteMsg('')
-    setInviting(true)
-    try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/send-invite`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ANON_KEY}` },
-        body: JSON.stringify({ email: inviteEmail, role: 'dealer', full_name: inviteName, phone: invitePhone, invited_by: profile.id })
-      })
-      const result = await res.json()
-      if (!res.ok) throw new Error(result.error || 'Invite failed')
-      setInviteMsg(`Invite sent to ${inviteEmail}`)
-      setInviteName(''); setInviteEmail(''); setInvitePhone('')
-      fetchClients()
-    } catch (err) {
-      setInviteError(err.message || 'Something went wrong')
-    } finally {
-      setInviting(false)
-    }
+  async function handleGenerateLink() {
+    setLinkError(''); setGenerating(true)
+    const tokenBytes = new Uint8Array(20)
+    crypto.getRandomValues(tokenBytes)
+    const token = Array.from(tokenBytes).map(b => b.toString(16).padStart(2, '0')).join('')
+    const { error } = await supabase.from('invite_tokens').insert({ token, created_by: profile.id })
+    if (error) { setLinkError(error.message); setGenerating(false); return }
+    setGeneratedLink(`${window.location.origin}/join/${token}`)
+    setGenerating(false)
+    fetchClients()
+  }
+
+  async function handleRevokeToken(id) {
+    await supabase.from('invite_tokens').delete().eq('id', id)
+    fetchClients()
+    setGeneratedLink(prev => prev) // keep shown link as-is
+  }
+
+  function handleCopy(text, key) {
+    navigator.clipboard.writeText(text)
+    setCopied(key)
+    setTimeout(() => setCopied(''), 2000)
   }
 
   useEffect(() => { if (profile) { fetchMyWatches(); fetchPreorders() } }, [profile, fetchMyWatches, fetchPreorders])
@@ -1357,39 +1362,53 @@ export default function AgentListings() {
       )}
       {tab === 'clients' && (
         <div style={{ padding: 16, maxWidth: 540 }}>
-          <div className="card" style={{ padding: '24px 20px', marginBottom: 24 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 16 }}>Invite a dealer</div>
-            {inviteMsg && <div className="success-msg" style={{ marginBottom: 12 }}>{inviteMsg}</div>}
-            {inviteError && <div className="error-msg" style={{ marginBottom: 12 }}>{inviteError}</div>}
-            <form onSubmit={handleAgentInvite}>
-              <div className="form-row">
-                <label>Full name</label>
-                <input type="text" value={inviteName} onChange={e => setInviteName(e.target.value)} placeholder="Jean Michel" />
+          {/* Generate link */}
+          <div className="card" style={{ padding: '20px', marginBottom: 20 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>Generate invite link</div>
+            {linkError && <div className="error-msg" style={{ marginBottom: 10 }}>{linkError}</div>}
+            {generatedLink && (
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ fontSize: 12, color: 'var(--muted)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{generatedLink}</div>
+                <button onClick={() => handleCopy(generatedLink, 'new')} className="btn btn-sm" style={{ flexShrink: 0, fontSize: 12 }}>
+                  {copied === 'new' ? '✓ Copied' : 'Copy'}
+                </button>
               </div>
-              <div className="form-row">
-                <label>Email address</label>
-                <input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="dealer@company.com" required />
-              </div>
-              <div className="form-row">
-                <label>Phone number</label>
-                <input type="tel" value={invitePhone} onChange={e => setInvitePhone(e.target.value)} placeholder="+1 555 000 0000" />
-              </div>
-              <button type="submit" className="btn btn-dark btn-full" disabled={inviting} style={{ marginTop: 4 }}>
-                {inviting ? <span className="spinner" style={{ width: 16, height: 16 }} /> : 'Send invitation'}
-              </button>
-            </form>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 12 }}>They will receive an email with a link to set their password and access Brandville Vault.</div>
+            )}
+            <button className="btn btn-dark" onClick={handleGenerateLink} disabled={generating}>
+              {generating ? <span className="spinner" style={{ width: 14, height: 14 }} /> : '+ Generate new link'}
+            </button>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10 }}>Each link can only be used once. Share it directly with the dealer.</div>
           </div>
 
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)', marginBottom: 12 }}>
-            {clientsLoading ? 'Loading…' : `Your clients (${clients.length})`}
+          {/* Pending links */}
+          {!clientsLoading && pendingTokens.length > 0 && (
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>Pending links ({pendingTokens.length})</div>
+              {pendingTokens.map(t => {
+                const link = `${window.location.origin}/join/${t.token}`
+                return (
+                  <div key={t.id} className="card" style={{ padding: '12px 14px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ fontSize: 12, color: 'var(--muted)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{link}</div>
+                    <button onClick={() => handleCopy(link, t.id)} className="btn btn-sm" style={{ fontSize: 11, flexShrink: 0 }}>
+                      {copied === t.id ? '✓' : 'Copy'}
+                    </button>
+                    <button onClick={() => handleRevokeToken(t.id)} style={{ background: 'none', border: 'none', color: '#d9534f', cursor: 'pointer', fontSize: 16, lineHeight: 1, flexShrink: 0, padding: '0 2px' }} title="Revoke">×</button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Joined dealers */}
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
+            {clientsLoading ? 'Loading…' : `Joined dealers (${clients.length})`}
           </div>
           {!clientsLoading && clients.length === 0 && (
-            <div style={{ fontSize: 13, color: 'var(--muted)', textAlign: 'center', padding: 32 }}>No clients yet — invite your first dealer above.</div>
+            <div style={{ fontSize: 13, color: 'var(--muted)', textAlign: 'center', padding: 24 }}>No dealers have joined yet.</div>
           )}
           {clients.map(c => (
             <div key={c.id} className="card" style={{ padding: '14px 16px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div style={{ width: 38, height: 38, borderRadius: '50%', background: '#b8965a22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, color: '#b8965a', flexShrink: 0 }}>
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#b8965a22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, color: '#b8965a', flexShrink: 0 }}>
                 {(c.full_name || c.email || '?')[0].toUpperCase()}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
