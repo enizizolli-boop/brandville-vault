@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { CurrencyProvider } from './context/CurrencyContext'
 import Login from './pages/Login'
-import Signup from './pages/Signup'
 import ResetPassword from './pages/ResetPassword'
 import Home from './pages/Home'
 import DealerCatalog from './pages/DealerCatalog'
@@ -38,7 +37,6 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/" element={<PrivateRoute><RoleRedirect /></PrivateRoute>} />
           <Route path="/home" element={<PrivateRoute allowedRoles={['dealer', 'agent', 'admin', 'b2c']}><Home /></PrivateRoute>} />

@@ -400,7 +400,7 @@ export default async function handler(req, res) {
     // reflect Sales Order commitments — that's checked per-item below via the Detail
     // API's available_for_sale_stock, which is the authoritative field but only exists
     // on the per-item Detail endpoint, not the bulk List endpoint (verified directly).
-    const isLive = item => (item.cf_stage || '') === 'Per oferte' && Number(item.available_stock ?? 0) >= 1;
+    const isLive = item => (item.cf_stage || '') === 'Per oferte' && Number(item.available_stock ?? 0) >= 1 && Number(item.committed_stock ?? 0) === 0;
     let zohoItems = allItems.filter(isLive);
     const totalOnStore = zohoItems.length;
 
