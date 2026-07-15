@@ -89,7 +89,7 @@ export default function JoinPage() {
               </div>
               <div className="form-row">
                 <label>Phone number</label>
-                <input type="tel" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+1 555 000 0000" />
+                <input type="tel" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+1 555 000 0000" required />
               </div>
               <div className="form-row">
                 <label>Password</label>
