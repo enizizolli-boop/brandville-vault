@@ -449,63 +449,84 @@ export default async function handler(req, res) {
 
       if (watchId) {
         const extras = extraImagesMap[String(item.id)] || [];
-        const odooTotal = (item.image_1920 && item.image_1920 !== false ? 1 : 0) + extras.length;
+        const hasPrimary = !!(item.image_1920 && item.image_1920 !== false);
+        const odooTotal = (hasPrimary ? 1 : 0) + extras.length;
 
         const { count: dbCount } = await supabase.from('product_images')
           .select('id', { count: 'exact', head: true }).eq('product_id', watchId);
         const existing = dbCount || 0;
 
         if (odooTotal === 0 && existing === 0) {
-          // No images at all — remove the product
+          // Odoo has no images and none stored — remove the product
           await supabase.from('products').delete().eq('id', watchId);
           isExisting ? updated-- : added--;
         } else if (existing < odooTotal) {
-          // Upload only missing images
-          let position = existing;
+          // Upload missing images, counting only confirmed DB inserts
+          let uploaded = 0;
 
           // Primary image (only if none stored yet)
-          if (existing === 0 && item.image_1920 && item.image_1920 !== false) {
+          if (existing === 0 && hasPrimary) {
             try {
               const buffer = Buffer.from(item.image_1920, 'base64');
               const path = watchId + '/bag_primary.jpg';
               const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
               if (!upErr) {
                 const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
-                await supabase.from('product_images').insert({ product_id: watchId, url: publicUrl, position });
-                position++; imagesAdded++;
+                const { error: insErr } = await supabase.from('product_images').insert({ product_id: watchId, url: publicUrl, position: existing + uploaded });
+                if (!insErr) { uploaded++; imagesAdded++; }
+                else console.error('Primary img insert error for', watchId, ':', insErr.message);
               } else {
                 console.error('Primary img upload error for', watchId, ':', upErr.message);
               }
             } catch (e) { console.error('Primary img error:', e); }
           }
 
-          // Extra images — only upload ones beyond what's already stored
-          const extrasToUpload = extras.slice(Math.max(0, existing - 1));
-          for (let i = 0; i < extrasToUpload.length; i++) {
-            const extraImg = extrasToUpload[i];
+          // Extra images — only the ones beyond what's already stored
+          const extrasStart = Math.max(0, existing - (hasPrimary ? 1 : 0));
+          const extrasToUpload = extras.slice(extrasStart);
+          for (const extraImg of extrasToUpload) {
             if (!extraImg.image_1920 || extraImg.image_1920 === false) continue;
             try {
+              const pos = existing + uploaded;
               const buffer = Buffer.from(extraImg.image_1920, 'base64');
-              const path = watchId + '/bag_extra_' + position + '.jpg';
+              const path = watchId + '/bag_extra_' + pos + '.jpg';
               const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
               if (!upErr) {
                 const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
-                await supabase.from('product_images').insert({ product_id: watchId, url: publicUrl, position });
-                position++; imagesAdded++;
+                const { error: insErr } = await supabase.from('product_images').insert({ product_id: watchId, url: publicUrl, position: pos });
+                if (!insErr) { uploaded++; imagesAdded++; }
+                else console.error('Extra img insert error for', watchId, ':', insErr.message);
               } else {
                 console.error('Extra img upload error for', watchId, ':', upErr.message);
               }
             } catch (e) { console.error('Extra img error:', e); }
           }
 
-          // Odoo had images but none were stored — remove the product rather than
-          // leaving it imageless in the catalog
-          if (position === existing) {
+          // All uploads failed — remove rather than leave the product imageless
+          if (existing === 0 && uploaded === 0) {
             console.log('No images stored for', watchId, '(odooTotal:', odooTotal, ') — removing');
             await supabase.from('products').delete().eq('id', watchId);
             isExisting ? updated-- : added--;
           }
         }
+      }
+    }
+
+    // Cleanup: remove any products from this batch that still have no images
+    // (catches items that survived previous bad sync runs)
+    const batchOdooIds = items.map(i => String(i.id));
+    const { data: batchProducts } = await supabase
+      .from('products')
+      .select('id')
+      .eq('source', 'odoo_bags')
+      .in('odoo_product_id', batchOdooIds);
+
+    for (const prod of batchProducts || []) {
+      const { count } = await supabase.from('product_images')
+        .select('id', { count: 'exact', head: true }).eq('product_id', prod.id);
+      if (!count || count === 0) {
+        await supabase.from('products').delete().eq('id', prod.id);
+        removed++;
       }
     }
 
