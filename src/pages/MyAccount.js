@@ -44,6 +44,20 @@ function NavIcon({ name }) {
         <path d="M6 7h4M6 10h2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
       </>
     ),
+    listings: (
+      <>
+        <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+        <path d="M5 7h6M5 10h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        <path d="M12 1v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        <path d="M10.5 2.5L12 1l1.5 1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      </>
+    ),
+    signout: (
+      <>
+        <path d="M10 8H3M6 5l-3 3 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M8 3h4a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      </>
+    ),
   }
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" style={{ flexShrink: 0 }}>
@@ -53,7 +67,7 @@ function NavIcon({ name }) {
 }
 
 export default function MyAccount() {
-  const { profile, fetchProfile } = useAuth()
+  const { profile, fetchProfile, signOut } = useAuth()
   const navigate = useNav()
   const isAgent = profile?.role === 'agent' || profile?.role === 'admin'
   const [isMobile, setIsMobile] = useState(window.innerWidth < 720)
@@ -181,6 +195,8 @@ export default function MyAccount() {
     if (!w?.product_images?.length) return null
     return [...w.product_images].sort((a, b) => a.position - b.position)[0]?.url
   }
+
+  function handleSignOut() { signOut().then(() => navigate('/login')) }
 
   function fmtDate(d) { return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) }
   function fmtPrice(n) { return n ? `€${Number(n).toLocaleString()}` : '—' }
@@ -425,6 +441,22 @@ export default function MyAccount() {
                 )}
               </button>
             ))}
+            {isAgent && (
+              <button
+                onClick={() => navigate(`/agent/${profile.id}`)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '12px 14px', background: 'none', border: 'none', borderBottom: '2px solid transparent', color: 'var(--muted)', cursor: 'pointer', fontSize: 13, whiteSpace: 'nowrap', flexShrink: 0 }}
+              >
+                <NavIcon name="listings" />
+                My Listings
+              </button>
+            )}
+            <button
+              onClick={handleSignOut}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '12px 14px', background: 'none', border: 'none', borderBottom: '2px solid transparent', color: 'var(--muted)', cursor: 'pointer', fontSize: 13, whiteSpace: 'nowrap', flexShrink: 0 }}
+            >
+              <NavIcon name="signout" />
+              Sign out
+            </button>
           </div>
           <div style={{ padding: '20px 16px' }}>{sectionContent[section]}</div>
         </div>
@@ -471,6 +503,25 @@ export default function MyAccount() {
                 )
               })}
             </nav>
+            {/* Bottom actions */}
+            <div style={{ borderTop: '1px solid var(--border)', marginTop: 8, paddingTop: 8 }}>
+              {isAgent && (
+                <button
+                  onClick={() => navigate(`/agent/${profile.id}`)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 12px', background: 'none', border: 'none', borderLeft: '2px solid transparent', borderRadius: 8, color: 'var(--muted)', cursor: 'pointer', fontSize: 13, textAlign: 'left', marginBottom: 2 }}
+                >
+                  <NavIcon name="listings" />
+                  <span>My Listings</span>
+                </button>
+              )}
+              <button
+                onClick={handleSignOut}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 12px', background: 'none', border: 'none', borderLeft: '2px solid transparent', borderRadius: 8, color: 'var(--muted)', cursor: 'pointer', fontSize: 13, textAlign: 'left' }}
+              >
+                <NavIcon name="signout" />
+                <span>Sign out</span>
+              </button>
+            </div>
           </div>
           {/* Content area */}
           <div style={{ flex: 1, minWidth: 0 }}>

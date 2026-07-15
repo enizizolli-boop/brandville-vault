@@ -241,16 +241,7 @@ export default function Topbar() {
             </div>
             <div className="ta-info">
               <div className="ta-name">{profile?.full_name?.split(' ')[0] || 'Account'}</div>
-              {(profile?.role === 'agent' || profile?.role === 'admin') && (
-                <button className="ta-signout" onClick={e => { e.stopPropagation(); navigate(`/agent/${profile.id}`) }}>
-                  My Listings
-                </button>
-              )}
-              <button className="ta-signout" onClick={e => { e.stopPropagation(); handleSignOut() }}>
-                Sign out
-              </button>
             </div>
-            <svg width="10" height="10" fill="currentColor" viewBox="0 0 8 8" className="ta-chevron"><path d="M1 2l3 4 3-4z"/></svg>
           </div>
 
           {/* Admin shortcut */}
