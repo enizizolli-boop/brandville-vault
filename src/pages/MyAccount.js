@@ -21,9 +21,13 @@ async function notifyOffer(payload) {
 
 const STATUS_COLOR = { pending: '#e6a817', countered: '#b8965a', accepted: '#2e7d32', rejected: '#c62828' }
 
+const ROLE_LABEL = { admin: 'Admin', agent: 'Agent', dealer: 'Dealer', b2c: 'B2C' }
+
 export default function MyAccount() {
   const { profile, fetchProfile } = useAuth()
   const navigate = useNav()
+  const isAgent = profile?.role === 'agent' || profile?.role === 'admin'
+
   const [tab, setTab] = useState('profile')
 
   // Profile state
@@ -37,6 +41,15 @@ export default function MyAccount() {
   const [offersLoading, setOffersLoading] = useState(true)
   const [statusTab, setStatusTab] = useState('pending')
   const [offersMsg, setOffersMsg] = useState('')
+
+  // Clients state
+  const [clients, setClients] = useState([])
+  const [pendingTokens, setPendingTokens] = useState([])
+  const [clientsLoading, setClientsLoading] = useState(false)
+  const [generatedLink, setGeneratedLink] = useState('')
+  const [generating, setGenerating] = useState(false)
+  const [linkError, setLinkError] = useState('')
+  const [copied, setCopied] = useState('')
 
   useEffect(() => {
     if (profile) {
@@ -56,7 +69,20 @@ export default function MyAccount() {
     setOffersLoading(false)
   }, [profile])
 
+  const fetchClients = useCallback(async () => {
+    if (!profile?.id) return
+    setClientsLoading(true)
+    const [{ data: dealers }, { data: tokens }] = await Promise.all([
+      supabase.from('profiles').select('id, full_name, email, phone, created_at').eq('invited_by', profile.id).order('created_at', { ascending: false }),
+      supabase.from('invite_tokens').select('id, token, created_at').eq('created_by', profile.id).eq('used', false).order('created_at', { ascending: false })
+    ])
+    setClients(dealers || [])
+    setPendingTokens(tokens || [])
+    setClientsLoading(false)
+  }, [profile])
+
   useEffect(() => { if (tab === 'offers') fetchOffers() }, [tab, fetchOffers])
+  useEffect(() => { if (tab === 'clients') fetchClients() }, [tab, fetchClients])
 
   async function handleSaveProfile() {
     if (!fullName.trim()) return
@@ -73,6 +99,29 @@ export default function MyAccount() {
       setProfileMsg('Profile updated.')
     }
     setSaving(false)
+  }
+
+  async function handleGenerateLink() {
+    setLinkError(''); setGenerating(true)
+    const tokenBytes = new Uint8Array(20)
+    crypto.getRandomValues(tokenBytes)
+    const token = Array.from(tokenBytes).map(b => b.toString(16).padStart(2, '0')).join('')
+    const { error } = await supabase.from('invite_tokens').insert({ token, created_by: profile.id })
+    if (error) { setLinkError(error.message); setGenerating(false); return }
+    setGeneratedLink(`${window.location.origin}/join/${token}`)
+    setGenerating(false)
+    fetchClients()
+  }
+
+  async function handleRevokeToken(id) {
+    await supabase.from('invite_tokens').delete().eq('id', id)
+    fetchClients()
+  }
+
+  function handleCopy(text, key) {
+    navigator.clipboard.writeText(text)
+    setCopied(key)
+    setTimeout(() => setCopied(''), 2000)
   }
 
   async function handleAcceptCounter(offer) {
@@ -112,26 +161,42 @@ export default function MyAccount() {
     return `€${Number(amount).toLocaleString()}`
   }
 
+  const pendingOffersCount = offers.filter(o => o.status === 'pending' || o.status === 'countered').length
+
   return (
     <div className="page">
       <Topbar />
       <div style={{ maxWidth: 680, margin: '0 auto', padding: '32px 16px' }}>
 
-        <div style={{ marginBottom: 28 }}>
-          <div style={{ fontSize: 10, letterSpacing: 3, textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 8, fontWeight: 600 }}>Account</div>
-          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 26, fontWeight: 400, color: 'var(--text)' }}>
-            {profile?.full_name || 'My Account'}
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 28 }}>
+          <div style={{ width: 52, height: 52, borderRadius: '50%', background: '#b8965a22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 20, color: '#b8965a', flexShrink: 0 }}>
+            {(profile?.full_name || profile?.email || '?')[0].toUpperCase()}
+          </div>
+          <div>
+            <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 22, fontWeight: 400, color: 'var(--text)' }}>
+              {profile?.full_name || 'My Account'}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.5, color: '#b8965a', background: '#b8965a18', padding: '2px 8px', borderRadius: 10, textTransform: 'uppercase' }}>
+                {ROLE_LABEL[profile?.role] || profile?.role}
+              </span>
+              <span style={{ fontSize: 12, color: 'var(--muted)' }}>{profile?.email}</span>
+            </div>
           </div>
         </div>
 
         {/* Tabs */}
         <div className="tabs" style={{ marginBottom: 24 }}>
           <div className={`tab ${tab === 'profile' ? 'active' : ''}`} onClick={() => setTab('profile')}>Profile</div>
+          {isAgent && (
+            <div className={`tab ${tab === 'clients' ? 'active' : ''}`} onClick={() => setTab('clients')}>Clients</div>
+          )}
           <div className={`tab ${tab === 'offers' ? 'active' : ''}`} onClick={() => setTab('offers')}>
             My Offers
-            {offers.filter(o => o.status === 'pending' || o.status === 'countered').length > 0 && (
+            {pendingOffersCount > 0 && (
               <span style={{ marginLeft: 5, background: '#e6a817', color: '#fff', borderRadius: 10, fontSize: 10, padding: '1px 6px', fontWeight: 700 }}>
-                {offers.filter(o => o.status === 'pending' || o.status === 'countered').length}
+                {pendingOffersCount}
               </span>
             )}
           </div>
@@ -139,16 +204,6 @@ export default function MyAccount() {
 
         {/* Profile tab */}
         {tab === 'profile' && (
-          <>
-            {(profile?.role === 'agent' || profile?.role === 'admin') && (
-              <div className="card" style={{ padding: '18px 24px', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => navigate('/agent?tab=clients')}>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>Clients</div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Invite dealers and manage your clients</div>
-                </div>
-                <span style={{ fontSize: 18, color: 'var(--muted)' }}>›</span>
-              </div>
-            )}
           <div className="card" style={{ padding: '24px' }}>
             {profileMsg && (
               <div className={profileMsg.includes('Failed') ? 'error-msg' : 'success-msg'} style={{ marginBottom: 16 }}>
@@ -171,7 +226,68 @@ export default function MyAccount() {
               {saving ? '...' : 'Save changes'}
             </button>
           </div>
-          </>
+        )}
+
+        {/* Clients tab */}
+        {tab === 'clients' && (
+          <div>
+            <div className="card" style={{ padding: '20px', marginBottom: 20 }}>
+              <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>Generate invite link</div>
+              {linkError && <div className="error-msg" style={{ marginBottom: 10 }}>{linkError}</div>}
+              {generatedLink && (
+                <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{generatedLink}</div>
+                  <button onClick={() => handleCopy(generatedLink, 'new')} className="btn btn-sm" style={{ flexShrink: 0, fontSize: 12 }}>
+                    {copied === 'new' ? '✓ Copied' : 'Copy'}
+                  </button>
+                </div>
+              )}
+              <button className="btn btn-dark" onClick={handleGenerateLink} disabled={generating}>
+                {generating ? <span className="spinner" style={{ width: 14, height: 14 }} /> : '+ Generate new link'}
+              </button>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10 }}>Each link can only be used once. Share it directly with the dealer.</div>
+            </div>
+
+            {!clientsLoading && pendingTokens.length > 0 && (
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>Pending links ({pendingTokens.length})</div>
+                {pendingTokens.map(t => {
+                  const link = `${window.location.origin}/join/${t.token}`
+                  return (
+                    <div key={t.id} className="card" style={{ padding: '12px 14px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{link}</div>
+                      <button onClick={() => handleCopy(link, t.id)} className="btn btn-sm" style={{ fontSize: 11, flexShrink: 0 }}>
+                        {copied === t.id ? '✓' : 'Copy'}
+                      </button>
+                      <button onClick={() => handleRevokeToken(t.id)} style={{ background: 'none', border: 'none', color: '#d9534f', cursor: 'pointer', fontSize: 18, lineHeight: 1, flexShrink: 0, padding: '0 2px' }} title="Revoke">×</button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
+              {clientsLoading ? 'Loading…' : `Joined dealers (${clients.length})`}
+            </div>
+            {!clientsLoading && clients.length === 0 && (
+              <div style={{ fontSize: 13, color: 'var(--muted)', textAlign: 'center', padding: 32 }}>No dealers have joined yet.</div>
+            )}
+            {clients.map(c => (
+              <div key={c.id} className="card" style={{ padding: '14px 16px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#b8965a22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, color: '#b8965a', flexShrink: 0 }}>
+                  {(c.full_name || c.email || '?')[0].toUpperCase()}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{c.full_name || '—'}</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>{c.email}</div>
+                  {c.phone && <div style={{ fontSize: 12, color: 'var(--muted)' }}>{c.phone}</div>}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--muted)', flexShrink: 0 }}>
+                  {new Date(c.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </div>
+              </div>
+            ))}
+          </div>
         )}
 
         {/* Offers tab */}
