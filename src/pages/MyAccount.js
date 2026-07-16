@@ -239,60 +239,116 @@ export default function MyAccount() {
   // ── Profile tab ──
   const profileTab = (
     <div>
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{ margin: 0, fontSize: 17, fontWeight: 600, color: 'var(--text)', fontFamily: "'Playfair Display', Georgia, serif" }}>Profile</h2>
-        <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--muted)' }}>Manage your name and contact details.</p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32, gap: 20, flexWrap: 'wrap' }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--text)', fontFamily: "'Playfair Display', Georgia, serif" }}>Profile</h2>
+          <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--muted)' }}>Manage your personal information and contact details.</p>
+        </div>
+        <div style={{ flexShrink: 0, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'flex-start', gap: 10, maxWidth: 230 }}>
+          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24" style={{ color: 'var(--muted)', flexShrink: 0, marginTop: 1 }}>
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.55 }}>Your information is secure and never shared with third parties.</div>
+        </div>
       </div>
-      <div className="card" style={{ padding: 24, maxWidth: 420 }}>
-        {profileMsg && (
-          <div className={profileMsg.includes('Failed') ? 'error-msg' : 'success-msg'} style={{ marginBottom: 16 }}>{profileMsg}</div>
-        )}
-        <div className="form-row">
-          <label>Full name</label>
-          <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Your name" />
+      {profileMsg && (
+        <div className={profileMsg.includes('Failed') ? 'error-msg' : 'success-msg'} style={{ marginBottom: 16 }}>{profileMsg}</div>
+      )}
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#b8965a', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Account Information</div>
+        <div style={{ height: 1, background: 'var(--border)', marginBottom: 20 }} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          <div className="form-row" style={{ margin: 0 }}>
+            <label>Full Name</label>
+            <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Your name" />
+          </div>
+          <div className="form-row" style={{ margin: 0 }}>
+            <label>Email <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: 11 }}>(cannot be changed)</span></label>
+            <input type="email" value={profile?.email || ''} disabled style={{ opacity: 0.45, cursor: 'not-allowed' }} />
+          </div>
         </div>
-        <div className="form-row">
-          <label>Email <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: 11 }}>(cannot be changed)</span></label>
-          <input type="email" value={profile?.email || ''} disabled style={{ opacity: 0.45, cursor: 'not-allowed' }} />
-        </div>
-        <div className="form-row">
-          <label>Phone number</label>
+        <div className="form-row" style={{ marginBottom: 0 }}>
+          <label>Phone Number</label>
           <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+1 234 567 8900" />
         </div>
-        <button className="btn btn-dark" onClick={handleSaveProfile} disabled={saving} style={{ marginTop: 4 }}>
-          {saving ? '…' : 'Save changes'}
-        </button>
       </div>
+      <div style={{ marginBottom: 32 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#b8965a', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Preferences</div>
+        <div style={{ height: 1, background: 'var(--border)', marginBottom: 20 }} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div className="form-row" style={{ margin: 0 }}>
+            <label>Preferred Currency</label>
+            <select defaultValue="EUR" style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)', fontSize: 14, cursor: 'pointer' }}>
+              <option value="EUR">EUR (€)</option>
+              <option value="USD">USD ($)</option>
+            </select>
+          </div>
+          <div className="form-row" style={{ margin: 0 }}>
+            <label>Language</label>
+            <select defaultValue="en" style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)', fontSize: 14, cursor: 'pointer' }}>
+              <option value="en">English</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <button className="btn btn-dark" onClick={handleSaveProfile} disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {saving ? <span className="spinner" style={{ width: 14, height: 14 }} /> : (
+          <>
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+              <polyline points="7 3 7 8 15 8"/>
+            </svg>
+            Save changes
+          </>
+        )}
+      </button>
     </div>
   )
 
   // ── Clients tab ──
   const clientsTab = (
     <div>
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{ margin: 0, fontSize: 17, fontWeight: 600, color: 'var(--text)', fontFamily: "'Playfair Display', Georgia, serif" }}>Clients</h2>
-        <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--muted)' }}>Invite dealers with one-time links and manage your network.</p>
+      <div style={{ marginBottom: 28 }}>
+        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--text)', fontFamily: "'Playfair Display', Georgia, serif" }}>Clients</h2>
+        <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--muted)' }}>Invite dealers with one-time links and manage your network.</p>
       </div>
 
-      <div className="card" style={{ padding: 20, marginBottom: 20, maxWidth: 480 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>Generate invite link</div>
-        {linkError && <div className="error-msg" style={{ marginBottom: 10 }}>{linkError}</div>}
-        {generatedLink && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', marginBottom: 12 }}>
-            <div style={{ fontSize: 12, color: 'var(--muted)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{generatedLink}</div>
-            <button onClick={() => handleCopy(generatedLink, 'new')} className="btn btn-sm" style={{ flexShrink: 0, fontSize: 11 }}>
-              {copied === 'new' ? '✓ Copied' : 'Copy'}
+      <div className="card" style={{ padding: 24, marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6, color: 'var(--text)' }}>Generate invite link</div>
+            {linkError && <div className="error-msg" style={{ marginBottom: 10 }}>{linkError}</div>}
+            {generatedLink && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', marginBottom: 12 }}>
+                <div style={{ fontSize: 12, color: 'var(--muted)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{generatedLink}</div>
+                <button onClick={() => handleCopy(generatedLink, 'new')} className="btn btn-sm" style={{ flexShrink: 0, fontSize: 11 }}>
+                  {copied === 'new' ? '✓ Copied' : 'Copy'}
+                </button>
+              </div>
+            )}
+            <button className="btn btn-dark" onClick={handleGenerateLink} disabled={generating} style={{ fontSize: 13 }}>
+              {generating ? <span className="spinner" style={{ width: 14, height: 14 }} /> : '+ New Link'}
             </button>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10 }}>Each link works once — share directly with your contact.</div>
           </div>
-        )}
-        <button className="btn btn-dark" onClick={handleGenerateLink} disabled={generating} style={{ fontSize: 13 }}>
-          {generating ? <span className="spinner" style={{ width: 14, height: 14 }} /> : '+ New link'}
-        </button>
-        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8 }}>Each link works once — share directly with your contact.</div>
+          <div style={{ flexShrink: 0, width: 88, height: 88, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+            <span style={{ position: 'absolute', top: 4, left: 6, fontSize: 13, color: '#b8965a', opacity: 0.45 }}>+</span>
+            <span style={{ position: 'absolute', top: 8, right: 2, fontSize: 8, color: '#b8965a', opacity: 0.35 }}>✦</span>
+            <span style={{ position: 'absolute', bottom: 6, left: 2, fontSize: 8, color: '#b8965a', opacity: 0.35 }}>✦</span>
+            <span style={{ position: 'absolute', bottom: 2, right: 8, fontSize: 13, color: '#b8965a', opacity: 0.45 }}>+</span>
+            <div style={{ width: 68, height: 68, background: 'rgba(184,150,90,0.08)', borderRadius: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="34" height="34" fill="none" stroke="#b8965a" strokeWidth="1.4" viewBox="0 0 24 24">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+              </svg>
+            </div>
+          </div>
+        </div>
       </div>
 
       {!clientsLoading && pendingTokens.length > 0 && (
-        <div style={{ marginBottom: 24, maxWidth: 480 }}>
+        <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>
             Pending links ({pendingTokens.length})
           </div>
@@ -315,7 +371,7 @@ export default function MyAccount() {
         </div>
       )}
 
-      <div style={{ maxWidth: 480 }}>
+      <div>
         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>
           {clientsLoading ? 'Loading…' : `Joined (${clients.length})`}
         </div>
@@ -343,9 +399,9 @@ export default function MyAccount() {
   // ── Offers tab ──
   const offersTab = (
     <div>
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{ margin: 0, fontSize: 17, fontWeight: 600, color: 'var(--text)', fontFamily: "'Playfair Display', Georgia, serif" }}>My Offers</h2>
-        <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--muted)' }}>Track the offers you've submitted.</p>
+      <div style={{ marginBottom: 28 }}>
+        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--text)', fontFamily: "'Playfair Display', Georgia, serif" }}>My Offers</h2>
+        <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--muted)' }}>Track the offers you've submitted.</p>
       </div>
       {offersMsg && <div className="success-msg" style={{ marginBottom: 12 }}>{offersMsg}</div>}
       <div className="tabs" style={{ marginBottom: 16 }}>
@@ -428,46 +484,59 @@ export default function MyAccount() {
   // ── Saved tab ──
   const savedTab = (
     <div>
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{ margin: 0, fontSize: 17, fontWeight: 600, color: 'var(--text)', fontFamily: "'Playfair Display', Georgia, serif" }}>Saved</h2>
-        <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--muted)' }}>Items you've bookmarked from the catalog.</p>
+      <div style={{ marginBottom: 28 }}>
+        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--text)', fontFamily: "'Playfair Display', Georgia, serif" }}>Saved</h2>
+        <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--muted)' }}>Items you've bookmarked from the catalog.</p>
       </div>
       {savedLoading
         ? <div style={{ padding: 40, display: 'flex', justifyContent: 'center' }}><div className="spinner" /></div>
         : savedItems.length === 0
           ? <div className="empty-state">No saved items yet — bookmark items from the catalog</div>
-          : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
-              {savedItems.map(p => {
-                const thumb = p.product_images?.length
-                  ? [...p.product_images].sort((a, b) => a.position - b.position)[0]?.url
-                  : null
-                return (
-                  <div key={p.id} style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--surface)', cursor: 'pointer' }} onClick={() => navigate(`/catalog/${toSlug(p)}`)}>
-                    <div style={{ height: 160, background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
-                      {thumb
-                        ? <img src={thumb} alt={p.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        : <span style={{ fontSize: 28, opacity: 0.2 }}>◈</span>
-                      }
-                      <button
-                        onClick={e => { e.stopPropagation(); unsaveItem(p.id) }}
-                        title="Remove"
-                        style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(0,0,0,0.1)', borderRadius: 7, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#b8965a' }}
-                      >
-                        <svg width="13" height="13" fill="currentColor" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-                          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
-                        </svg>
-                      </button>
+          : <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
+                {savedItems.map(p => {
+                  const thumb = p.product_images?.length
+                    ? [...p.product_images].sort((a, b) => a.position - b.position)[0]?.url
+                    : null
+                  return (
+                    <div key={p.id} style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--surface)', cursor: 'pointer' }} onClick={() => navigate(`/catalog/${toSlug(p)}`)}>
+                      <div style={{ height: 200, background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
+                        {thumb
+                          ? <img src={thumb} alt={p.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          : <span style={{ fontSize: 28, opacity: 0.2 }}>◈</span>
+                        }
+                        <button
+                          onClick={e => { e.stopPropagation(); unsaveItem(p.id) }}
+                          title="Remove"
+                          style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(0,0,0,0.1)', borderRadius: 7, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#b8965a' }}
+                        >
+                          <svg width="13" height="13" fill="currentColor" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                          </svg>
+                        </button>
+                      </div>
+                      <div style={{ padding: '10px 12px' }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: '#b8965a', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 3 }}>{p.brand}</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', lineHeight: 1.3 }}>{p.model}</div>
+                        {p.reference && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Ref: {p.reference}</div>}
+                        {p.price_eur && <div style={{ fontSize: 13, fontWeight: 600, marginTop: 6 }}>€{Number(p.price_eur).toLocaleString()}</div>}
+                      </div>
                     </div>
-                    <div style={{ padding: '10px 12px' }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: '#b8965a', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 3 }}>{p.brand}</div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', lineHeight: 1.3 }}>{p.model}</div>
-                      {p.reference && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Ref. {p.reference}</div>}
-                      {p.price_eur && <div style={{ fontSize: 13, fontWeight: 600, marginTop: 6 }}>€{Number(p.price_eur).toLocaleString()}</div>}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+                  )
+                })}
+              </div>
+              <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(184,150,90,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="16" height="16" fill="none" stroke="#b8965a" strokeWidth="1.6" viewBox="0 0 24 24">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                  </svg>
+                </div>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)', marginBottom: 2 }}>Keep track of what you love</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>Bookmark items from the catalog and find them all in one place.</div>
+                </div>
+              </div>
+            </>
       }
     </div>
   )
@@ -538,63 +607,65 @@ export default function MyAccount() {
         // ── Desktop ──
         <div style={{ display: 'flex', maxWidth: 940, margin: '0 auto', padding: '40px 24px', gap: 28, alignItems: 'flex-start' }}>
           {/* Sidebar */}
-          <div style={{ width: 216, flexShrink: 0, position: 'sticky', top: 24 }}>
-            {/* Identity card */}
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '22px 18px', marginBottom: 8, textAlign: 'center' }}>
-              <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(184,150,90,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 20, color: '#b8965a', margin: '0 auto 12px' }}>
-                {initials}
+          <div style={{ width: 220, flexShrink: 0, position: 'sticky', top: 24 }}>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+              {/* Identity section */}
+              <div style={{ padding: '26px 18px 22px', textAlign: 'center', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(184,150,90,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 24, color: '#b8965a', margin: '0 auto 14px' }}>
+                  {initials}
+                </div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)', marginBottom: 7 }}>{profile?.full_name || '—'}</div>
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#b8965a', background: 'rgba(184,150,90,0.1)', padding: '3px 10px', borderRadius: 10, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                  {ROLE_LABEL[profile?.role] || profile?.role}
+                </span>
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile?.email}</div>
               </div>
-              <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)', marginBottom: 6 }}>{profile?.full_name || '—'}</div>
-              <span style={{ fontSize: 10, fontWeight: 700, color: '#b8965a', background: 'rgba(184,150,90,0.12)', padding: '3px 10px', borderRadius: 10, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                {ROLE_LABEL[profile?.role] || profile?.role}
-              </span>
-              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile?.email}</div>
-            </div>
-            {/* Nav items */}
-            <nav style={{ padding: '4px 0' }}>
-              {navItems.map(item => {
-                const active = section === item.key
-                return (
+              {/* Nav items */}
+              <nav style={{ padding: '6px 0' }}>
+                {navItems.map(item => {
+                  const active = section === item.key
+                  return (
+                    <button
+                      key={item.key}
+                      onClick={() => setSection(item.key)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 16px',
+                        background: active ? 'rgba(184,150,90,0.06)' : 'none',
+                        border: 'none',
+                        borderLeft: active ? '2.5px solid #b8965a' : '2.5px solid transparent',
+                        color: active ? '#b8965a' : 'var(--muted)',
+                        cursor: 'pointer', fontSize: 13, fontWeight: active ? 600 : 400,
+                        textAlign: 'left',
+                      }}
+                    >
+                      <NavIcon name={item.icon} />
+                      <span style={{ flex: 1 }}>{item.label}</span>
+                      {item.badge > 0 && (
+                        <span style={{ background: '#e6a817', color: '#fff', borderRadius: 10, fontSize: 10, padding: '1px 6px', fontWeight: 700, lineHeight: 1.5 }}>{item.badge}</span>
+                      )}
+                    </button>
+                  )
+                })}
+              </nav>
+              {/* Bottom actions */}
+              <div style={{ borderTop: '1px solid var(--border)', padding: '6px 0' }}>
+                {isAgent && (
                   <button
-                    key={item.key}
-                    onClick={() => setSection(item.key)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 12px',
-                      background: active ? 'rgba(184,150,90,0.08)' : 'none',
-                      border: 'none', borderRadius: 8,
-                      borderLeft: active ? '2px solid #b8965a' : '2px solid transparent',
-                      color: active ? '#b8965a' : 'var(--muted)',
-                      cursor: 'pointer', fontSize: 13, fontWeight: active ? 600 : 400,
-                      textAlign: 'left', marginBottom: 2,
-                    }}
+                    onClick={() => navigate(`/agent/${profile.id}`)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 16px', background: 'none', border: 'none', borderLeft: '2.5px solid transparent', color: 'var(--muted)', cursor: 'pointer', fontSize: 13, textAlign: 'left' }}
                   >
-                    <NavIcon name={item.icon} />
-                    <span style={{ flex: 1 }}>{item.label}</span>
-                    {item.badge > 0 && (
-                      <span style={{ background: '#e6a817', color: '#fff', borderRadius: 10, fontSize: 10, padding: '1px 6px', fontWeight: 700, lineHeight: 1.5 }}>{item.badge}</span>
-                    )}
+                    <NavIcon name="listings" />
+                    <span>My Listings</span>
                   </button>
-                )
-              })}
-            </nav>
-            {/* Bottom actions */}
-            <div style={{ borderTop: '1px solid var(--border)', marginTop: 8, paddingTop: 8 }}>
-              {isAgent && (
+                )}
                 <button
-                  onClick={() => navigate(`/agent/${profile.id}`)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 12px', background: 'none', border: 'none', borderLeft: '2px solid transparent', borderRadius: 8, color: 'var(--muted)', cursor: 'pointer', fontSize: 13, textAlign: 'left', marginBottom: 2 }}
+                  onClick={handleSignOut}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 16px', background: 'none', border: 'none', borderLeft: '2.5px solid transparent', color: 'var(--muted)', cursor: 'pointer', fontSize: 13, textAlign: 'left' }}
                 >
-                  <NavIcon name="listings" />
-                  <span>My Listings</span>
+                  <NavIcon name="signout" />
+                  <span>Sign out</span>
                 </button>
-              )}
-              <button
-                onClick={handleSignOut}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 12px', background: 'none', border: 'none', borderLeft: '2px solid transparent', borderRadius: 8, color: 'var(--muted)', cursor: 'pointer', fontSize: 13, textAlign: 'left' }}
-              >
-                <NavIcon name="signout" />
-                <span>Sign out</span>
-              </button>
+              </div>
             </div>
           </div>
           {/* Content area */}
