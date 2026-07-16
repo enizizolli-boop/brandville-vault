@@ -386,6 +386,7 @@ async function handleTestCronBags() {
 
   async function handleRevoke(userId, userName) {
     if (!window.confirm(`Remove ${userName || 'this user'}? They will lose access immediately.`)) return
+    await supabase.from('invite_tokens').update({ used_by: null }).eq('used_by', userId)
     const { error } = await supabase.from('profiles').delete().eq('id', userId)
     if (error) { alert('Failed to remove user: ' + error.message); return }
     fetchUsers()

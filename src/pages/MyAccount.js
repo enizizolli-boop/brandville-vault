@@ -187,9 +187,12 @@ export default function MyAccount() {
     const token = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
     const { error } = await supabase.from('invite_tokens').insert({ token, created_by: profile.id })
     if (error) { setLinkError(error.message); setGenerating(false); return }
-    setGeneratedLink(`${window.location.origin}/join/${token}`)
+    const link = `${window.location.origin}/join/${token}`
+    navigator.clipboard.writeText(link).catch(() => {})
+    setGeneratedLink(link)
     setGenerating(false)
     fetchClients()
+    setTimeout(() => setGeneratedLink(''), 4000)
   }
 
   async function handleRevokeToken(id) {
@@ -320,11 +323,9 @@ export default function MyAccount() {
             <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6, color: 'var(--text)' }}>Generate invite link</div>
             {linkError && <div className="error-msg" style={{ marginBottom: 10 }}>{linkError}</div>}
             {generatedLink && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', marginBottom: 12 }}>
-                <div style={{ fontSize: 12, color: 'var(--muted)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{generatedLink}</div>
-                <button onClick={() => handleCopy(generatedLink, 'new')} className="btn btn-sm" style={{ flexShrink: 0, fontSize: 11 }}>
-                  {copied === 'new' ? '✓ Copied' : 'Copy'}
-                </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(46,125,50,0.08)', border: '1px solid rgba(46,125,50,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 12 }}>
+                <svg width="14" height="14" fill="none" stroke="#2e7d32" strokeWidth="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                <span style={{ fontSize: 12, color: '#2e7d32', fontWeight: 500 }}>Link copied to clipboard</span>
               </div>
             )}
             <button className="btn btn-dark" onClick={handleGenerateLink} disabled={generating} style={{ fontSize: 13 }}>
