@@ -386,7 +386,8 @@ async function handleTestCronBags() {
 
   async function handleRevoke(userId, userName) {
     if (!window.confirm(`Remove ${userName || 'this user'}? They will lose access immediately.`)) return
-    await supabase.from('profiles').delete().eq('id', userId)
+    const { error } = await supabase.from('profiles').delete().eq('id', userId)
+    if (error) { alert('Failed to remove user: ' + error.message); return }
     fetchUsers()
   }
 
@@ -637,7 +638,7 @@ async function handleTestCronBags() {
       )}
 
       {(tab === 'dealers' || tab === 'agents') && (
-        <div className="admin-section" style={{ maxWidth: 780 }}>
+        <div className="admin-section" style={{ maxWidth: 780, margin: '0 auto' }}>
           {loading ? (
             <div style={{ padding: 40, display: 'flex', justifyContent: 'center' }}><div className="spinner" /></div>
           ) : (() => {
