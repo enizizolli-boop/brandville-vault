@@ -52,6 +52,9 @@ function NavIcon({ name }) {
         <path d="M10.5 2.5L12 1l1.5 1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
       </>
     ),
+    saved: (
+      <path d="M3 2h10a1 1 0 0 1 1 1v11.5l-6-3.5-6 3.5V3a1 1 0 0 1 1-1z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" fill="none"/>
+    ),
     signout: (
       <>
         <path d="M10 8H3M6 5l-3 3 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -94,6 +97,10 @@ export default function MyAccount() {
   const [generating, setGenerating] = useState(false)
   const [linkError, setLinkError] = useState('')
   const [copied, setCopied] = useState('')
+
+  // Saved
+  const [savedItems, setSavedItems] = useState([])
+  const [savedLoading, setSavedLoading] = useState(false)
 
   useEffect(() => {
     const fn = () => setIsMobile(window.innerWidth < 720)
@@ -144,6 +151,25 @@ export default function MyAccount() {
 
   useEffect(() => { if (section === 'offers') fetchOffers() }, [section, fetchOffers])
   useEffect(() => { if (section === 'clients') fetchClients() }, [section, fetchClients])
+
+  const fetchSaved = useCallback(async () => {
+    if (!profile?.id) return
+    setSavedLoading(true)
+    const { data } = await supabase
+      .from('saved_items')
+      .select('created_at, products(id, brand, model, reference, price_eur, category, product_images(url, position))')
+      .eq('user_id', profile.id)
+      .order('created_at', { ascending: false })
+    setSavedItems((data || []).map(r => r.products).filter(Boolean))
+    setSavedLoading(false)
+  }, [profile])
+
+  async function unsaveItem(productId) {
+    await supabase.from('saved_items').delete().eq('user_id', profile.id).eq('product_id', productId)
+    setSavedItems(prev => prev.filter(p => p.id !== productId))
+  }
+
+  useEffect(() => { if (section === 'saved') fetchSaved() }, [section, fetchSaved])
 
   async function handleSaveProfile() {
     if (!fullName.trim()) return
@@ -207,6 +233,7 @@ export default function MyAccount() {
     { key: 'profile', label: 'Profile', icon: 'profile' },
     ...(isAgent ? [{ key: 'clients', label: 'Clients', icon: 'clients' }] : []),
     { key: 'offers', label: 'My Offers', icon: 'offers', badge: pendingCount },
+    { key: 'saved', label: 'Saved', icon: 'saved', badge: savedItems.length || 0 },
   ]
 
   // ── Profile tab ──
@@ -398,7 +425,54 @@ export default function MyAccount() {
     </div>
   )
 
-  const sectionContent = { profile: profileTab, clients: clientsTab, offers: offersTab }
+  // ── Saved tab ──
+  const savedTab = (
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ margin: 0, fontSize: 17, fontWeight: 600, color: 'var(--text)', fontFamily: "'Playfair Display', Georgia, serif" }}>Saved</h2>
+        <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--muted)' }}>Items you've bookmarked from the catalog.</p>
+      </div>
+      {savedLoading
+        ? <div style={{ padding: 40, display: 'flex', justifyContent: 'center' }}><div className="spinner" /></div>
+        : savedItems.length === 0
+          ? <div className="empty-state">No saved items yet — bookmark items from the catalog</div>
+          : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+              {savedItems.map(p => {
+                const thumb = p.product_images?.length
+                  ? [...p.product_images].sort((a, b) => a.position - b.position)[0]?.url
+                  : null
+                return (
+                  <div key={p.id} style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--surface)', cursor: 'pointer' }} onClick={() => navigate(`/catalog/${toSlug(p)}`)}>
+                    <div style={{ height: 160, background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
+                      {thumb
+                        ? <img src={thumb} alt={p.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <span style={{ fontSize: 28, opacity: 0.2 }}>◈</span>
+                      }
+                      <button
+                        onClick={e => { e.stopPropagation(); unsaveItem(p.id) }}
+                        title="Remove"
+                        style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(0,0,0,0.1)', borderRadius: 7, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#b8965a' }}
+                      >
+                        <svg width="13" height="13" fill="currentColor" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                        </svg>
+                      </button>
+                    </div>
+                    <div style={{ padding: '10px 12px' }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: '#b8965a', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 3 }}>{p.brand}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', lineHeight: 1.3 }}>{p.model}</div>
+                      {p.reference && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Ref. {p.reference}</div>}
+                      {p.price_eur && <div style={{ fontSize: 13, fontWeight: 600, marginTop: 6 }}>€{Number(p.price_eur).toLocaleString()}</div>}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+      }
+    </div>
+  )
+
+  const sectionContent = { profile: profileTab, clients: clientsTab, offers: offersTab, saved: savedTab }
 
   return (
     <div className="page">

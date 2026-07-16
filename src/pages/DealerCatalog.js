@@ -245,6 +245,7 @@ export default function DealerCatalog({ routeCategory }) {
 
   const [watches, setWatches] = useState([])
   const [loading, setLoading] = useState(true)
+  const [savedIds, setSavedIds] = useState(new Set())
 
   // Filters
   const [filterBrand, setFilterBrand] = useState(urlBrand)
@@ -332,6 +333,24 @@ export default function DealerCatalog({ routeCategory }) {
   }, [filterBrand, filterStatus, filterCategory, filterMetal, filterSize, lockedCategory, filterAgent])
 
   useEffect(() => { fetchWatches() }, [fetchWatches])
+
+  useEffect(() => {
+    if (!profile?.id) return
+    supabase.from('saved_items').select('product_id').eq('user_id', profile.id)
+      .then(({ data }) => setSavedIds(new Set((data || []).map(r => r.product_id))))
+  }, [profile?.id])
+
+  async function toggleSave(e, productId) {
+    e.stopPropagation(); e.preventDefault()
+    if (!profile?.id) return
+    if (savedIds.has(productId)) {
+      setSavedIds(prev => { const s = new Set(prev); s.delete(productId); return s })
+      await supabase.from('saved_items').delete().eq('user_id', profile.id).eq('product_id', productId)
+    } else {
+      setSavedIds(prev => new Set([...prev, productId]))
+      await supabase.from('saved_items').insert({ user_id: profile.id, product_id: productId })
+    }
+  }
 
   useEffect(() => {
     setFilterBrand(''); setFilterCond(''); setFilterMetal('')
@@ -850,8 +869,13 @@ export default function DealerCatalog({ routeCategory }) {
                       <a className="card-img-wrap" href={`/catalog/${toSlug(w)}`} onClick={e => { e.preventDefault(); navigate(`/catalog/${toSlug(w)}`); }}>
                         <CardImages watch={w} />
                         {w.ready_to_ship && <span className="card-badge card-badge-ready">Ready to ship</span>}
-                        <button className="card-bookmark" onClick={e => e.stopPropagation()} title="Save">
-                          <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                        <button
+                          className="card-bookmark"
+                          onClick={e => toggleSave(e, w.id)}
+                          title={savedIds.has(w.id) ? 'Remove from saved' : 'Save'}
+                          style={savedIds.has(w.id) ? { color: '#b8965a', borderColor: '#b8965a', background: '#fff' } : {}}
+                        >
+                          <svg width="13" height="13" fill={savedIds.has(w.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
                             <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
                           </svg>
                         </button>
