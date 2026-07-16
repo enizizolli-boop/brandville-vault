@@ -512,21 +512,38 @@ export default async function handler(req, res) {
       }
     }
 
-    // Cleanup: remove any products from this batch that still have no images
-    // (catches items that survived previous bad sync runs)
-    const batchOdooIds = items.map(i => String(i.id));
-    const { data: batchProducts } = await supabase
-      .from('products')
-      .select('id')
-      .eq('source', 'odoo_bags')
-      .in('odoo_product_id', batchOdooIds);
+    // Cleanup: on the first batch (offset=0), sweep ALL odoo_bags products
+    // for missing images so stale imageless entries are caught immediately.
+    // On subsequent batches only check the current batch to keep it fast.
+    if (offset === 0) {
+      const { data: allBagsProducts } = await supabase
+        .from('products')
+        .select('id')
+        .eq('source', 'odoo_bags');
 
-    for (const prod of batchProducts || []) {
-      const { count } = await supabase.from('product_images')
-        .select('id', { count: 'exact', head: true }).eq('product_id', prod.id);
-      if (!count || count === 0) {
-        await supabase.from('products').delete().eq('id', prod.id);
-        removed++;
+      for (const prod of allBagsProducts || []) {
+        const { count } = await supabase.from('product_images')
+          .select('id', { count: 'exact', head: true }).eq('product_id', prod.id);
+        if (!count || count === 0) {
+          await supabase.from('products').delete().eq('id', prod.id);
+          removed++;
+        }
+      }
+    } else {
+      const batchOdooIds = items.map(i => String(i.id));
+      const { data: batchProducts } = await supabase
+        .from('products')
+        .select('id')
+        .eq('source', 'odoo_bags')
+        .in('odoo_product_id', batchOdooIds);
+
+      for (const prod of batchProducts || []) {
+        const { count } = await supabase.from('product_images')
+          .select('id', { count: 'exact', head: true }).eq('product_id', prod.id);
+        if (!count || count === 0) {
+          await supabase.from('products').delete().eq('id', prod.id);
+          removed++;
+        }
       }
     }
 
