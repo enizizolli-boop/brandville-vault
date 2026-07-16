@@ -19,6 +19,7 @@ function fmtAge(iso) {
 
 export default function AdminPanel() {
   const [tab, setTab] = useState('dealers')
+  const [search, setSearch] = useState('')
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [inviteEmail, setInviteEmail] = useState('')
@@ -631,31 +632,75 @@ async function handleTestCronBags() {
 
       {(tab === 'dealers' || tab === 'agents') && (
         <div className="admin-section">
-          {loading ? <div className="spinner" /> : (
-            (tab === 'dealers' ? dealers : agents).length === 0
-              ? <div className="empty-state">No {tab} yet — invite one from the Invite tab</div>
-              : (tab === 'dealers' ? dealers : agents).map(u => (
-                <div key={u.id} className="user-row">
-                  <div className={`avatar ${avatarColor(u.full_name)}`}>{initials(u.full_name)}</div>
-                  <div className="user-row-info">
-                    <div className="user-row-name">{u.full_name}</div>
-                    <div className="user-row-meta">Joined {new Date(u.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+          {loading ? (
+            <div style={{ padding: 40, display: 'flex', justifyContent: 'center' }}><div className="spinner" /></div>
+          ) : (() => {
+            const list = (tab === 'dealers' ? dealers : agents)
+            const q = search.trim().toLowerCase()
+            const filtered = q ? list.filter(u =>
+              (u.full_name || '').toLowerCase().includes(q) ||
+              (u.email || '').toLowerCase().includes(q) ||
+              (u.phone || '').toLowerCase().includes(q)
+            ) : list
+
+            return (
+              <>
+                {/* Search + count header */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                  <div style={{ position: 'relative', flex: 1, maxWidth: 320 }}>
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', opacity: 0.4 }}>
+                      <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5"/>
+                      <path d="M11 11l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                    <input
+                      type="text"
+                      value={search}
+                      onChange={e => setSearch(e.target.value)}
+                      placeholder={`Search ${tab}…`}
+                      style={{ paddingLeft: 32, width: '100%' }}
+                    />
                   </div>
-                  <span className={`badge badge-${u.role}`}>{u.role}</span>
-                  <div className="user-row-actions">
-                    {u.role === 'dealer' && (
-                      <button className="btn btn-sm" onClick={() => changeRole(u.id, 'agent')}>Make agent</button>
-                    )}
-                    {u.role === 'agent' && (
-                      <button className="btn btn-sm" onClick={() => changeRole(u.id, 'dealer')}>Make dealer</button>
-                    )}
-                    {u.role !== 'admin' && (
-                      <button className="btn btn-sm btn-danger" onClick={() => changeRole(u.id, 'dealer')}>Revoke</button>
-                    )}
+                  <div style={{ fontSize: 12, color: 'var(--muted)', flexShrink: 0 }}>
+                    {filtered.length} {filtered.length !== list.length ? `of ${list.length} ` : ''}{tab}
                   </div>
                 </div>
-              ))
-          )}
+
+                {filtered.length === 0 ? (
+                  <div className="empty-state">{search ? 'No results' : `No ${tab} yet — invite one from the Invite tab`}</div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 10 }}>
+                    {filtered.map(u => (
+                      <div key={u.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div className={`avatar ${avatarColor(u.full_name)}`} style={{ flexShrink: 0 }}>
+                          {initials(u.full_name)}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>{u.full_name || '—'}</div>
+                          <div style={{ fontSize: 12, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {u.email}{u.phone ? ` · ${u.phone}` : ''}
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                            Joined {new Date(u.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', flexShrink: 0 }}>
+                          {u.role === 'dealer' && (
+                            <button className="btn btn-sm" onClick={() => changeRole(u.id, 'agent')} style={{ fontSize: 11, padding: '4px 10px' }}>Make agent</button>
+                          )}
+                          {u.role === 'agent' && (
+                            <button className="btn btn-sm" onClick={() => changeRole(u.id, 'dealer')} style={{ fontSize: 11, padding: '4px 10px' }}>Make dealer</button>
+                          )}
+                          {u.role !== 'admin' && (
+                            <button className="btn btn-sm btn-danger" onClick={() => changeRole(u.id, 'dealer')} style={{ fontSize: 11, padding: '4px 10px' }}>Revoke</button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )
+          })()}
         </div>
       )}
     </div>
