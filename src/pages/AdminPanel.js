@@ -637,7 +637,7 @@ async function handleTestCronBags() {
       )}
 
       {(tab === 'dealers' || tab === 'agents') && (
-        <div className="admin-section">
+        <div className="admin-section" style={{ maxWidth: 780 }}>
           {loading ? (
             <div style={{ padding: 40, display: 'flex', justifyContent: 'center' }}><div className="spinner" /></div>
           ) : (() => {
@@ -686,7 +686,7 @@ async function handleTestCronBags() {
                             {u.email}{u.phone ? ` · ${u.phone}` : ''}
                           </div>
                         </div>
-                        <div style={{ fontSize: 11, color: 'var(--muted)', flexShrink: 0, display: 'none', ['@media (min-width: 600px)']: { display: 'block' } }}>
+                        <div style={{ fontSize: 11, color: 'var(--muted)', flexShrink: 0 }}>
                           {new Date(u.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </div>
                         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
