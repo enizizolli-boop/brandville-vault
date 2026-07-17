@@ -334,7 +334,7 @@ export default async function handler(req, res) {
     const totalCount = await odooCount(domain);
     const allItems = await odooRead(
       domain,
-      ['id', 'name', 'default_code', 'standard_price', 'description_sale', 'image_1920', 'categ_id'],
+      ['id', 'name', 'default_code', 'standard_price', 'description_sale', 'categ_id'],
       batch_size,
       offset
     );
@@ -363,7 +363,7 @@ export default async function handler(req, res) {
     const existingMap = {};
     (existing || []).forEach(i => { existingMap[i.odoo_product_id] = { id: i.id, status: i.status }; });
 
-    // Fetch extra product images for this batch
+    // Fetch product images for this batch via product.image model
     const extraImagesMap = {};
     try {
       const extraImgs = await odooReadProductImages(items.map(i => i.id));
@@ -376,6 +376,19 @@ export default async function handler(req, res) {
         extraImagesMap[key].sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
       }
     } catch (e) { console.error('Extra images fetch error:', e); }
+
+    // For items with no entries in product.image, fall back to image_1920 on the template
+    const noImageIds = items.filter(i => !extraImagesMap[String(i.id)]?.length).map(i => i.id);
+    if (noImageIds.length > 0) {
+      try {
+        const primaries = await odooModelRead('product.template', [['id', 'in', noImageIds]], ['id', 'image_1920'], noImageIds.length);
+        for (const p of primaries) {
+          if (p.image_1920 && p.image_1920 !== false) {
+            extraImagesMap[String(p.id)] = [{ product_tmpl_id: p.id, image_1920: p.image_1920, sequence: 0 }];
+          }
+        }
+      } catch (e) { console.error('Primary image fallback error:', e); }
+    }
 
     let removed = 0;
 
@@ -446,63 +459,38 @@ export default async function handler(req, res) {
       isExisting ? updated++ : added++;
 
       if (watchId) {
-        const extras = extraImagesMap[String(item.id)] || [];
-        const hasPrimary = !!(item.image_1920 && item.image_1920 !== false);
-        const odooTotal = (hasPrimary ? 1 : 0) + extras.length;
+        const allImages = extraImagesMap[String(item.id)] || [];
+        const odooTotal = allImages.length;
 
         const { count: dbCount } = await supabase.from('product_images')
           .select('id', { count: 'exact', head: true }).eq('product_id', watchId);
         const existing = dbCount || 0;
 
         if (odooTotal === 0 && existing === 0) {
-          // Odoo has no images and none stored — remove the product
           await supabase.from('products').delete().eq('id', watchId);
           isExisting ? updated-- : added--;
         } else if (existing < odooTotal) {
-          // Upload missing images, counting only confirmed DB inserts
           let uploaded = 0;
-
-          // Primary image (only if none stored yet)
-          if (existing === 0 && hasPrimary) {
-            try {
-              const buffer = Buffer.from(item.image_1920, 'base64');
-              const path = watchId + '/bag_primary.jpg';
-              const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
-              if (!upErr) {
-                const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
-                const { error: insErr } = await supabase.from('product_images').insert({ product_id: watchId, url: publicUrl, position: existing + uploaded });
-                if (!insErr) { uploaded++; imagesAdded++; }
-                else console.error('Primary img insert error for', watchId, ':', insErr.message);
-              } else {
-                console.error('Primary img upload error for', watchId, ':', upErr.message);
-              }
-            } catch (e) { console.error('Primary img error:', e); }
-          }
-
-          // Extra images — only the ones beyond what's already stored
-          const extrasStart = Math.max(0, existing - (hasPrimary ? 1 : 0));
-          const extrasToUpload = extras.slice(extrasStart);
-          for (const extraImg of extrasToUpload) {
-            if (!extraImg.image_1920 || extraImg.image_1920 === false) continue;
+          const toUpload = allImages.slice(existing);
+          for (let i = 0; i < toUpload.length; i++) {
+            const imgData = toUpload[i].image_1920;
+            if (!imgData || imgData === false) continue;
             try {
               const pos = existing + uploaded;
-              const buffer = Buffer.from(extraImg.image_1920, 'base64');
-              const path = watchId + '/bag_extra_' + pos + '.jpg';
+              const buffer = Buffer.from(imgData, 'base64');
+              const path = watchId + '/bag_img_' + pos + '.jpg';
               const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
               if (!upErr) {
                 const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
                 const { error: insErr } = await supabase.from('product_images').insert({ product_id: watchId, url: publicUrl, position: pos });
                 if (!insErr) { uploaded++; imagesAdded++; }
-                else console.error('Extra img insert error for', watchId, ':', insErr.message);
+                else console.error('Img insert error for', watchId, ':', insErr.message);
               } else {
-                console.error('Extra img upload error for', watchId, ':', upErr.message);
+                console.error('Img upload error for', watchId, ':', upErr.message);
               }
-            } catch (e) { console.error('Extra img error:', e); }
+            } catch (e) { console.error('Img error:', e); }
           }
-
-          // All uploads failed — remove rather than leave the product imageless
           if (existing === 0 && uploaded === 0) {
-            console.log('No images stored for', watchId, '(odooTotal:', odooTotal, ') — removing');
             await supabase.from('products').delete().eq('id', watchId);
             isExisting ? updated-- : added--;
           }

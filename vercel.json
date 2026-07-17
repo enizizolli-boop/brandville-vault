@@ -34,7 +34,7 @@
     "api/zoho-sync.js": { "maxDuration": 300 },
     "api/zoho-images.js": { "maxDuration": 300 },
     "api/odoo-sync.js": { "maxDuration": 60 },
-    "api/odoo-bags-sync.js": { "maxDuration": 60 },
+    "api/odoo-bags-sync.js": { "maxDuration": 300 },
     "api/cron-zoho-sync.js": { "maxDuration": 300 },
     "api/cron-odoo-status.js": { "maxDuration": 60 },
     "api/cron-odoo-bags-sync.js": { "maxDuration": 60 },
