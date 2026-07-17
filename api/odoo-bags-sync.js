@@ -332,19 +332,17 @@ export default async function handler(req, res) {
     ];
 
     const totalCount = await odooCount(domain);
-    const allIdItems = await odooRead(domain, ['id'], 2000, 0);
-    const allTemplateIds = (allIdItems || []).map(i => i.id);
-    const attrMap = await fetchAttributeMap(allTemplateIds);
-    const attrMapDebug = { size: Object.keys(attrMap).length, sample: Object.entries(attrMap).slice(0, 3).map(([k, v]) => ({ id: k, attrs: v })) };
     const allItems = await odooRead(
       domain,
       ['id', 'name', 'default_code', 'standard_price', 'description_sale', 'image_1920', 'categ_id'],
       batch_size,
       offset
     );
-    // Process every eligible item — items with no primary may still have extra images.
-    // Downstream logic computes primary+extras and removes any that end up truly imageless.
     const items = allItems || [];
+
+    // Fetch attributes only for this batch's items to avoid per-call full-catalog scan
+    const attrMap = items.length > 0 ? await fetchAttributeMap(items.map(i => i.id)) : {};
+    const attrMapDebug = { size: Object.keys(attrMap).length, sample: Object.entries(attrMap).slice(0, 3).map(([k, v]) => ({ id: k, attrs: v })) };
 
     // Sold status is handled by the cron job — skip here to avoid timeout
     const soldTemplateIds = new Set();
