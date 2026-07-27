@@ -39,14 +39,12 @@ async function getAccessToken() {
   return data.access_token;
 }
 
-// Pre-filter using the List API. committed_stock reflects Sales Order commitments
-// and is available on the list endpoint — if > 0, the item is committed to an open SO
-// and should be hidden. available_for_sale_stock is the authoritative field but only
-// exists on the per-item Detail endpoint; the per-item check below is a second pass.
+// available_for_sale_stock is the single source of truth: it accounts for both
+// physical stock and SO commitments. Fall back to available_stock if the field
+// is absent from the list API response.
 function isLiveItem(item) {
   return (item.cf_stage || '') === 'Per oferte' &&
-    Number(item.available_stock ?? 0) >= 1 &&
-    Number(item.committed_stock ?? 0) === 0;
+    Number(item.available_for_sale_stock ?? item.available_stock ?? 0) >= 1;
 }
 
 async function fetchAvailableForSale(accessToken, itemId, isRetry = false) {

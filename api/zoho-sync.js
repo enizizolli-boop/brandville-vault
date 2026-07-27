@@ -401,11 +401,10 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: false, error: 'Zoho returned 0 items — aborting to prevent accidental deletion', removed: 0 });
     }
 
-    // Cheap pre-filter using the List API (cf_stage + available_stock). This does NOT
-    // reflect Sales Order commitments — that's checked per-item below via the Detail
-    // API's available_for_sale_stock, which is the authoritative field but only exists
-    // on the per-item Detail endpoint, not the bulk List endpoint (verified directly).
-    const isLive = item => (item.cf_stage || '') === 'Per oferte' && Number(item.available_stock ?? 0) >= 1 && Number(item.committed_stock ?? 0) === 0;
+    // available_for_sale_stock is the single source of truth: it accounts for SO
+    // commitments and physical stock. Fall back to available_stock if the field is
+    // absent from the list API response.
+    const isLive = item => (item.cf_stage || '') === 'Per oferte' && Number(item.available_for_sale_stock ?? item.available_stock ?? 0) >= 1;
     let zohoItems = allItems.filter(isLive);
     const totalOnStore = zohoItems.length;
 
