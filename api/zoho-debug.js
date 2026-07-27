@@ -1,8 +1,9 @@
 // Debug endpoint: shows raw Zoho API data for specific SKUs
 // GET /api/zoho-debug?skus=15874,15951
 
+import { createClient } from '@supabase/supabase-js';
+
 async function getAccessToken() {
-  const { createClient } = await import('@supabase/supabase-js');
   const supabase = createClient(
     process.env.SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
