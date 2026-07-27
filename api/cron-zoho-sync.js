@@ -39,12 +39,14 @@ async function getAccessToken() {
   return data.access_token;
 }
 
-// Cheap pre-filter using the List API. Does NOT reflect Sales Order commitments —
-// the authoritative field, available_for_sale_stock, only exists on the per-item
-// Detail endpoint (verified directly against Zoho). See fetchAvailableForSale,
-// used per-item for the small set actually being written, not the whole catalog.
+// Pre-filter using the List API. committed_stock reflects Sales Order commitments
+// and is available on the list endpoint — if > 0, the item is committed to an open SO
+// and should be hidden. available_for_sale_stock is the authoritative field but only
+// exists on the per-item Detail endpoint; the per-item check below is a second pass.
 function isLiveItem(item) {
-  return (item.cf_stage || '') === 'Per oferte' && Number(item.available_stock ?? 0) >= 1;
+  return (item.cf_stage || '') === 'Per oferte' &&
+    Number(item.available_stock ?? 0) >= 1 &&
+    Number(item.committed_stock ?? 0) === 0;
 }
 
 async function fetchAvailableForSale(accessToken, itemId, isRetry = false) {
