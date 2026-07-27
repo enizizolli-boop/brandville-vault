@@ -67,16 +67,18 @@ async function fetchAvailableForSale(accessToken, itemId, isRetry = false) {
       return { availForSale: null, readyToShip: false };
     }
     const data = await res.json();
-    const val = data?.item?.available_for_sale_stock;
-    const committed = data?.item?.committed_stock;
-    const warehouses = data?.item?.warehouses || [];
+    const item = data?.item || {};
+    const committed = item.committed_stock;
+    const warehouses = item.warehouses || [];
     const nikoBG = warehouses.find(w => w.warehouse_name === 'Niko BG');
     const readyToShip = nikoBG ? Number(nikoBG.warehouse_available_for_sale_stock) > 0 : false;
-    // committed_stock is updated immediately on SO confirmation; available_for_sale_stock
-    // is a derived field Zoho recalculates asynchronously and can lag — so if committed_stock
-    // is already > 0, treat the item as unavailable regardless of available_for_sale_stock.
     const isCommitted = Number(committed ?? 0) > 0;
-    const availForSale = isCommitted ? 0 : (val !== undefined ? Number(val) : null);
+    if (isCommitted) return { availForSale: 0, readyToShip };
+    // available_for_sale_stock is not always present in the detail API response.
+    // Fall back through actual_available_stock → available_stock → stock_on_hand
+    // so we never return null when the primary field is simply absent.
+    const val = item.available_for_sale_stock ?? item.actual_available_stock ?? item.available_stock ?? item.stock_on_hand;
+    const availForSale = val !== undefined && val !== null ? Number(val) : null;
     return { availForSale, readyToShip };
   } catch (e) {
     console.error(`fetchAvailableForSale failed for ${itemId}:`, e.message);
@@ -323,10 +325,11 @@ export default async function handler(req, res) {
       committedIds = new Set(commLog.result.ids);
     } else {
       committedIds = new Set();
+      const nullIds = new Set();
       let nullResults = 0;
       for (const item of candidates) {
         const { availForSale, readyToShip } = await fetchAvailableForSale(accessToken, item.item_id);
-        if (availForSale === null) nullResults++;
+        if (availForSale === null) { nullResults++; nullIds.add(String(item.item_id)); }
         else if (availForSale < 1) committedIds.add(String(item.item_id));
         readyToShipMap.set(String(item.item_id), readyToShip);
         await new Promise(r => setTimeout(r, 250));
@@ -397,16 +400,24 @@ export default async function handler(req, res) {
       }
 
       // The bulk upsert above wrote status:'available' for all liveItems, which can
-      // re-activate items the webhook or a previous sync correctly marked sold — because
-      // Zoho's list API doesn't always reflect SO commitments in committed_stock.
-      // Only trust re-activation when the commitment check actually ran this tick
-      // (commitmentCheckRefreshed=true), confirming via available_for_sale_stock that
-      // the item is genuinely free. Otherwise put sold items back to sold.
-      const trulyReactivatedIds = commitmentCheckRefreshed ? reactivatedIds : new Set();
-      if (!commitmentCheckRefreshed && reactivatedIds.size > 0) {
+      // re-activate items the webhook or a previous sync correctly marked sold.
+      // Re-activation is only trusted when the commitment check ran this tick AND
+      // the item returned a confirmed non-null availForSale >= 1.
+      // Items where the check returned null (detail API field absent/timeout) are
+      // treated as uncertain — preserve their sold status rather than re-activating.
+      let toRestoreSold = new Set();
+      if (commitmentCheckRefreshed) {
+        // Re-mark: previously sold AND either (a) null result from check, or (b) committed
+        toRestoreSold = new Set([...reactivatedIds].filter(id => nullIds.has(id) || committedIds.has(id)));
+      } else {
+        // Cached run: preserve all previously-sold items
+        toRestoreSold = reactivatedIds;
+      }
+      const trulyReactivatedIds = new Set([...reactivatedIds].filter(id => !toRestoreSold.has(id)));
+      if (toRestoreSold.size > 0) {
         await supabase.from('products')
           .update({ status: 'sold' })
-          .in('zoho_item_id', [...reactivatedIds])
+          .in('zoho_item_id', [...toRestoreSold])
           .eq('source', 'zoho');
       }
 

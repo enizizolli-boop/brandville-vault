@@ -105,16 +105,18 @@ async function fetchAvailableForSale(accessToken, itemId, isRetry = false) {
       return { availForSale: null, readyToShip: false };
     }
     const data = await res.json();
-    const val = data?.item?.available_for_sale_stock;
-    const committed = data?.item?.committed_stock;
-    const warehouses = data?.item?.warehouses || [];
+    const item = data?.item || {};
+    const committed = item.committed_stock;
+    const warehouses = item.warehouses || [];
     const nikoBG = warehouses.find(w => w.warehouse_name === 'Niko BG');
     const readyToShip = nikoBG ? Number(nikoBG.warehouse_available_for_sale_stock) > 0 : false;
-    // committed_stock is updated immediately on SO confirmation; available_for_sale_stock
-    // is a derived field Zoho recalculates asynchronously and can lag — so if committed_stock
-    // is already > 0, treat the item as unavailable regardless of available_for_sale_stock.
     const isCommitted = Number(committed ?? 0) > 0;
-    const availForSale = isCommitted ? 0 : (val !== undefined ? Number(val) : null);
+    if (isCommitted) return { availForSale: 0, readyToShip };
+    // available_for_sale_stock is not always present in the detail API response.
+    // Fall back through actual_available_stock → available_stock → stock_on_hand
+    // so we never return null when the primary field is simply absent.
+    const val = item.available_for_sale_stock ?? item.actual_available_stock ?? item.available_stock ?? item.stock_on_hand;
+    const availForSale = val !== undefined && val !== null ? Number(val) : null;
     return { availForSale, readyToShip };
   } catch (e) {
     console.error(`fetchAvailableForSale failed for ${itemId}:`, e.message);
