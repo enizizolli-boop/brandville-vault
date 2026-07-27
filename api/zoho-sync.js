@@ -106,11 +106,16 @@ async function fetchAvailableForSale(accessToken, itemId, isRetry = false) {
     }
     const data = await res.json();
     const val = data?.item?.available_for_sale_stock;
-    if (val === undefined) console.error(`fetchAvailableForSale: ${itemId} response missing available_for_sale_stock`);
+    const committed = data?.item?.committed_stock;
     const warehouses = data?.item?.warehouses || [];
     const nikoBG = warehouses.find(w => w.warehouse_name === 'Niko BG');
     const readyToShip = nikoBG ? Number(nikoBG.warehouse_available_for_sale_stock) > 0 : false;
-    return { availForSale: val === undefined ? null : Number(val), readyToShip };
+    // committed_stock is updated immediately on SO confirmation; available_for_sale_stock
+    // is a derived field Zoho recalculates asynchronously and can lag — so if committed_stock
+    // is already > 0, treat the item as unavailable regardless of available_for_sale_stock.
+    const isCommitted = Number(committed ?? 0) > 0;
+    const availForSale = isCommitted ? 0 : (val !== undefined ? Number(val) : null);
+    return { availForSale, readyToShip };
   } catch (e) {
     console.error(`fetchAvailableForSale failed for ${itemId}:`, e.message);
     return { availForSale: null, readyToShip: false };
