@@ -460,14 +460,15 @@ export default async function handler(req, res) {
     // Remove stale items on first batch only (out of stock or removed from storefront)
     let removed = 0;
     if (offset === 0) {
+      // Only count non-sold items — comparing live Zoho items against all historical
+      // sold items would always fail the safety guard (170 live vs 1600+ total).
       const { data: allExisting } = await supabase
-        .from('products').select('zoho_item_id').eq('source', 'zoho');
+        .from('products').select('zoho_item_id').eq('source', 'zoho').neq('status', 'sold');
       const allExistingIds = (allExisting || []).map(i => i.zoho_item_id);
       const liveZohoIds = allItems.filter(isLive).map(i => String(i.item_id));
       // Safety guards: abort if Zoho returned suspiciously few TOTAL items vs DB,
       // OR if the live-filter itself collapsed (e.g. a field-name bug) and would
-      // wipe out most of the catalog. Both are signs of a broken response/filter,
-      // not a real mass removal.
+      // wipe out most of the active catalog.
       const minExpected = Math.ceil(allExistingIds.length * 0.5);
       const minLiveExpected = Math.ceil(allExistingIds.length * 0.3);
       if (allItems.length < minExpected) {

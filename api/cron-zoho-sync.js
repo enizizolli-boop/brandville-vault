@@ -349,7 +349,9 @@ export default async function handler(req, res) {
     // Zoho returned suspiciously few items, or if the live set collapsed
     // relative to what's in the DB — signs of a broken response/filter, not
     // a real mass removal (this is what caused the incident last time).
-    const { data: allExisting } = await supabase.from('products').select('zoho_item_id').eq('source', 'zoho');
+    // Only count non-sold items — comparing live Zoho items against all historical
+    // sold items would always fail the safety guard (170 live vs 1600+ total).
+    const { data: allExisting } = await supabase.from('products').select('zoho_item_id').eq('source', 'zoho').neq('status', 'sold');
     const allExistingIds = (allExisting || []).map(r => r.zoho_item_id);
     const minExpected = Math.ceil(allExistingIds.length * 0.5);
     const minLiveExpected = Math.ceil(allExistingIds.length * 0.3);
