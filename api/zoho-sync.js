@@ -488,11 +488,16 @@ export default async function handler(req, res) {
       // Authoritative check: does this item actually have stock free of Sales
       // Order commitments right now? available_stock (used in the pre-filter
       // above) doesn't reflect this; available_for_sale_stock does, but only
-      // via the per-item Detail endpoint. null on failure means fail open
-      // (leave status as 'available' from mapZohoItem rather than wrongly hide it).
+      // via the per-item Detail endpoint.
+      // null on failure: do NOT fall back to 'available' for existing items —
+      // that would re-activate something the webhook or a previous sync correctly
+      // marked sold. Only set 'available' when we have a positive confirmation.
       const { availForSale, readyToShip } = await fetchAvailableForSale(accessToken, zohoItem.item_id);
       if (availForSale !== null && availForSale < 1) {
         mapped.status = 'sold';
+      } else if (availForSale === null && existingMap[mapped.zoho_item_id]) {
+        // Can't confirm — preserve existing DB status rather than resetting to 'available'
+        delete mapped.status;
       }
       mapped.ready_to_ship = readyToShip;
 

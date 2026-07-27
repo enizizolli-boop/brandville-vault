@@ -393,6 +393,20 @@ export default async function handler(req, res) {
           .eq('source', 'zoho');
       }
 
+      // The bulk upsert above wrote status:'available' for all liveItems, which can
+      // re-activate items the webhook or a previous sync correctly marked sold — because
+      // Zoho's list API doesn't always reflect SO commitments in committed_stock.
+      // Only trust re-activation when the commitment check actually ran this tick
+      // (commitmentCheckRefreshed=true), confirming via available_for_sale_stock that
+      // the item is genuinely free. Otherwise put sold items back to sold.
+      const trulyReactivatedIds = commitmentCheckRefreshed ? reactivatedIds : new Set();
+      if (!commitmentCheckRefreshed && reactivatedIds.size > 0) {
+        await supabase.from('products')
+          .update({ status: 'sold' })
+          .in('zoho_item_id', [...reactivatedIds])
+          .eq('source', 'zoho');
+      }
+
       if (upsertedRows && upsertedRows.length > 0) {
         const idMap = {};
         upsertedRows.forEach(r => { idMap[r.zoho_item_id] = r.id; });
@@ -403,8 +417,9 @@ export default async function handler(req, res) {
         const withImages = new Set((existingImgs || []).map(r => r.product_id));
 
         // Re-activated items: force-refresh all gallery images (limit 3 to avoid timeout)
+        // Only do this when the commitment check confirmed they're genuinely free
         const reactivatedItems = liveItems
-          .filter(item => reactivatedIds.has(String(item.item_id)))
+          .filter(item => trulyReactivatedIds.has(String(item.item_id)))
           .slice(0, 3);
         for (const item of reactivatedItems) {
           const productId = idMap[String(item.item_id)];
