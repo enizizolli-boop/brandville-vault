@@ -202,7 +202,28 @@ export default function WatchDetail() {
       subcategory: editForm.category === 'Jewellery' && editForm.subcategory ? editForm.subcategory : null,
       item_size: editForm.category === 'Jewellery' && editForm.item_size && editForm.subcategory !== 'Necklaces' ? editForm.item_size : null,
     }).eq('id', watch.id)
-    if (!error) { await fetchWatch(); setEditing(false); setMsg('Updated successfully.') }
+    if (!error) {
+      // Update watch fields in place — calling fetchWatch() would re-sort images from DB
+      // and undo any reordering the user did before hitting Save.
+      setWatch(prev => ({
+        ...prev,
+        category: editForm.category || 'Watches',
+        brand: editForm.brand,
+        model: editForm.model,
+        reference: editForm.reference || null,
+        condition: editForm.condition,
+        price_eur: editForm.price_eur ? Number(editForm.price_eur) : null,
+        cost_eur: editForm.cost_eur ? Number(editForm.cost_eur) : null,
+        vendor: editForm.vendor || null,
+        notes: editForm.notes || null,
+        scope_of_delivery: editForm.scope_of_delivery || null,
+        metal_type: editForm.metal_type || null,
+        subcategory: editForm.subcategory || null,
+        item_size: editForm.item_size || null,
+      }))
+      setEditing(false)
+      setMsg('Updated successfully.')
+    }
     setSaving(false)
   }
 
