@@ -258,7 +258,7 @@ export default async function handler(req, res) {
       const dbImageCount = dbRow ? (imageCountByDbId.get(dbRow.id) || 0) : 0;
       const extrasCount = extrasByTmpl[odooId] || 0;
       // Missing if: no DB row yet, OR DB image count is less than Odoo extras count.
-      if (!dbRow || dbImageCount < extrasCount) {
+      if (!dbRow || dbImageCount === 0 || dbImageCount < extrasCount) {
         needs.push({
           odoo_id: bag.id,
           name: bag.name,

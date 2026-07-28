@@ -238,7 +238,7 @@ export default async function handler(req, res) {
     while (true) {
       const batch = await odooRead(
         domain,
-        ['id', 'name', 'default_code', 'standard_price', 'description_sale', 'categ_id', 'image_1920'],
+        ['id', 'name', 'default_code', 'standard_price', 'description_sale', 'categ_id'],
         pageSize,
         page * pageSize
       );
@@ -257,39 +257,44 @@ export default async function handler(req, res) {
     const { data: existing } = await supabase
       .from('products').select('odoo_product_id').eq('source', 'odoo_bags');
     const existingIds = (existing || []).map(i => i.odoo_product_id);
+    const existingIdsSet = new Set(existingIds);
     const toDelete = existingIds.filter(id => !liveOdooIds.includes(id));
     if (toDelete.length > 0) {
       await supabase.from('products').update({ status: 'sold' }).in('odoo_product_id', toDelete).eq('source', 'odoo_bags');
     }
 
     // Build rows — data only, no image uploads
-    const rows = items.map(item => {
-      const cost = item.standard_price || 0;
-      const priceEur = cost > 0 ? Math.round(cost * PRICE_MARKUP * 100) / 100 : null;
-      const categName = (Array.isArray(item.categ_id) ? item.categ_id[1] : item.categ_id || '').replace('All / ', '').toLowerCase();
-      const { category, subcategory } = CATEG_MAP[categName] || { category: 'Accessories', subcategory: null };
-      const attrs = attrMap[String(item.id)] || {};
-      const brand = attrs['Brand'] || extractBrand(item.name, item.default_code);
-      const condition = attrs['Condition'] || 'Pre-owned';
-      const itemSize = attrs['Shoe Size'] || null;
-      const baseNotes = item.description_sale && item.description_sale.trim() ? item.description_sale.trim() : null;
-      const extraParts = [attrs['Gender'] && `Gender: ${attrs['Gender']}`, attrs['Colors'] && `Color: ${attrs['Colors']}`].filter(Boolean);
-      const notes = [baseNotes, ...extraParts].filter(Boolean).join(' | ') || null;
-      return {
-        odoo_product_id: String(item.id),
-        source: 'odoo_bags',
-        brand,
-        model: (item.name || '').trim(),
-        reference: item.default_code || null,
-        price_eur: priceEur,
-        category,
-        subcategory: subcategory || null,
-        condition,
-        item_size: itemSize,
-        notes,
-        status: 'available',
-      };
-    });
+    // Only update products already in DB (i.e. already processed by the image batch sync).
+    // New Odoo items must go through odoo-bags-sync first so they only enter the DB with images.
+    const rows = items
+      .filter(item => existingIdsSet.has(String(item.id)))
+      .map(item => {
+        const cost = item.standard_price || 0;
+        const priceEur = cost > 0 ? Math.round(cost * PRICE_MARKUP * 100) / 100 : null;
+        const categName = (Array.isArray(item.categ_id) ? item.categ_id[1] : item.categ_id || '').replace('All / ', '').toLowerCase();
+        const { category, subcategory } = CATEG_MAP[categName] || { category: 'Accessories', subcategory: null };
+        const attrs = attrMap[String(item.id)] || {};
+        const brand = attrs['Brand'] || extractBrand(item.name, item.default_code);
+        const condition = attrs['Condition'] || 'Pre-owned';
+        const itemSize = attrs['Shoe Size'] || null;
+        const baseNotes = item.description_sale && item.description_sale.trim() ? item.description_sale.trim() : null;
+        const extraParts = [attrs['Gender'] && `Gender: ${attrs['Gender']}`, attrs['Colors'] && `Color: ${attrs['Colors']}`].filter(Boolean);
+        const notes = [baseNotes, ...extraParts].filter(Boolean).join(' | ') || null;
+        return {
+          odoo_product_id: String(item.id),
+          source: 'odoo_bags',
+          brand,
+          model: (item.name || '').trim(),
+          reference: item.default_code || null,
+          price_eur: priceEur,
+          category,
+          subcategory: subcategory || null,
+          condition,
+          item_size: itemSize,
+          notes,
+          status: 'available',
+        };
+      });
 
     // Upsert in chunks of 100
     const CHUNK = 100;
