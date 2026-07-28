@@ -705,13 +705,16 @@ export default function AgentListings() {
 
   async function deletePreorder(id) {
     if (!window.confirm('Delete this preorder?')) return
-    await supabase.from('preorders').delete().eq('id', id)
+    await supabase.from('preorder_images').delete().eq('preorder_id', id)
+    const { error } = await supabase.from('preorders').delete().eq('id', id)
+    if (error) { alert('Delete failed: ' + error.message); return }
     fetchPreorders()
   }
 
   async function deleteWatch(id) {
     if (!window.confirm('Delete this item?')) return
-    await supabase.from('products').delete().eq('id', id)
+    const { error } = await supabase.from('products').delete().eq('id', id)
+    if (error) { alert('Delete failed: ' + error.message); return }
     fetchMyWatches()
   }
 
@@ -874,13 +877,15 @@ export default function AgentListings() {
                 ? <div className="empty-state">{search ? 'No items match your search' : 'No items posted yet'}</div>
                 : filteredWatches.map(w => (
                 <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid var(--border-light)', borderRadius: 10, marginBottom: 8, background: 'var(--surface)' }}>
-                  <div onClick={() => navigate(`/catalog/${toSlug(w)}`)} style={{ width: 50, height: 50, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}>
-                    {getThumb(w) ? <img src={getThumb(w)} alt={w.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20 }}>⌚</span>}
-                  </div>
-                  <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => navigate(`/catalog/${toSlug(w)}`)}>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>{w.brand} {w.model}</div>
-                    <div style={{ fontSize: 11, color: '#aaa' }}>{fmtPrice(w)} · {w.condition}{w.reference ? ` · ${w.reference}` : ''}{w.category ? ` · ${w.category}` : ''}</div>
-                  </div>
+                  <a href={`/catalog/${toSlug(w)}`} onClick={e => { e.preventDefault(); navigate(`/catalog/${toSlug(w)}`) }} style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, textDecoration: 'none', color: 'inherit', minWidth: 0 }}>
+                    <div style={{ width: 50, height: 50, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {getThumb(w) ? <img src={getThumb(w)} alt={w.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20 }}>⌚</span>}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500 }}>{w.brand} {w.model}</div>
+                      <div style={{ fontSize: 11, color: '#aaa' }}>{fmtPrice(w)} · {w.condition}{w.reference ? ` · ${w.reference}` : ''}{w.category ? ` · ${w.category}` : ''}</div>
+                    </div>
+                  </a>
                   <span className={`badge badge-${w.status}`}>{w.status}</span>
                   <button className="btn btn-sm" onClick={() => navigate(`/catalog/${toSlug(w)}`)}>Edit</button>
                   {w.status !== 'sold' && (
@@ -901,13 +906,15 @@ export default function AgentListings() {
               const archived = listingType === 'preorders-archived'
               return (
               <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid var(--border-light)', borderRadius: 10, marginBottom: 8, background: 'var(--surface)' }}>
-                <div onClick={() => navigate(`/catalog/${toSlug(p)}`)} style={{ width: 50, height: 50, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}>
-                  {getPreorderThumb(p) ? <img src={getPreorderThumb(p)} alt={p.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20 }}>🔖</span>}
-                </div>
-                <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => navigate(`/catalog/${toSlug(p)}`)}>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>{p.brand} {p.model}</div>
-                  <div style={{ fontSize: 11, color: '#aaa' }}>{p.price_eur ? `€${Number(p.price_eur).toLocaleString()}` : '—'} · {p.condition}{p.category ? ` · ${p.category}` : ''}</div>
-                </div>
+                <a href={`/catalog/${toSlug(p)}`} onClick={e => { e.preventDefault(); navigate(`/catalog/${toSlug(p)}`) }} style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, textDecoration: 'none', color: 'inherit', minWidth: 0 }}>
+                  <div style={{ width: 50, height: 50, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    {getPreorderThumb(p) ? <img src={getPreorderThumb(p)} alt={p.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20 }}>🔖</span>}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>{p.brand} {p.model}</div>
+                    <div style={{ fontSize: 11, color: '#aaa' }}>{p.price_eur ? `€${Number(p.price_eur).toLocaleString()}` : '—'} · {p.condition}{p.category ? ` · ${p.category}` : ''}</div>
+                  </div>
+                </a>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
                   <span className={`badge badge-${p.status}`}>{p.status}</span>
                   {!archived && days !== null && (
