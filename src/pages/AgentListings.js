@@ -454,6 +454,7 @@ export default function AgentListings() {
     if (form.category === 'Watches' && !form.scope_of_delivery) { setError('Scope of delivery is required.'); return }
     if (form.category === 'Jewellery' && !form.subcategory) { setError('Jewellery type is required.'); return }
     if (form.category === 'Jewellery' && !form.metal_type) { setError('Metal type is required.'); return }
+    if (images.length === 0) { setError('At least one photo is required.'); return }
     setPosting(true)
     try {
       const priceUsd = rate ? Math.round(Number(form.price_eur) * rate) : null
@@ -934,14 +935,14 @@ export default function AgentListings() {
                   )}
                 </div>
                 {p.status === 'sold'
-                  ? <button className="btn btn-sm" onClick={() => markPreorderAvailable(p.id)}>Mark available</button>
-                  : <button className="btn btn-sm" onClick={() => markPreorderSold(p.id)}>Mark sold</button>
+                  ? <button className="btn btn-sm" onClick={e => { e.stopPropagation(); markPreorderAvailable(p.id) }}>Mark available</button>
+                  : <button className="btn btn-sm" onClick={e => { e.stopPropagation(); markPreorderSold(p.id) }}>Mark sold</button>
                 }
-                <button className="btn btn-sm" onClick={() => extendPreorder(p.id)}>
+                <button className="btn btn-sm" onClick={e => { e.stopPropagation(); extendPreorder(p.id) }}>
                   {archived ? 'Reactivate' : 'Extend 7 days'}
                 </button>
                 {(profile?.role === 'admin' || p.posted_by === profile?.id) && (
-                  <button className="btn btn-sm btn-danger" onClick={() => deletePreorder(p.id)}>Delete</button>
+                  <button className="btn btn-sm btn-danger" onClick={e => { e.stopPropagation(); deletePreorder(p.id) }}>Delete</button>
                 )}
               </div>
               )
