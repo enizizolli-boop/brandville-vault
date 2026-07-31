@@ -260,8 +260,8 @@ export default function WatchDetail() {
     if (path) await supabase.storage.from('watch-images').remove([decodeURIComponent(path)])
     const imgTable = isPreorder ? 'preorder_images' : 'product_images'
     await supabase.from(imgTable).delete().eq('id', img.id)
-    // Renumber remaining positions to close the gap and ensure position 0 always exists
-    const remaining = images.filter(i => i.id !== img.id).sort((a, b) => a.position - b.position)
+    // Keep the current visual order (images array is already correctly ordered after any reorder)
+    const remaining = images.filter(i => i.id !== img.id)
     await Promise.all(remaining.map((r, idx) =>
       supabase.from(imgTable).update({ position: idx }).eq('id', r.id)
     ))
