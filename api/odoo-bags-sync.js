@@ -377,17 +377,24 @@ export default async function handler(req, res) {
       }
     } catch (e) { console.error('Extra images fetch error:', e); }
 
-    // For items with no entries in product.image, fall back to image_1920 on the template
-    const noImageIds = items.filter(i => !extraImagesMap[String(i.id)]?.length).map(i => i.id);
-    if (noImageIds.length > 0) {
+    // Always fetch image_1920 for all items and prepend it at position 0.
+    // Previously this only ran for items with no extras, causing bags to show
+    // a back/side extra as the cover when a front primary existed in Odoo.
+    const allItemIds = items.map(i => i.id);
+    if (allItemIds.length > 0) {
       try {
-        const primaries = await odooModelRead('product.template', [['id', 'in', noImageIds]], ['id', 'image_1920'], noImageIds.length);
+        const primaries = await odooModelRead('product.template', [['id', 'in', allItemIds]], ['id', 'image_1920'], allItemIds.length);
         for (const p of primaries) {
           if (p.image_1920 && p.image_1920 !== false) {
-            extraImagesMap[String(p.id)] = [{ product_tmpl_id: p.id, image_1920: p.image_1920, sequence: 0 }];
+            const primaryEntry = { product_tmpl_id: p.id, image_1920: p.image_1920, sequence: -1 };
+            if (!extraImagesMap[String(p.id)]) {
+              extraImagesMap[String(p.id)] = [primaryEntry];
+            } else {
+              extraImagesMap[String(p.id)].unshift(primaryEntry);
+            }
           }
         }
-      } catch (e) { console.error('Primary image fallback error:', e); }
+      } catch (e) { console.error('Primary image fetch error:', e); }
     }
 
     let removed = 0;
@@ -478,7 +485,7 @@ export default async function handler(req, res) {
             try {
               const pos = existing + uploaded;
               const buffer = Buffer.from(imgData, 'base64');
-              const path = watchId + '/bag_img_' + pos + '.jpg';
+              const path = pos === 0 ? watchId + '/bag_primary.jpg' : watchId + '/bag_extra_' + pos + '.jpg';
               const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
               if (!upErr) {
                 const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
