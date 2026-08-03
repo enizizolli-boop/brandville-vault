@@ -45,6 +45,8 @@ export default function AdminPanel() {
   const [cronZohoResult, setCronZohoResult] = useState(null)
   const [cronBagsRunning, setCronBagsRunning] = useState(false)
   const [cronBagsResult, setCronBagsResult] = useState(null)
+  const [bagsMissingRunning, setBagsMissingRunning] = useState(false)
+  const [bagsMissingResult, setBagsMissingResult] = useState(null)
   const [imagesSyncing, setImagesSyncing] = useState(false)
   const [imagesResult, setImagesResult] = useState(null)
 const [syncLog, setSyncLog] = useState({})
@@ -237,6 +239,19 @@ async function handleTestCronBags() {
       setCronBagsResult({ error: err.message })
     }
     setCronBagsRunning(false)
+  }
+
+  async function handleBagsMissingSync() {
+    setBagsMissingRunning(true)
+    setBagsMissingResult(null)
+    try {
+      const res = await fetch('/api/odoo-bags-sync-missing?limit=50')
+      const data = await res.json()
+      setBagsMissingResult(data)
+    } catch (err) {
+      setBagsMissingResult({ error: err.message })
+    }
+    setBagsMissingRunning(false)
   }
 
   async function handleOdooSync() {
@@ -565,6 +580,17 @@ async function handleTestCronBags() {
                 {cronBagsResult.error
                   ? `Error: ${cronBagsResult.error}`
                   : `✓ Done — ${cronBagsResult.upserted} updated · ${cronBagsResult.removed} removed · ${cronBagsResult.total} total`
+                }
+              </div>
+            )}
+            <button className="btn btn-full" onClick={handleBagsMissingSync} disabled={bagsMissingRunning} style={{ marginTop: 8 }}>
+              {bagsMissingRunning ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Running...</> : '🖼 Fix missing bag images'}
+            </button>
+            {bagsMissingResult && (
+              <div style={{ marginTop: 8, fontSize: 12, padding: '8px 10px', borderRadius: 8, background: bagsMissingResult.error ? 'rgba(220,38,38,0.1)' : 'rgba(22,163,74,0.1)', color: bagsMissingResult.error ? '#f87171' : '#4ade80' }}>
+                {bagsMissingResult.error
+                  ? `Error: ${bagsMissingResult.error}`
+                  : `✓ Done — ${bagsMissingResult.images_added} images added · ${bagsMissingResult.remaining || 0} remaining`
                 }
               </div>
             )}
