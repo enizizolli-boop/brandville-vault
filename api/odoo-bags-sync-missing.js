@@ -246,10 +246,23 @@ export default async function handler(req, res) {
       }
     }
 
+    // Track which products already have a primary (bag_primary.jpg) image so we can
+    // detect bags where extras were uploaded but image_1920 was skipped.
+    const hasPrimaryInDB = new Set();
+    if (dbIds.length > 0) {
+      const ID_CHUNK2 = 100;
+      for (let i = 0; i < dbIds.length; i += ID_CHUNK2) {
+        const { data: primaryImgs } = await supabase
+          .from('product_images')
+          .select('product_id')
+          .in('product_id', dbIds.slice(i, i + ID_CHUNK2))
+          .like('url', '%bag_primary%');
+        for (const r of primaryImgs || []) hasPrimaryInDB.add(r.product_id);
+      }
+    }
+
     // 4. Identify bags where DB images < extras count (definitely missing).
-    //    We intentionally use extras-only as the lower bound to avoid fetching image_1920
-    //    (heavy base64) on every item just to verify. Items with a primary image already
-    //    uploaded will still land here if extras are missing, which is the common case.
+    //    Also catches bags that have extras in DB but are missing the primary image.
     const needs = [];
     for (const bag of odooBags) {
       if (onlySku && bag.default_code !== onlySku) continue;
@@ -257,8 +270,9 @@ export default async function handler(req, res) {
       const dbRow = dbByOdooId.get(odooId);
       const dbImageCount = dbRow ? (imageCountByDbId.get(dbRow.id) || 0) : 0;
       const extrasCount = extrasByTmpl[odooId] || 0;
-      // Missing if: no DB row yet, OR DB image count is less than Odoo extras count.
-      if (!dbRow || dbImageCount === 0 || dbImageCount < extrasCount) {
+      // Also include items that have images but are missing the primary (image_1920).
+      const dbMissingPrimary = dbRow && !hasPrimaryInDB.has(dbRow.id);
+      if (!dbRow || dbImageCount === 0 || dbImageCount < extrasCount || dbMissingPrimary) {
         needs.push({
           odoo_id: bag.id,
           name: bag.name,
@@ -341,16 +355,26 @@ export default async function handler(req, res) {
       let existing = dbCount || 0;
       let position = existing;
 
-      // Upload primary if missing
-      if (existing === 0 && hasPrimary) {
+      // Upload primary (image_1920) if not already in DB.
+      // For items that already have extras, shift them up so primary lands at position 0.
+      const primaryAlreadyUploaded = n.db_row_id ? hasPrimaryInDB.has(n.db_row_id) : false;
+      if (hasPrimary && !primaryAlreadyUploaded) {
         try {
+          if (existing > 0) {
+            const { data: existingImgs } = await supabase
+              .from('product_images').select('id, position').eq('product_id', productId).order('position');
+            await Promise.all((existingImgs || []).map(img =>
+              supabase.from('product_images').update({ position: img.position + 1 }).eq('id', img.id)
+            ));
+            position = 0;
+          }
           const buffer = Buffer.from(fullItem.image_1920, 'base64');
           const path = productId + '/bag_primary.jpg';
           const { error: upErr2 } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
           if (!upErr2) {
             const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
-            await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position });
-            position++; existing++; imagesAdded++;
+            await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position: 0 });
+            position = existing + 1; existing++; imagesAdded++;
           }
         } catch (e) { errors.push({ odoo_id: n.odoo_id, stage: 'primary', error: String(e) }); }
       }
