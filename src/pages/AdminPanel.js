@@ -395,7 +395,8 @@ async function handleTestCronBags() {
   }
 
   async function changeRole(userId, newRole) {
-    await supabase.from('profiles').update({ role: newRole }).eq('id', userId)
+    const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', userId)
+    if (error) { alert('Failed to update role: ' + error.message); return }
     fetchUsers()
   }
 
