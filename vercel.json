@@ -7,7 +7,7 @@
     },
     {
       "path": "/api/cron-zoho-sync",
-      "schedule": "*/30 * * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron-odoo-bags-sync",
