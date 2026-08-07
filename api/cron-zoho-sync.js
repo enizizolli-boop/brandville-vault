@@ -428,8 +428,11 @@ export default async function handler(req, res) {
         upsertedRows.forEach(r => { idMap[r.zoho_item_id] = r.id; });
         const upsertedProductIds = upsertedRows.map(r => r.id);
 
+        // Use limit(10000) to avoid the default 1000-row cap truncating results
+        // for large catalogs — without this, products with images appear imageless
+        // and the cron re-uploads their images on every run.
         const { data: existingImgs } = await supabase
-          .from('product_images').select('product_id').in('product_id', upsertedProductIds);
+          .from('product_images').select('product_id').in('product_id', upsertedProductIds).limit(10000);
         const withImages = new Set((existingImgs || []).map(r => r.product_id));
 
         // Re-activated items: force-refresh all gallery images (limit 3 to avoid timeout)
@@ -466,7 +469,7 @@ export default async function handler(req, res) {
         .from('products').select('id, zoho_item_id').eq('source', 'zoho').eq('status', 'available').limit(50);
       if (imgCandidates && imgCandidates.length > 0) {
         const { data: imgCheck } = await supabase
-          .from('product_images').select('product_id').in('product_id', imgCandidates.map(r => r.id));
+          .from('product_images').select('product_id').in('product_id', imgCandidates.map(r => r.id)).limit(5000);
         const withImgSet = new Set((imgCheck || []).map(r => r.product_id));
         const toFill = imgCandidates.filter(r => !withImgSet.has(r.id)).slice(0, 3);
         for (const row of toFill) {
