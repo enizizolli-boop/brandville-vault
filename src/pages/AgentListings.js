@@ -346,6 +346,17 @@ export default function AgentListings() {
   const [generating, setGenerating] = useState(false)
   const [linkError, setLinkError] = useState('')
   const [copied, setCopied] = useState('')
+  const [supplierListings, setSupplierListings] = useState([])
+  const [supReviewData, setSupReviewData] = useState({}) // { [id]: { price, reason } }
+
+  const fetchSupplierListings = useCallback(async () => {
+    const { data } = await supabase
+      .from('supplier_listings')
+      .select('*, supplier_listing_images(url, position), profiles(full_name, phone)')
+      .eq('status', 'pending_review')
+      .order('created_at', { ascending: false })
+    setSupplierListings(data || [])
+  }, [])
 
   const fetchMyWatches = useCallback(async () => {
     const q = profile?.role === 'admin'
@@ -412,6 +423,52 @@ export default function AgentListings() {
   useEffect(() => { if (profile) { fetchMyWatches(); fetchPreorders() } }, [profile, fetchMyWatches, fetchPreorders])
   useEffect(() => { if (profile && tab === 'offers') fetchOffers() }, [profile, tab, fetchOffers])
   useEffect(() => { if (profile && tab === 'clients') fetchClients() }, [profile, tab, fetchClients])
+  useEffect(() => { if (profile && tab === 'supplier') fetchSupplierListings() }, [profile, tab, fetchSupplierListings])
+
+  async function approveSupplierListing(listing) {
+    const rd = supReviewData[listing.id] || {}
+    if (!rd.price) { alert('Set a selling price before approving.'); return }
+    if (!window.confirm(`Approve and publish as preorder at €${rd.price}?`)) return
+    const { data: preorder, error: pErr } = await supabase.from('preorders').insert({
+      brand: listing.brand,
+      model: listing.model,
+      reference: listing.reference || null,
+      condition: listing.condition || 'Pre-owned',
+      scope_of_delivery: listing.scope_of_delivery || null,
+      notes: listing.notes || null,
+      price_eur: Number(rd.price),
+      category: 'Watches',
+      posted_by: profile.id,
+      status: 'available',
+    }).select().single()
+    if (pErr) { alert('Failed to create preorder: ' + pErr.message); return }
+    const imgs = (listing.supplier_listing_images || []).sort((a, b) => a.position - b.position)
+    for (const img of imgs) {
+      await supabase.from('preorder_images').insert({ preorder_id: preorder.id, url: img.url, position: img.position })
+    }
+    await supabase.from('supplier_listings').update({
+      status: 'approved',
+      selling_price: Number(rd.price),
+      reviewed_by: profile.id,
+      reviewed_at: new Date().toISOString(),
+      preorder_id: preorder.id,
+    }).eq('id', listing.id)
+    fetchSupplierListings()
+    fetchPreorders()
+  }
+
+  async function rejectSupplierListing(listing) {
+    const rd = supReviewData[listing.id] || {}
+    if (!rd.reason) { alert('Add a rejection reason before rejecting.'); return }
+    if (!window.confirm('Reject this listing?')) return
+    await supabase.from('supplier_listings').update({
+      status: 'rejected',
+      reviewed_by: profile.id,
+      reviewed_at: new Date().toISOString(),
+      rejection_reason: rd.reason,
+    }).eq('id', listing.id)
+    fetchSupplierListings()
+  }
 
   function handleField(k, v) { setForm(f => ({ ...f, [k]: v })) }
 
@@ -787,6 +844,13 @@ export default function AgentListings() {
           )}
         </div>
         <div className={`tab ${tab === 'clients' ? 'active' : ''}`} onClick={() => setTab('clients')}>Clients</div>
+        <div className={`tab ${tab === 'supplier' ? 'active' : ''}`} onClick={() => setTab('supplier')}>
+          Supplier Queue{supplierListings.length > 0 && (
+            <span style={{ marginLeft: 6, background: '#f59e0b', color: '#fff', borderRadius: 10, fontSize: 10, padding: '1px 6px', fontWeight: 700 }}>
+              {supplierListings.length}
+            </span>
+          )}
+        </div>
       </div>
 
       {tab === 'listings' && (
@@ -1432,6 +1496,63 @@ export default function AgentListings() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {tab === 'supplier' && (
+        <div style={{ padding: '0 16px 40px' }}>
+          {supplierListings.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 48, color: 'var(--faint)', fontSize: 14 }}>No pending supplier submissions.</div>
+          ) : supplierListings.map(listing => {
+            const imgs = (listing.supplier_listing_images || []).sort((a, b) => a.position - b.position)
+            const rd = supReviewData[listing.id] || {}
+            const setRd = patch => setSupReviewData(prev => ({ ...prev, [listing.id]: { ...prev[listing.id], ...patch } }))
+            return (
+              <div key={listing.id} style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 14, padding: 16, marginBottom: 16 }}>
+                <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
+                  {imgs.length > 0 && (
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {imgs.slice(0, 5).map((img, i) => (
+                        <img key={i} src={img.url} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border-light)' }} />
+                      ))}
+                      {imgs.length > 5 && <div style={{ width: 64, height: 64, borderRadius: 8, background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'var(--faint)' }}>+{imgs.length - 5}</div>}
+                    </div>
+                  )}
+                </div>
+                <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{listing.brand} {listing.model}</div>
+                {listing.reference && <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>Ref. {listing.reference}</div>}
+                <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>{listing.condition}</div>
+                {listing.scope_of_delivery && <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>{listing.scope_of_delivery}</div>}
+                {listing.asking_price && <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>Asking: €{listing.asking_price.toLocaleString()}</div>}
+                {listing.notes && <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>{listing.notes}</div>}
+                <div style={{ fontSize: 11, color: 'var(--faint)', marginBottom: 12 }}>
+                  From: {listing.profiles?.full_name || '—'}{listing.profiles?.phone ? ` · ${listing.profiles.phone}` : ''}
+                  {' · '}{new Date(listing.created_at).toLocaleDateString()}
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input
+                    className="input"
+                    type="number"
+                    placeholder="Selling price (€)"
+                    value={rd.price || ''}
+                    onChange={e => setRd({ price: e.target.value })}
+                    style={{ width: 160, marginBottom: 0 }}
+                  />
+                  <button className="btn btn-dark btn-sm" onClick={() => approveSupplierListing(listing)}>Approve & Publish</button>
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 8 }}>
+                  <input
+                    className="input"
+                    placeholder="Rejection reason"
+                    value={rd.reason || ''}
+                    onChange={e => setRd({ reason: e.target.value })}
+                    style={{ flex: 1, minWidth: 160, marginBottom: 0 }}
+                  />
+                  <button className="btn btn-danger btn-sm" onClick={() => rejectSupplierListing(listing)}>Reject</button>
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 

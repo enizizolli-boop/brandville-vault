@@ -12,6 +12,7 @@ import AdminPanel from './pages/AdminPanel'
 import DealerOffers from './pages/DealerOffers'
 import MyAccount from './pages/MyAccount'
 import JoinPage from './pages/JoinPage'
+import SupplierDashboard from './pages/SupplierDashboard'
 
 function PrivateRoute({ children, allowedRoles }) {
   const { user, profile, loading } = useAuth()
@@ -28,6 +29,7 @@ function RoleRedirect() {
   if (profile.role === 'admin') return <Navigate to="/admin" replace />
   if (profile.role === 'agent') return <Navigate to="/home" replace />
   if (profile.role === 'b2c') return <Navigate to="/home" replace />
+  if (profile.role === 'supplier') return <Navigate to="/supplier" replace />
   return <Navigate to="/home" replace />
 }
 
@@ -52,6 +54,7 @@ export default function App() {
           <Route path="/admin" element={<PrivateRoute allowedRoles={['admin']}><AdminPanel /></PrivateRoute>} />
           <Route path="/offers" element={<PrivateRoute allowedRoles={['dealer']}><DealerOffers /></PrivateRoute>} />
           <Route path="/account" element={<PrivateRoute><MyAccount /></PrivateRoute>} />
+          <Route path="/supplier" element={<PrivateRoute allowedRoles={['supplier']}><SupplierDashboard /></PrivateRoute>} />
         </Routes>
       </BrowserRouter>
       </CurrencyProvider>
