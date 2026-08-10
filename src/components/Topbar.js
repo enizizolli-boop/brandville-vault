@@ -130,7 +130,7 @@ function MobileMenu({ profile, currency, setCurrency, onNavigate, onSignOut, onC
         <div className="mobile-nav-actions">
           {profile?.role === 'admin' && <button className="btn btn-sm" onClick={() => { onClose(); onNavigate('/admin') }}>Admin</button>}
           {profile?.role === 'dealer' && <button className="btn btn-sm" onClick={() => { onClose(); onNavigate('/offers') }}>My Offers</button>}
-          {(profile?.role === 'agent' || profile?.role === 'admin') && <button className="btn btn-sm" onClick={() => { onClose(); onNavigate(`/agent/${profile.id}`) }}>My Listings</button>}
+          {(profile?.role === 'agent' || profile?.role === 'admin') && <button className="btn btn-sm" onClick={() => { onClose(); onNavigate('/agent') }}>Agent Panel</button>}
           <button className="btn btn-sm" onClick={onSignOut}>Sign out</button>
         </div>
       </div>
@@ -245,6 +245,10 @@ export default function Topbar() {
           </div>
 
           {/* Admin shortcut */}
+          {(profile?.role === 'agent' || profile?.role === 'admin') && (
+            <button className="btn btn-sm topbar-btn-desktop" onClick={() => navigate('/agent')}
+              style={{ fontSize: 11, padding: '5px 10px' }}>Agent Panel</button>
+          )}
           {profile?.role === 'admin' && (
             <button className="btn btn-sm topbar-btn-desktop" onClick={() => navigate('/admin')}
               style={{ fontSize: 11, padding: '5px 10px' }}>Admin</button>
