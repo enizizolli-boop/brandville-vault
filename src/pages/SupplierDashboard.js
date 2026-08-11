@@ -457,43 +457,40 @@ export default function SupplierDashboard() {
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: 24, marginBottom: 24, flexWrap: 'wrap' }}>
-                {imgs.length > 0 && (
-                  <div style={{ flex: '0 0 auto' }}>
-                    <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 6 }}>
-                      {imgs.map((img, i) => (
-                        <img
-                          key={i}
-                          src={img.url}
-                          alt=""
-                          onClick={() => setLightboxUrl(img.url)}
-                          style={{ width: 130, height: 130, objectFit: 'cover', borderRadius: 10, border: '1px solid #e5e7eb', cursor: 'zoom-in', flexShrink: 0, transition: 'opacity 0.15s' }}
-                          onMouseEnter={e => e.currentTarget.style.opacity = '0.82'}
-                          onMouseLeave={e => e.currentTarget.style.opacity = '1'}
-                        />
-                      ))}
-                    </div>
-                    {imgs.length > 1 && <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>{imgs.length} photos · click to enlarge</div>}
-                    {imgs.length === 1 && <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>Click to enlarge</div>}
-                  </div>
-                )}
-
-                <div style={{ flex: 1, minWidth: 220 }}>
-                  <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
-                    {[
-                      selected.reference && ['Reference', selected.reference],
-                      selected.condition && ['Condition', selected.condition],
-                      selected.scope_of_delivery && ['Scope', selected.scope_of_delivery],
-                      selected.asking_price && ['Asking price', `€${Number(selected.asking_price).toLocaleString()}`],
-                      selected.created_at && ['Submitted on', fmtDate(selected.created_at)],
-                    ].filter(Boolean).map(([label, value], i, arr) => (
-                      <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 16px', borderBottom: i < arr.length - 1 ? '1px solid #f3f4f6' : 'none', fontSize: 14 }}>
-                        <span style={{ color: '#6b7280' }}>{label}</span>
-                        <span style={{ fontWeight: label === 'Asking price' ? 600 : 400 }}>{value}</span>
-                      </div>
+              {imgs.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 8, WebkitOverflowScrolling: 'touch' }}>
+                    {imgs.map((img, i) => (
+                      <img
+                        key={i}
+                        src={img.url}
+                        alt=""
+                        onClick={() => setLightboxUrl(img.url)}
+                        style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 10, border: '1px solid #e5e7eb', cursor: 'zoom-in', flexShrink: 0, transition: 'opacity 0.15s' }}
+                        onMouseEnter={e => e.currentTarget.style.opacity = '0.75'}
+                        onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                      />
                     ))}
                   </div>
+                  <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+                    {imgs.length > 1 ? `${imgs.length} photos · click to enlarge` : 'Click to enlarge'}
+                  </div>
                 </div>
+              )}
+
+              <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden', marginBottom: 20 }}>
+                {[
+                  selected.reference && ['Reference', selected.reference],
+                  selected.condition && ['Condition', selected.condition],
+                  selected.scope_of_delivery && ['Scope', selected.scope_of_delivery],
+                  selected.asking_price && ['Asking price', `€${Number(selected.asking_price).toLocaleString()}`],
+                  selected.created_at && ['Submitted on', fmtDate(selected.created_at)],
+                ].filter(Boolean).map(([label, value], i, arr) => (
+                  <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 16px', borderBottom: i < arr.length - 1 ? '1px solid #f3f4f6' : 'none', fontSize: 14 }}>
+                    <span style={{ color: '#6b7280' }}>{label}</span>
+                    <span style={{ fontWeight: label === 'Asking price' ? 600 : 400 }}>{value}</span>
+                  </div>
+                ))}
               </div>
 
               {selected.notes && (
