@@ -888,10 +888,10 @@ export default function AgentListings() {
 
   const pendingOffers = offers.filter(o => o.status === 'pending').length
 
-  const SBItem = ({ id, label, icon, count, accent }) => {
+  const sbItem = (id, label, icon, count, accent) => {
     const isActive = tab === id
     return (
-      <button onClick={() => setTab(id)} style={{
+      <button key={id} onClick={() => setTab(id)} style={{
         display: 'flex', alignItems: 'center', gap: 10,
         width: '100%', padding: '8px 16px',
         borderTop: 'none', borderRight: 'none', borderBottom: 'none',
@@ -911,10 +911,10 @@ export default function AgentListings() {
     )
   }
 
-  const SBSubItem = ({ lType, label, icon, count }) => {
+  const sbSubItem = (lType, label, icon, count) => {
     const isActive = tab === 'listings' && listingType === lType
     return (
-      <button onClick={() => { setTab('listings'); setListingType(lType) }} style={{
+      <button key={lType} onClick={() => { setTab('listings'); setListingType(lType) }} style={{
         display: 'flex', alignItems: 'center', gap: 10,
         width: '100%', padding: '6px 16px',
         border: 'none', cursor: 'pointer', textAlign: 'left', background: 'transparent',
@@ -957,30 +957,30 @@ export default function AgentListings() {
           {/* LISTINGS label */}
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#9ca3af', padding: '0 16px', marginBottom: 6 }}>Listings</div>
 
-          <SBItem id="listings" label="My Listings" icon={<IconBag />} />
+          {sbItem('listings', 'My Listings', <IconBag />)}
 
           {/* In stock pill sub-item */}
           <button onClick={() => { setTab('listings'); setListingType('instock') }} style={{ display: 'block', width: '100%', padding: '3px 16px 3px 42px', border: 'none', cursor: 'pointer', textAlign: 'left', background: 'transparent' }}>
             <span style={{ display: 'inline-block', padding: '4px 14px', borderRadius: 20, fontSize: 13, fontWeight: tab === 'listings' && listingType === 'instock' ? 500 : 400, background: tab === 'listings' && listingType === 'instock' ? '#f5ede0' : 'transparent', color: tab === 'listings' && listingType === 'instock' ? '#374151' : '#6b7280' }}>In stock</span>
           </button>
 
-          <SBSubItem lType="preorders-watches" label="Preorders Watches" icon={<IconWatch />} count={watchPreorders.length} />
-          <SBSubItem lType="preorders-bags" label="Preorders Bags" icon={<IconHandbag />} count={bagPreorders.length} />
-          <SBSubItem lType="preorders-archived" label="Archived" icon={<IconArchive />} count={archivedPreorders.length} />
+          {sbSubItem('preorders-watches', 'Preorders Watches', <IconWatch />, watchPreorders.length)}
+          {sbSubItem('preorders-bags', 'Preorders Bags', <IconHandbag />, bagPreorders.length)}
+          {sbSubItem('preorders-archived', 'Archived', <IconArchive />, archivedPreorders.length)}
 
           <div style={{ height: 1, background: '#e5e7eb', margin: '10px 16px' }} />
 
-          <SBItem id="post" label="Post a Watch" icon={<IconWatch />} />
-          <SBItem id="bagpreorder" label="Post a Bag" icon={<IconHandbag />} />
+          {sbItem('post', 'Post a Watch', <IconWatch />)}
+          {sbItem('bagpreorder', 'Post a Bag', <IconHandbag />)}
 
           <div style={{ height: 1, background: '#e5e7eb', margin: '10px 16px' }} />
 
           {/* ACTIVITY label */}
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#9ca3af', padding: '0 16px', marginBottom: 6 }}>Activity</div>
 
-          <SBItem id="offers" label="Offers" icon={<IconTag />} count={pendingOffers} />
-          <SBItem id="clients" label="Clients" icon={<IconPerson />} />
-          <SBItem id="supplier" label="Supplier Queue" icon={<IconTruck />} count={supplierListings.length} accent={supplierListings.length > 0} />
+          {sbItem('offers', 'Offers', <IconTag />, pendingOffers)}
+          {sbItem('clients', 'Clients', <IconPerson />)}
+          {sbItem('supplier', 'Supplier Queue', <IconTruck />, supplierListings.length, supplierListings.length > 0)}
 
           <div style={{ flex: 1 }} />
 
