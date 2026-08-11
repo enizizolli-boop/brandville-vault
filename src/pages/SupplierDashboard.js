@@ -18,7 +18,6 @@ const CONDITIONS = [
   'Pre-owned',
   'pre-owned conditions with MINOR signs of usage',
   'pre-owned conditions with MAJOR signs of usage',
-  'Fair', 'Needs Repair',
 ]
 
 const SCOPES = ['Watch Only', 'With Card', 'With Box', 'Card & Box']
