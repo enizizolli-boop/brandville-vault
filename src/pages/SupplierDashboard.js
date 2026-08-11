@@ -286,12 +286,12 @@ export default function SupplierDashboard() {
   const statusCfg = s => STATUS_CONFIG[s] || STATUS_CONFIG.draft
   const canEdit = s => s === 'draft' || s === 'rejected' || s === 'pending_review'
 
-  async function markAsSold(listing) {
+  async function markAsSold(listing, e) {
+    if (e) e.stopPropagation()
     if (!window.confirm('Mark this item as sold? This will prevent it from being posted to the website.')) return
-    await supabase.from('supplier_listings').update({ status: 'sold' }).eq('id', listing.id)
-    if (listing.preorder_id) {
-      await supabase.from('preorders').update({ status: 'sold' }).eq('id', listing.preorder_id)
-    }
+    const { error } = await supabase.from('supplier_listings').update({ status: 'sold' }).eq('id', listing.id)
+    if (error) { alert('Error: ' + error.message); return }
+    // DB trigger (sync_preorder_on_sold) handles updating the linked preorder automatically
     fetchListings()
     setSelected(prev => prev?.id === listing.id ? { ...prev, status: 'sold' } : prev)
   }
@@ -708,6 +708,15 @@ export default function SupplierDashboard() {
                             onClick={e => { e.stopPropagation(); enterEdit(listing) }}
                           >
                             Edit
+                          </button>
+                        )}
+                        {listing.status === 'approved' && (
+                          <button
+                            className="btn btn-sm"
+                            style={{ fontSize: 11, padding: '3px 12px', color: '#6b7280', borderColor: '#d1d5db' }}
+                            onClick={e => markAsSold(listing, e)}
+                          >
+                            Mark as Sold
                           </button>
                         )}
                       </div>
