@@ -19,35 +19,35 @@ function fmtAge(iso) {
 
 function SidebarIcon({ id }) {
   if (id === 'overview') return (
-    <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24">
+    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24">
       <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
       <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
     </svg>
   )
   if (id === 'dealers') return (
-    <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24">
+    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24">
       <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
     </svg>
   )
   if (id === 'agents') return (
-    <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24">
+    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24">
       <circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/>
       <path d="M16 11c1.7 0 3 1.3 3 3m3 6c0-2.8-1.8-5-4-5.5" strokeLinecap="round"/>
     </svg>
   )
   if (id === 'suppliers') return (
-    <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24">
+    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24">
       <path d="M20 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1z"/>
       <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
     </svg>
   )
   if (id === 'invite') return (
-    <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24">
+    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24">
       <path d="M12 5v14M5 12h14"/>
     </svg>
   )
   if (id === 'sync') return (
-    <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24">
+    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24">
       <path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15" strokeLinecap="round"/>
     </svg>
   )
@@ -423,41 +423,44 @@ export default function AdminPanel() {
 
         {/* Sidebar */}
         <aside style={{
-          width: 220, flexShrink: 0,
-          borderRight: '1px solid var(--border-light)',
-          background: 'var(--surface)',
+          width: 230, flexShrink: 0,
+          borderRight: '1px solid #e5e7eb',
+          background: '#fff',
           display: 'flex', flexDirection: 'column',
-          padding: '24px 12px',
+          padding: '20px 0 16px',
           overflowY: 'auto',
         }}>
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--faint)', padding: '0 8px', marginBottom: 8 }}>Admin</div>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#9ca3af', padding: '0 16px', marginBottom: 6 }}>Admin</div>
 
           {NAV.map((item, i) => {
+            const isActive = tab === item.id
             const divider = i === 3
             return (
               <div key={item.id}>
-                {divider && <div style={{ height: 1, background: 'var(--border-light)', margin: '10px 8px' }} />}
+                {divider && <div style={{ height: 1, background: '#e5e7eb', margin: '8px 16px' }} />}
                 <button
                   onClick={() => { setTab(item.id); setSearch('') }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10,
-                    width: '100%', padding: '8px 10px', borderRadius: 8,
-                    border: 'none', cursor: 'pointer', textAlign: 'left',
-                    background: tab === item.id ? 'var(--surface2)' : 'transparent',
-                    color: tab === item.id ? 'var(--text)' : 'var(--faint)',
-                    fontWeight: tab === item.id ? 600 : 400,
-                    fontSize: 13,
+                    width: '100%', padding: '8px 16px',
+                    borderTop: 'none', borderRight: 'none', borderBottom: 'none',
+                    borderLeft: isActive ? '2px solid #b8965a' : '2px solid transparent',
+                    cursor: 'pointer', textAlign: 'left',
+                    background: isActive ? '#faf6f0' : 'transparent',
+                    color: isActive ? '#b8965a' : '#374151',
+                    fontWeight: isActive ? 600 : 400,
+                    fontSize: 14,
                     transition: 'background 0.12s, color 0.12s',
                   }}
                 >
-                  <span style={{ opacity: tab === item.id ? 1 : 0.6 }}><SidebarIcon id={item.id} /></span>
+                  <span style={{ color: isActive ? '#b8965a' : '#6b7280', display: 'flex', flexShrink: 0 }}><SidebarIcon id={item.id} /></span>
                   <span style={{ flex: 1 }}>{item.label}</span>
                   {item.count > 0 && (
                     <span style={{
-                      background: item.accent ? '#f59e0b' : 'var(--border)',
-                      color: item.accent ? '#fff' : 'var(--faint)',
-                      borderRadius: 10, fontSize: 10, fontWeight: 700,
-                      padding: '1px 6px', lineHeight: '16px',
+                      background: item.accent ? '#f59e0b' : '#f3f4f6',
+                      color: item.accent ? '#fff' : '#6b7280',
+                      borderRadius: 10, fontSize: 11, fontWeight: 700,
+                      padding: '1px 7px',
                     }}>
                       {item.count}
                     </span>
