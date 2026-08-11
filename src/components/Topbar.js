@@ -1,8 +1,9 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useCurrency } from '../context/CurrencyContext'
 import { useNav } from '../hooks/useNav'
+import { supabase } from '../lib/supabase'
 
 const AVATAR_COLORS = ['avatar-blue', 'avatar-green', 'avatar-amber', 'avatar-purple', 'avatar-red']
 
@@ -148,8 +149,35 @@ export default function Topbar() {
   const location = useLocation()
   const [openMenu, setOpenMenu] = useState(null)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [notifCount, setNotifCount] = useState(0)
   const closeTimer = useRef(null)
   const isSupplier = profile?.role === 'supplier'
+
+  useEffect(() => {
+    if (!profile) return
+    async function fetchCount() {
+      let total = 0
+      if (profile.role === 'dealer') {
+        const { count } = await supabase
+          .from('offers').select('id', { count: 'exact', head: true })
+          .eq('dealer_id', profile.id).eq('status', 'countered')
+        total = count || 0
+      } else if (profile.role === 'agent' || profile.role === 'admin') {
+        const [{ count: sup }, { count: off }] = await Promise.all([
+          supabase.from('supplier_listings').select('id', { count: 'exact', head: true }).eq('status', 'pending_review'),
+          supabase.from('offers').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+        ])
+        total = (sup || 0) + (off || 0)
+      }
+      setNotifCount(total)
+    }
+    fetchCount()
+    const ch = supabase.channel('topbar-notif')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'offers' }, fetchCount)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'supplier_listings' }, fetchCount)
+      .subscribe()
+    return () => supabase.removeChannel(ch)
+  }, [profile])
 
   function handleSignOut() {
     signOut().then(() => navigate('/login'))
@@ -232,13 +260,27 @@ export default function Topbar() {
           )}
 
           {!isSupplier && (
-            <button className="topbar-icon-btn topbar-btn-desktop" title="Notifications" onClick={() => navigate('/offers')}>
+            <button
+              className="topbar-icon-btn topbar-btn-desktop"
+              title="Notifications"
+              onClick={() => navigate(profile?.role === 'dealer' ? '/offers' : '/agent')}
+              style={{ position: 'relative' }}
+            >
               <svg width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
                 <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
               </svg>
-              {profile?.role === 'dealer' && (
-                <span className="topbar-bell-dot" />
+              {notifCount > 0 && (
+                <span style={{
+                  position: 'absolute', top: -5, right: -5,
+                  background: '#ef4444', color: '#fff',
+                  borderRadius: '50%', minWidth: 16, height: 16,
+                  fontSize: 9, fontWeight: 700, lineHeight: '16px',
+                  textAlign: 'center', padding: '0 3px',
+                  boxSizing: 'border-box',
+                }}>
+                  {notifCount > 9 ? '9+' : notifCount}
+                </span>
               )}
             </button>
           )}
