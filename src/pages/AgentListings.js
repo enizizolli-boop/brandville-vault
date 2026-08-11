@@ -362,6 +362,12 @@ export default function AgentListings() {
   const [supEditRemovedIds, setSupEditRemovedIds] = useState([])
   const [supEditNewFiles, setSupEditNewFiles] = useState([])
   const [supEditNewPreviews, setSupEditNewPreviews] = useState([])
+  const [lbImgs, setLbImgs] = useState([])
+  const [lbIdx, setLbIdx] = useState(null)
+  const openLb = (urls, idx) => { setLbImgs(urls); setLbIdx(idx) }
+  const closeLb = () => { setLbIdx(null); setLbImgs([]) }
+  const lbPrev = e => { e.stopPropagation(); setLbIdx(i => (i - 1 + lbImgs.length) % lbImgs.length) }
+  const lbNext = e => { e.stopPropagation(); setLbIdx(i => (i + 1) % lbImgs.length) }
   const [listingsOpen, setListingsOpen] = useState(true)
   const [activityOpen, setActivityOpen] = useState(true)
   const [inStockBrand, setInStockBrand] = useState('all')
@@ -985,6 +991,18 @@ export default function AgentListings() {
   return (
     <div className="page" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Topbar />
+
+      {/* Lightbox */}
+      {lbIdx !== null && (
+        <div onClick={closeLb} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, cursor: 'zoom-out' }}>
+          <img src={lbImgs[lbIdx]} alt="" style={{ maxWidth: '82vw', maxHeight: '88vh', objectFit: 'contain', borderRadius: 10, userSelect: 'none' }} />
+          {lbImgs.length > 1 && <button onClick={lbPrev} style={{ position: 'absolute', left: 18, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: '50%', width: 44, height: 44, fontSize: 24, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>}
+          {lbImgs.length > 1 && <button onClick={lbNext} style={{ position: 'absolute', right: 18, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: '50%', width: 44, height: 44, fontSize: 24, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>}
+          <button onClick={closeLb} style={{ position: 'absolute', top: 18, right: 22, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: '50%', width: 38, height: 38, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+          {lbImgs.length > 1 && <div style={{ position: 'absolute', bottom: 18, left: '50%', transform: 'translateX(-50%)', color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>{lbIdx + 1} / {lbImgs.length}</div>}
+        </div>
+      )}
+
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
         {/* Sidebar */}
@@ -1756,9 +1774,22 @@ export default function AgentListings() {
                 {imgs.length > 0 && (
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
                     {imgs.slice(0, 5).map((img, i) => (
-                      <img key={i} src={img.url} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border-light)' }} />
+                      <img
+                        key={i} src={img.url} alt=""
+                        onClick={() => openLb(imgs.map(x => x.url), i)}
+                        style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border-light)', cursor: 'zoom-in', transition: 'opacity 0.15s' }}
+                        onMouseEnter={e => e.currentTarget.style.opacity = '0.75'}
+                        onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                      />
                     ))}
-                    {imgs.length > 5 && <div style={{ width: 64, height: 64, borderRadius: 8, background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'var(--faint)' }}>+{imgs.length - 5}</div>}
+                    {imgs.length > 5 && (
+                      <div
+                        onClick={() => openLb(imgs.map(x => x.url), 5)}
+                        style={{ width: 64, height: 64, borderRadius: 8, background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'var(--faint)', cursor: 'zoom-in' }}
+                      >
+                        +{imgs.length - 5}
+                      </div>
+                    )}
                   </div>
                 )}
 
