@@ -390,7 +390,6 @@ export default function SupplierDashboard() {
             {selected.condition && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--faint)' }}>Condition</span><span>{selected.condition}</span></div>}
             {selected.scope_of_delivery && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--faint)' }}>Scope</span><span>{selected.scope_of_delivery}</span></div>}
             {selected.asking_price && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--faint)' }}>Asking price</span><span style={{ fontWeight: 600 }}>€{Number(selected.asking_price).toLocaleString()}</span></div>}
-            {selected.selling_price && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--faint)' }}>Selling price</span><span style={{ fontWeight: 600 }}>€{Number(selected.selling_price).toLocaleString()}</span></div>}
             {selected.notes && <div style={{ paddingTop: 8, borderTop: '1px solid var(--border-light)', color: 'var(--faint)', fontSize: 13, lineHeight: 1.5 }}>{selected.notes}</div>}
           </div>
 

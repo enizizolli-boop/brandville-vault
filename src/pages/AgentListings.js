@@ -348,6 +348,8 @@ export default function AgentListings() {
   const [copied, setCopied] = useState('')
   const [supplierListings, setSupplierListings] = useState([])
   const [supReviewData, setSupReviewData] = useState({}) // { [id]: { price, reason } }
+  const [supEditId, setSupEditId] = useState(null)
+  const [supEditForm, setSupEditForm] = useState({})
 
   const fetchSupplierListings = useCallback(async () => {
     const { data } = await supabase
@@ -467,6 +469,37 @@ export default function AgentListings() {
       reviewed_at: new Date().toISOString(),
       rejection_reason: rd.reason,
     }).eq('id', listing.id)
+    fetchSupplierListings()
+  }
+
+  function enterSupEdit(listing) {
+    setSupEditId(listing.id)
+    setSupEditForm({
+      brand: listing.brand || '',
+      model: listing.model || '',
+      reference: listing.reference || '',
+      condition: listing.condition || '',
+      scope_of_delivery: listing.scope_of_delivery || '',
+      asking_price: listing.asking_price || '',
+      notes: listing.notes || '',
+    })
+  }
+
+  async function saveSupplierListingEdit(listingId) {
+    const { error } = await supabase
+      .from('supplier_listings')
+      .update({
+        brand: supEditForm.brand,
+        model: supEditForm.model,
+        reference: supEditForm.reference || null,
+        condition: supEditForm.condition || null,
+        scope_of_delivery: supEditForm.scope_of_delivery || null,
+        asking_price: supEditForm.asking_price ? Number(supEditForm.asking_price) : null,
+        notes: supEditForm.notes || null,
+      })
+      .eq('id', listingId)
+    if (error) { alert('Failed to save: ' + error.message); return }
+    setSupEditId(null)
     fetchSupplierListings()
   }
 
@@ -1509,46 +1542,84 @@ export default function AgentListings() {
             const setRd = patch => setSupReviewData(prev => ({ ...prev, [listing.id]: { ...prev[listing.id], ...patch } }))
             return (
               <div key={listing.id} style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 14, padding: 16, marginBottom: 16 }}>
-                <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
-                  {imgs.length > 0 && (
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      {imgs.slice(0, 5).map((img, i) => (
-                        <img key={i} src={img.url} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border-light)' }} />
-                      ))}
-                      {imgs.length > 5 && <div style={{ width: 64, height: 64, borderRadius: 8, background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'var(--faint)' }}>+{imgs.length - 5}</div>}
+                {imgs.length > 0 && (
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+                    {imgs.slice(0, 5).map((img, i) => (
+                      <img key={i} src={img.url} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border-light)' }} />
+                    ))}
+                    {imgs.length > 5 && <div style={{ width: 64, height: 64, borderRadius: 8, background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'var(--faint)' }}>+{imgs.length - 5}</div>}
+                  </div>
+                )}
+
+                {supEditId === listing.id ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <input className="input" placeholder="Brand" value={supEditForm.brand} onChange={e => setSupEditForm(f => ({ ...f, brand: e.target.value }))} style={{ marginBottom: 0 }} />
+                      <input className="input" placeholder="Model" value={supEditForm.model} onChange={e => setSupEditForm(f => ({ ...f, model: e.target.value }))} style={{ marginBottom: 0 }} />
                     </div>
-                  )}
-                </div>
-                <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{listing.brand} {listing.model}</div>
-                {listing.reference && <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>Ref. {listing.reference}</div>}
-                <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>{listing.condition}</div>
-                {listing.scope_of_delivery && <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>{listing.scope_of_delivery}</div>}
-                {listing.asking_price && <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>Asking: €{listing.asking_price.toLocaleString()}</div>}
-                {listing.notes && <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>{listing.notes}</div>}
-                <div style={{ fontSize: 11, color: 'var(--faint)', marginBottom: 12 }}>
-                  From: {listing.profiles?.full_name || '—'}{listing.profiles?.phone ? ` · ${listing.profiles.phone}` : ''}
-                  {' · '}{new Date(listing.created_at).toLocaleDateString()}
-                </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <input
-                    className="input"
-                    type="number"
-                    placeholder="Selling price (€)"
-                    value={rd.price || ''}
-                    onChange={e => setRd({ price: e.target.value })}
-                    style={{ width: 160, marginBottom: 0 }}
-                  />
-                  <button className="btn btn-dark btn-sm" onClick={() => approveSupplierListing(listing)}>Approve & Publish</button>
-                </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 8 }}>
-                  <input
-                    className="input"
-                    placeholder="Rejection reason"
-                    value={rd.reason || ''}
-                    onChange={e => setRd({ reason: e.target.value })}
-                    style={{ flex: 1, minWidth: 160, marginBottom: 0 }}
-                  />
-                  <button className="btn btn-danger btn-sm" onClick={() => rejectSupplierListing(listing)}>Reject</button>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <input className="input" placeholder="Reference" value={supEditForm.reference} onChange={e => setSupEditForm(f => ({ ...f, reference: e.target.value }))} style={{ marginBottom: 0 }} />
+                      <input className="input" placeholder="Asking price (€)" type="number" value={supEditForm.asking_price} onChange={e => setSupEditForm(f => ({ ...f, asking_price: e.target.value }))} style={{ marginBottom: 0 }} />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <select className="input" value={supEditForm.condition} onChange={e => setSupEditForm(f => ({ ...f, condition: e.target.value }))} style={{ marginBottom: 0 }}>
+                        <option value="">Condition</option>
+                        {CONDITIONS.map(c => <option key={c}>{c}</option>)}
+                      </select>
+                      <select className="input" value={supEditForm.scope_of_delivery} onChange={e => setSupEditForm(f => ({ ...f, scope_of_delivery: e.target.value }))} style={{ marginBottom: 0 }}>
+                        <option value="">Scope</option>
+                        <option>Watch Only</option>
+                        <option>With Card</option>
+                        <option>With Box</option>
+                        <option>Card &amp; Box</option>
+                      </select>
+                    </div>
+                    <textarea className="input" placeholder="Notes" rows={2} value={supEditForm.notes} onChange={e => setSupEditForm(f => ({ ...f, notes: e.target.value }))} style={{ marginBottom: 0, resize: 'vertical' }} />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button className="btn btn-dark btn-sm" onClick={() => saveSupplierListingEdit(listing.id)}>Save changes</button>
+                      <button className="btn btn-sm" onClick={() => setSupEditId(null)}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{listing.brand} {listing.model}</div>
+                      <button className="btn btn-sm" style={{ fontSize: 11 }} onClick={() => enterSupEdit(listing)}>Edit</button>
+                    </div>
+                    {listing.reference && <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>Ref. {listing.reference}</div>}
+                    <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>{listing.condition}</div>
+                    {listing.scope_of_delivery && <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>{listing.scope_of_delivery}</div>}
+                    {listing.asking_price && <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>Asking: €{listing.asking_price.toLocaleString()}</div>}
+                    {listing.notes && <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>{listing.notes}</div>}
+                    <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 6 }}>
+                      From: {listing.profiles?.full_name || '—'}{listing.profiles?.phone ? ` · ${listing.profiles.phone}` : ''}
+                      {' · '}{new Date(listing.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <input
+                      className="input"
+                      type="number"
+                      placeholder="Selling price (€)"
+                      value={rd.price || ''}
+                      onChange={e => setRd({ price: e.target.value })}
+                      style={{ width: 160, marginBottom: 0 }}
+                    />
+                    <button className="btn btn-dark btn-sm" onClick={() => approveSupplierListing(listing)}>Approve & Publish</button>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <input
+                      className="input"
+                      placeholder="Rejection reason"
+                      value={rd.reason || ''}
+                      onChange={e => setRd({ reason: e.target.value })}
+                      style={{ flex: 1, minWidth: 160, marginBottom: 0 }}
+                    />
+                    <button className="btn btn-danger btn-sm" onClick={() => rejectSupplierListing(listing)}>Reject</button>
+                  </div>
                 </div>
               </div>
             )
