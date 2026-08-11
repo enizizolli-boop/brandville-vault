@@ -149,35 +149,47 @@ export default function Topbar() {
   const location = useLocation()
   const [openMenu, setOpenMenu] = useState(null)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [notifCount, setNotifCount] = useState(0)
+  const [bellOpen, setBellOpen] = useState(false)
+  const [notifs, setNotifs] = useState([]) // [{ label, count, route }]
   const closeTimer = useRef(null)
+  const bellRef = useRef(null)
   const isSupplier = profile?.role === 'supplier'
 
   useEffect(() => {
     if (!profile) return
-    async function fetchCount() {
-      let total = 0
+    async function fetchNotifs() {
       if (profile.role === 'dealer') {
         const { count } = await supabase
           .from('offers').select('id', { count: 'exact', head: true })
           .eq('dealer_id', profile.id).eq('status', 'countered')
-        total = count || 0
+        setNotifs(count > 0 ? [{ label: 'Counter offers awaiting your response', count, route: '/offers' }] : [])
       } else if (profile.role === 'agent' || profile.role === 'admin') {
-        const [{ count: sup }, { count: off }] = await Promise.all([
-          supabase.from('supplier_listings').select('id', { count: 'exact', head: true }).eq('status', 'pending_review'),
+        const [{ count: off }, { count: sup }] = await Promise.all([
           supabase.from('offers').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+          supabase.from('supplier_listings').select('id', { count: 'exact', head: true }).eq('status', 'pending_review'),
         ])
-        total = (sup || 0) + (off || 0)
+        const items = []
+        if (off > 0) items.push({ label: 'Pending dealer offers', count: off, route: '/agent?tab=offers' })
+        if (sup > 0) items.push({ label: 'Supplier submissions', count: sup, route: '/agent?tab=supplier' })
+        setNotifs(items)
       }
-      setNotifCount(total)
     }
-    fetchCount()
+    fetchNotifs()
     const ch = supabase.channel('topbar-notif')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'offers' }, fetchCount)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'supplier_listings' }, fetchCount)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'offers' }, fetchNotifs)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'supplier_listings' }, fetchNotifs)
       .subscribe()
     return () => supabase.removeChannel(ch)
   }, [profile])
+
+  useEffect(() => {
+    if (!bellOpen) return
+    function handleClick(e) {
+      if (bellRef.current && !bellRef.current.contains(e.target)) setBellOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [bellOpen])
 
   function handleSignOut() {
     signOut().then(() => navigate('/login'))
@@ -260,29 +272,59 @@ export default function Topbar() {
           )}
 
           {!isSupplier && (
-            <button
-              className="topbar-icon-btn topbar-btn-desktop"
-              title="Notifications"
-              onClick={() => navigate(profile?.role === 'dealer' ? '/offers' : '/agent')}
-              style={{ position: 'relative' }}
-            >
-              <svg width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-              </svg>
-              {notifCount > 0 && (
-                <span style={{
-                  position: 'absolute', top: -5, right: -5,
-                  background: '#ef4444', color: '#fff',
-                  borderRadius: '50%', minWidth: 16, height: 16,
-                  fontSize: 9, fontWeight: 700, lineHeight: '16px',
-                  textAlign: 'center', padding: '0 3px',
-                  boxSizing: 'border-box',
+            <div ref={bellRef} style={{ position: 'relative' }}>
+              <button
+                className="topbar-icon-btn topbar-btn-desktop"
+                title="Notifications"
+                onClick={() => setBellOpen(o => !o)}
+                style={{ position: 'relative' }}
+              >
+                <svg width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
+                {notifs.length > 0 && (
+                  <span style={{
+                    position: 'absolute', top: -5, right: -5,
+                    background: '#ef4444', color: '#fff',
+                    borderRadius: '50%', minWidth: 16, height: 16,
+                    fontSize: 9, fontWeight: 700, lineHeight: '16px',
+                    textAlign: 'center', padding: '0 3px', boxSizing: 'border-box',
+                  }}>
+                    {notifs.reduce((s, n) => s + n.count, 0) > 9 ? '9+' : notifs.reduce((s, n) => s + n.count, 0)}
+                  </span>
+                )}
+              </button>
+
+              {bellOpen && (
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 10px)', right: 0,
+                  background: 'var(--surface)', border: '1px solid var(--border-light)',
+                  borderRadius: 12, boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                  minWidth: 260, zIndex: 200, overflow: 'hidden',
                 }}>
-                  {notifCount > 9 ? '9+' : notifCount}
-                </span>
+                  <div style={{ padding: '12px 14px 8px', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--faint)', borderBottom: '1px solid var(--border-light)' }}>
+                    Notifications
+                  </div>
+                  {notifs.length === 0 ? (
+                    <div style={{ padding: '16px 14px', fontSize: 13, color: 'var(--faint)', textAlign: 'center' }}>All caught up</div>
+                  ) : notifs.map((n, i) => (
+                    <button key={i} onClick={() => { setBellOpen(false); navigate(n.route) }} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      width: '100%', padding: '12px 14px', background: 'none', border: 'none',
+                      borderTop: i > 0 ? '1px solid var(--border-light)' : 'none',
+                      cursor: 'pointer', textAlign: 'left', gap: 10,
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                    >
+                      <span style={{ fontSize: 13, color: 'var(--text)', flex: 1 }}>{n.label}</span>
+                      <span style={{ background: '#ef4444', color: '#fff', borderRadius: 10, fontSize: 11, fontWeight: 700, padding: '2px 7px' }}>{n.count}</span>
+                    </button>
+                  ))}
+                </div>
               )}
-            </button>
+            </div>
           )}
 
           <div className="topbar-account-widget topbar-btn-desktop" onClick={() => navigate('/account')} title="My Account">
