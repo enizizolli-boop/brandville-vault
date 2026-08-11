@@ -26,8 +26,16 @@ const SCOPES = ['Watch Only', 'With Card', 'With Box', 'Card & Box']
 const EMPTY_FORM = {
   brand: '', model: '', reference: '',
   condition: 'Pre-owned', scope_of_delivery: '',
-  asking_price: '', notes: '',
+  asking_price: '', asking_price_currency: 'CNY', notes: '',
 }
+
+const PRICE_CURRENCIES = [
+  { value: 'CNY', label: '¥ CNY' },
+  { value: 'EUR', label: '€ EUR' },
+  { value: 'USD', label: '$ USD' },
+  { value: 'GBP', label: '£ GBP' },
+  { value: 'CHF', label: 'CHF' },
+]
 
 const STATUS_CONFIG = {
   draft:          { label: 'Draft',          color: '#94a3b8' },
@@ -397,8 +405,13 @@ export default function SupplierDashboard() {
                 </div>
 
                 <div style={fieldWrap}>
-                  <div style={fieldLabel}>Asking price (€)</div>
-                  <input className="input" placeholder="Optional" type="number" value={form.asking_price} onChange={e => setForm(f => ({ ...f, asking_price: e.target.value }))} />
+                  <div style={fieldLabel}>Asking price</div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <select className="input" value={form.asking_price_currency} onChange={e => setForm(f => ({ ...f, asking_price_currency: e.target.value }))} style={{ width: 110, flexShrink: 0 }}>
+                      {PRICE_CURRENCIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                    </select>
+                    <input className="input" placeholder="Optional" type="number" value={form.asking_price} onChange={e => setForm(f => ({ ...f, asking_price: e.target.value }))} style={{ flex: 1 }} />
+                  </div>
                 </div>
 
                 <div style={fieldWrap}>
@@ -504,7 +517,7 @@ export default function SupplierDashboard() {
                   selected.reference && ['Reference', selected.reference],
                   selected.condition && ['Condition', selected.condition],
                   selected.scope_of_delivery && ['Scope', selected.scope_of_delivery],
-                  selected.asking_price && ['Asking price', `€${Number(selected.asking_price).toLocaleString()}`],
+                  selected.asking_price && ['Asking price', `${PRICE_CURRENCIES.find(c => c.value === (selected.asking_price_currency || 'CNY'))?.label?.split(' ')[0] || ''}${Number(selected.asking_price).toLocaleString()}`],
                   selected.created_at && ['Submitted on', fmtDate(selected.created_at)],
                 ].filter(Boolean).map(([label, value], i, arr) => (
                   <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 16px', borderBottom: i < arr.length - 1 ? '1px solid #f3f4f6' : 'none', fontSize: 14 }}>

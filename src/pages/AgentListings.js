@@ -1828,7 +1828,21 @@ export default function AgentListings() {
                     {listing.reference && <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>Ref. {listing.reference}</div>}
                     <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>{listing.condition}</div>
                     {listing.scope_of_delivery && <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>{listing.scope_of_delivery}</div>}
-                    {listing.asking_price && <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>Asking: €{listing.asking_price.toLocaleString()}</div>}
+                    {listing.asking_price && (() => {
+                      const cur = listing.asking_price_currency || 'CNY'
+                      const sym = { EUR: '€', USD: '$', GBP: '£', CHF: 'CHF ', CNY: '¥' }[cur] || ''
+                      const eurEq = cur === 'CNY' && cnyToEurRate
+                        ? ` (≈ €${Math.round(listing.asking_price * cnyToEurRate).toLocaleString()})`
+                        : cur === 'USD' && rate
+                        ? ` (≈ €${Math.round(listing.asking_price / rate).toLocaleString()})`
+                        : ''
+                      return (
+                        <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>
+                          Asking: <strong>{sym}{Number(listing.asking_price).toLocaleString()}</strong>
+                          {eurEq && <span style={{ color: '#9ca3af' }}>{eurEq}</span>}
+                        </div>
+                      )
+                    })()}
                     {listing.notes && <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>{listing.notes}</div>}
                     <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 6 }}>
                       From: {listing.profiles?.full_name || '—'}{listing.profiles?.phone ? ` · ${listing.profiles.phone}` : ''}
@@ -1837,32 +1851,44 @@ export default function AgentListings() {
                   </div>
                 )}
 
-                <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: 14, display: 'flex', gap: 12, alignItems: 'stretch', flexWrap: 'wrap' }}>
+                <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: 14, display: 'flex', gap: 0, alignItems: 'stretch', flexWrap: 'wrap' }}>
                   {/* Selling price + Approve */}
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexShrink: 0 }}>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexShrink: 0, paddingRight: 16, marginRight: 16, borderRight: '1px solid var(--border-light)' }}>
                     <div>
-                      <div style={{ fontSize: 11, color: 'var(--faint)', marginBottom: 5, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{ fontSize: 11, color: 'var(--faint)', marginBottom: 5 }}>
                         Selling price
+                      </div>
+                      <div style={{ display: 'flex', gap: 6 }}>
                         <select
                           value={rd.currency || 'EUR'}
                           onChange={e => setRd({ currency: e.target.value })}
-                          style={{ fontSize: 11, border: 'none', background: 'transparent', color: 'var(--faint)', cursor: 'pointer', padding: 0, outline: 'none' }}
+                          className="input"
+                          style={{ width: 76, marginBottom: 0, fontSize: 13 }}
                         >
-                          <option value="EUR">(€)</option>
-                          <option value="USD">($)</option>
-                          <option value="GBP">(£)</option>
-                          <option value="CHF">(CHF)</option>
-                          <option value="CNY">(¥)</option>
+                          <option value="EUR">€ EUR</option>
+                          <option value="USD">$ USD</option>
+                          <option value="GBP">£ GBP</option>
+                          <option value="CHF">CHF</option>
+                          <option value="CNY">¥ CNY</option>
                         </select>
+                        <input
+                          className="input"
+                          type="number"
+                          placeholder="0"
+                          value={rd.price || ''}
+                          onChange={e => setRd({ price: e.target.value })}
+                          style={{ width: 110, marginBottom: 0, fontWeight: 600, fontSize: 15 }}
+                        />
                       </div>
-                      <input
-                        className="input"
-                        type="number"
-                        placeholder="0"
-                        value={rd.price || ''}
-                        onChange={e => setRd({ price: e.target.value })}
-                        style={{ width: 130, marginBottom: 0, fontWeight: 600, fontSize: 15 }}
-                      />
+                      {/* Suggested EUR price from asking price */}
+                      {listing.asking_price && listing.asking_price_currency === 'CNY' && cnyToEurRate && !rd.price && (
+                        <button
+                          onClick={() => setRd({ price: String(Math.round(listing.asking_price * cnyToEurRate)), currency: 'EUR' })}
+                          style={{ marginTop: 4, fontSize: 11, color: '#b8965a', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline' }}
+                        >
+                          Use ≈ €{Math.round(listing.asking_price * cnyToEurRate).toLocaleString()}
+                        </button>
+                      )}
                     </div>
                     <button className="btn btn-dark btn-sm" onClick={() => approveSupplierListing(listing)} style={{ height: 38, whiteSpace: 'nowrap' }}>
                       ✓ Approve & Publish
