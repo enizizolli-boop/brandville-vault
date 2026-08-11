@@ -489,6 +489,16 @@ export default function AgentListings() {
       priceUsd = rate ? Math.round(num * rate) : null
     }
 
+    const askingCur = listing.asking_price_currency || 'CNY'
+    const askingAmt = listing.asking_price ? Number(listing.asking_price) : null
+    let costEur = null
+    if (askingAmt) {
+      if (askingCur === 'EUR') costEur = askingAmt
+      else if (askingCur === 'CNY' && cnyToEurRate) costEur = Math.round(askingAmt * cnyToEurRate)
+      else if (askingCur === 'HKD' && hkdToEurRate) costEur = Math.round(askingAmt * hkdToEurRate)
+      else if (askingCur === 'USD' && rate) costEur = Math.round(askingAmt / rate)
+    }
+
     const { data: preorder, error: pErr } = await supabase.from('preorders').insert({
       brand: listing.brand,
       model: listing.model,
@@ -498,6 +508,8 @@ export default function AgentListings() {
       notes: listing.notes || null,
       price_eur: priceEur,
       price_usd: priceUsd,
+      cost_eur: costEur,
+      vendor: listing.profiles?.full_name || null,
       category: 'Watches',
       posted_by: profile.id,
       status: 'available',

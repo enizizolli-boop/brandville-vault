@@ -15,7 +15,7 @@ const BRANDS = [
   'TAG Heuer', 'Tudor', 'Ulysse Nardin', 'Vacheron Constantin', 'Zenith',
 ]
 
-const CONDITIONS = ['Pre-owned']
+const CONDITIONS = ['New', 'Pre-owned', 'Used']
 const SCOPES = ['Watch Only', 'With Card', 'With Box', 'Card & Box']
 
 const EMPTY_FORM = {
@@ -118,7 +118,7 @@ const TRANSLATIONS = {
     msgSaved: '更改已保存。',
     // Scope / condition display labels
     scopeLabels: { 'Watch Only': '仅腕表', 'With Card': '含保卡', 'With Box': '含表盒', 'Card & Box': '含保卡和表盒' },
-    conditionLabels: { 'Pre-owned': '二手' },
+    conditionLabels: { 'New': '全新', 'Pre-owned': '二手', 'Used': '已使用' },
   },
   en: {
     // Sidebar
@@ -198,7 +198,7 @@ const TRANSLATIONS = {
     msgSaved: 'Changes saved.',
     // Scope / condition display labels
     scopeLabels: { 'Watch Only': 'Watch Only', 'With Card': 'With Card', 'With Box': 'With Box', 'Card & Box': 'Card & Box' },
-    conditionLabels: { 'Pre-owned': 'Pre-owned' },
+    conditionLabels: { 'New': 'New', 'Pre-owned': 'Pre-owned', 'Used': 'Used' },
   },
 }
 
@@ -242,6 +242,13 @@ export default function SupplierDashboard() {
   const [lightboxImgs, setLightboxImgs] = useState([])
   const [supSearch, setSupSearch] = useState('')
   const [lang, setLang] = useState(() => localStorage.getItem('supplierLang') || 'zh')
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 680)
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 680)
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   const t = TRANSLATIONS[lang]
 
@@ -522,20 +529,44 @@ export default function SupplierDashboard() {
     )
   }
 
-  const sidebarEl = (
+  const mobilePill = (filter, label) => {
+    const isActive = filter === 'all'
+      ? (view === 'list' && filterStatus === 'all') || view === 'detail' || view === 'new' || view === 'edit'
+      : view === 'list' && filterStatus === filter
+    return (
+      <button key={filter} onClick={() => { setFilterStatus(filter); setView('list'); setSelected(null) }} style={{
+        padding: '6px 14px', borderRadius: 20, border: '1px solid #e5e7eb', whiteSpace: 'nowrap',
+        background: isActive ? '#1f2937' : '#fff', color: isActive ? '#fff' : '#374151',
+        fontSize: 13, fontWeight: isActive ? 600 : 400, cursor: 'pointer',
+      }}>{label}</button>
+    )
+  }
+
+  const langToggle = (
+    <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+      {['zh', 'en'].map(l => (
+        <button key={l} onClick={() => switchLang(l)} style={{
+          padding: '2px 8px', borderRadius: 5, border: '1px solid #e5e7eb', fontSize: 11,
+          cursor: 'pointer', fontWeight: lang === l ? 700 : 400,
+          background: lang === l ? '#1f2937' : '#fff',
+          color: lang === l ? '#fff' : '#6b7280',
+        }}>{l === 'zh' ? '中文' : 'EN'}</button>
+      ))}
+    </div>
+  )
+
+  const sidebarEl = isMobile ? (
+    <nav style={{ borderBottom: '1px solid #e5e7eb', background: '#fff', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 8, overflowX: 'auto', flexShrink: 0, WebkitOverflowScrolling: 'touch' }}>
+      {mobilePill('all', t.myListings)}
+      {mobilePill('approved', t.approved)}
+      {mobilePill('rejected', t.rejected)}
+      <div style={{ marginLeft: 'auto', flexShrink: 0 }}>{langToggle}</div>
+    </nav>
+  ) : (
     <aside style={{ width: 230, flexShrink: 0, borderRight: '1px solid #e5e7eb', background: '#fff', display: 'flex', flexDirection: 'column', padding: '20px 0 16px', overflowY: 'auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', marginBottom: 10 }}>
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#9ca3af' }}>{t.sidebarLabel}</div>
-        <div style={{ display: 'flex', gap: 4 }}>
-          {['zh', 'en'].map(l => (
-            <button key={l} onClick={() => switchLang(l)} style={{
-              padding: '2px 8px', borderRadius: 5, border: '1px solid #e5e7eb', fontSize: 11,
-              cursor: 'pointer', fontWeight: lang === l ? 700 : 400,
-              background: lang === l ? '#1f2937' : '#fff',
-              color: lang === l ? '#fff' : '#6b7280',
-            }}>{l === 'zh' ? '中文' : 'EN'}</button>
-          ))}
-        </div>
+        {langToggle}
       </div>
       {sbNav('all', t.myListings, <IconBagSB />)}
       {sbNav('approved', t.approved, <IconCheck />)}
@@ -583,9 +614,9 @@ export default function SupplierDashboard() {
       <div className="page" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <Topbar />
         {lightboxEl}
-        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden', flexDirection: isMobile ? 'column' : 'row' }}>
           {sidebarEl}
-          <main style={{ flex: 1, overflowY: 'auto', padding: '28px 32px' }}>
+          <main style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '16px' : '28px 32px' }}>
             <div style={{ maxWidth: 520 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
                 <button className="btn" onClick={() => { resetForm(); setView('list') }} style={{ fontSize: 13 }}>{t.back}</button>
@@ -615,7 +646,7 @@ export default function SupplierDashboard() {
                   <input className="input" placeholder={t.refPlaceholder} value={form.reference} onChange={e => setForm(f => ({ ...f, reference: e.target.value }))} />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
                   <div style={fieldWrap}>
                     <div style={fieldLabel}>{t.conditionLabel}</div>
                     <select className="input" value={form.condition} onChange={e => setForm(f => ({ ...f, condition: e.target.value }))}>
@@ -633,11 +664,11 @@ export default function SupplierDashboard() {
 
                 <div style={fieldWrap}>
                   <div style={fieldLabel}>{t.askingPriceLabel}</div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <select className="input" value={form.asking_price_currency} onChange={e => setForm(f => ({ ...f, asking_price_currency: e.target.value }))} style={{ width: 110, flexShrink: 0 }}>
+                  <div style={{ display: 'flex', gap: 8, flexDirection: isMobile ? 'column' : 'row' }}>
+                    <select className="input" value={form.asking_price_currency} onChange={e => setForm(f => ({ ...f, asking_price_currency: e.target.value }))} style={{ width: isMobile ? '100%' : 110, flexShrink: 0 }}>
                       {PRICE_CURRENCIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                     </select>
-                    <input className="input" placeholder="0" type="number" value={form.asking_price} onChange={e => setForm(f => ({ ...f, asking_price: e.target.value }))} style={{ flex: 1 }} />
+                    <input className="input" placeholder="0" type="number" inputMode="numeric" value={form.asking_price} onChange={e => setForm(f => ({ ...f, asking_price: e.target.value }))} style={{ flex: 1 }} />
                   </div>
                 </div>
 
@@ -677,7 +708,7 @@ export default function SupplierDashboard() {
                   </label>
                 </div>
 
-                <div style={{ display: 'flex', gap: 10, marginTop: 4, paddingTop: 16, borderTop: '1px solid var(--border-light)' }}>
+                <div style={{ display: 'flex', gap: 10, marginTop: 4, paddingTop: 16, borderTop: '1px solid var(--border-light)', flexDirection: isMobile ? 'column' : 'row' }}>
                   <button className="btn btn-full" onClick={() => isEdit ? handleEdit(false) : handleCreate(false)} disabled={saving || submitting}>
                     {saving ? t.saving : t.save}
                   </button>
@@ -702,9 +733,9 @@ export default function SupplierDashboard() {
       <div className="page" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <Topbar />
         {lightboxEl}
-        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden', flexDirection: isMobile ? 'column' : 'row' }}>
           {sidebarEl}
-          <main style={{ flex: 1, overflowY: 'auto', padding: '28px 32px' }}>
+          <main style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '16px' : '28px 32px' }}>
             <div style={{ maxWidth: 680 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22 }}>
                 <button className="btn" onClick={() => { setView('list'); setSelected(null) }} style={{ fontSize: 13 }}>{t.back}</button>
