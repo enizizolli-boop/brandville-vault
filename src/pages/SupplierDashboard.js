@@ -454,7 +454,7 @@ export default function SupplierDashboard() {
                     <select className="input" value={form.asking_price_currency} onChange={e => setForm(f => ({ ...f, asking_price_currency: e.target.value }))} style={{ width: 110, flexShrink: 0 }}>
                       {PRICE_CURRENCIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                     </select>
-                    <input className="input" placeholder="Optional" type="number" value={form.asking_price} onChange={e => setForm(f => ({ ...f, asking_price: e.target.value }))} style={{ flex: 1 }} />
+                    <input className="input" placeholder="0" type="number" value={form.asking_price} onChange={e => setForm(f => ({ ...f, asking_price: e.target.value }))} style={{ flex: 1 }} />
                   </div>
                 </div>
 
@@ -596,7 +596,7 @@ export default function SupplierDashboard() {
                 {selected.status === 'rejected' && (
                   <button className="btn" onClick={() => submitDraft(selected)}>Resubmit for Review</button>
                 )}
-                {selected.status === 'approved' && (
+                {(selected.status === 'approved' || selected.status === 'pending_review') && (
                   <button
                     onClick={() => markAsSold(selected)}
                     style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', color: '#374151', fontSize: 14, cursor: 'pointer', fontWeight: 500 }}
@@ -738,7 +738,7 @@ export default function SupplierDashboard() {
                             Edit
                           </button>
                         )}
-                        {listing.status === 'approved' && (
+                        {(listing.status === 'approved' || listing.status === 'pending_review') && (
                           <button
                             className="btn btn-sm"
                             style={{ fontSize: 11, padding: '3px 12px', color: '#6b7280', borderColor: '#d1d5db' }}
