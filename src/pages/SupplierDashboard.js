@@ -152,9 +152,15 @@ export default function SupplierDashboard() {
       const { data: listing, error: lErr } = await supabase
         .from('supplier_listings')
         .insert({
-          ...form,
-          supplier_id: user.id,
+          brand: form.brand,
+          model: form.model,
+          reference: form.reference || null,
+          condition: form.condition || null,
+          scope_of_delivery: form.scope_of_delivery || null,
+          notes: form.notes || null,
           asking_price: form.asking_price ? Number(form.asking_price) : null,
+          asking_price_currency: form.asking_price_currency || 'CNY',
+          supplier_id: user.id,
           status: submitForReview ? 'pending_review' : 'draft',
         })
         .select()
@@ -192,8 +198,14 @@ export default function SupplierDashboard() {
       const { error: uErr } = await supabase
         .from('supplier_listings')
         .update({
-          ...form,
+          brand: form.brand,
+          model: form.model,
+          reference: form.reference || null,
+          condition: form.condition || null,
+          scope_of_delivery: form.scope_of_delivery || null,
+          notes: form.notes || null,
           asking_price: form.asking_price ? Number(form.asking_price) : null,
+          asking_price_currency: form.asking_price_currency || 'CNY',
           status: newStatus,
         })
         .eq('id', selected.id)
