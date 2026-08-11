@@ -243,6 +243,7 @@ export default function SupplierDashboard() {
   const [supSearch, setSupSearch] = useState('')
   const [lang, setLang] = useState(() => localStorage.getItem('supplierLang') || 'zh')
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 680)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 680)
@@ -512,7 +513,7 @@ export default function SupplierDashboard() {
       ? (view === 'list' && filterStatus === 'all') || view === 'detail' || view === 'new' || view === 'edit'
       : view === 'list' && filterStatus === filter
     return (
-      <button onClick={() => { setFilterStatus(filter); setView('list'); setSelected(null) }} style={{
+      <button onClick={() => { setFilterStatus(filter); setView('list'); setSelected(null); setMobileMenuOpen(false) }} style={{
         display: 'flex', alignItems: 'center', gap: 10,
         width: '100%', padding: '8px 16px',
         borderTop: 'none', borderRight: 'none', borderBottom: 'none',
@@ -529,19 +530,6 @@ export default function SupplierDashboard() {
     )
   }
 
-  const mobilePill = (filter, label) => {
-    const isActive = filter === 'all'
-      ? (view === 'list' && filterStatus === 'all') || view === 'detail' || view === 'new' || view === 'edit'
-      : view === 'list' && filterStatus === filter
-    return (
-      <button key={filter} onClick={() => { setFilterStatus(filter); setView('list'); setSelected(null) }} style={{
-        padding: '6px 14px', borderRadius: 20, border: '1px solid #e5e7eb', whiteSpace: 'nowrap',
-        background: isActive ? '#1f2937' : '#fff', color: isActive ? '#fff' : '#374151',
-        fontSize: 13, fontWeight: isActive ? 600 : 400, cursor: 'pointer',
-      }}>{label}</button>
-    )
-  }
-
   const langToggle = (
     <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
       {['zh', 'en'].map(l => (
@@ -555,13 +543,41 @@ export default function SupplierDashboard() {
     </div>
   )
 
-  const mobileNavEl = (
-    <nav style={{ borderBottom: '1px solid #e5e7eb', background: '#fff', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 8, overflowX: 'auto', flexShrink: 0, WebkitOverflowScrolling: 'touch' }}>
-      {mobilePill('all', t.myListings)}
-      {mobilePill('approved', t.approved)}
-      {mobilePill('rejected', t.rejected)}
-      <div style={{ marginLeft: 'auto', flexShrink: 0 }}>{langToggle}</div>
-    </nav>
+  const mobileTopBarEl = (
+    <div style={{ borderBottom: '1px solid #e5e7eb', background: '#fff', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+      <button onClick={() => setMobileMenuOpen(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', color: '#374151' }}>
+        <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      {langToggle}
+    </div>
+  )
+
+  const mobileDrawerEl = mobileMenuOpen && (
+    <>
+      <div onClick={() => setMobileMenuOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 200 }} />
+      <div style={{ position: 'fixed', left: 0, top: 0, bottom: 0, width: 260, background: '#fff', zIndex: 201, display: 'flex', flexDirection: 'column', padding: '20px 0 16px', overflowY: 'auto', boxShadow: '4px 0 24px rgba(0,0,0,0.15)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', marginBottom: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#9ca3af' }}>{t.sidebarLabel}</div>
+          <button onClick={() => setMobileMenuOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: 18, lineHeight: 1, display: 'flex', alignItems: 'center' }}>✕</button>
+        </div>
+        {sbNav('all', t.myListings, <IconBagSB />)}
+        {sbNav('approved', t.approved, <IconCheck />)}
+        {sbNav('rejected', t.rejected, <IconX />)}
+        <div style={{ flex: 1 }} />
+        <div style={{ margin: '16px 12px 0', background: '#fdf8f2', border: '1px solid #e9d8bc', borderRadius: 12, padding: '14px 14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 50, background: '#f5ede0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="16" height="16" fill="none" stroke="#b8965a" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+            </div>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>{t.needHelp}</span>
+          </div>
+          <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 12, lineHeight: 1.5 }}>{t.helpDesc}</div>
+          <button style={{ width: '100%', fontSize: 13, padding: '8px 0', border: '1px solid #c8a76a', borderRadius: 8, background: 'transparent', color: '#b8965a', cursor: 'pointer', fontWeight: 500 }}>{t.contactSupport}</button>
+        </div>
+      </div>
+    </>
   )
 
   const sidebarEl = (
@@ -616,7 +632,8 @@ export default function SupplierDashboard() {
       <div className="page" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <Topbar />
         {lightboxEl}
-        {isMobile && mobileNavEl}
+        {mobileDrawerEl}
+        {isMobile && mobileTopBarEl}
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           {!isMobile && sidebarEl}
           <main style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '16px' : '28px 32px' }}>
@@ -736,7 +753,8 @@ export default function SupplierDashboard() {
       <div className="page" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <Topbar />
         {lightboxEl}
-        {isMobile && mobileNavEl}
+        {mobileDrawerEl}
+        {isMobile && mobileTopBarEl}
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           {!isMobile && sidebarEl}
           <main style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '16px' : '28px 32px' }}>
@@ -841,13 +859,15 @@ export default function SupplierDashboard() {
     <div className="page" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Topbar />
       {lightboxEl}
+      {mobileDrawerEl}
+      {isMobile && mobileTopBarEl}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {sidebarEl}
-        <main style={{ flex: 1, overflowY: 'auto', padding: '28px 32px' }}>
+        {!isMobile && sidebarEl}
+        <main style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '16px' : '28px 32px' }}>
           <div style={{ maxWidth: 700 }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
               <div>
-                <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{t.myListingsTitle}</h2>
+                <h2 style={{ margin: 0, fontSize: isMobile ? 18 : 20, fontWeight: 700 }}>{t.myListingsTitle}</h2>
                 <div style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>{t.items(listings.length)}</div>
               </div>
               <button className="btn btn-dark" onClick={() => { resetForm(); setView('new') }} style={{ flexShrink: 0 }}>{t.newListingBtn}</button>
@@ -906,12 +926,13 @@ export default function SupplierDashboard() {
                     <div
                       key={listing.id}
                       style={{
-                        display: 'flex', alignItems: 'center', gap: 14,
+                        display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', gap: 14,
                         padding: '14px 16px',
                         background: '#fff',
                         border: '1px solid #e5e7eb',
                         borderLeft: `3px solid ${cfg.color}`,
                         borderRadius: 12,
+                        flexWrap: isMobile ? 'wrap' : 'nowrap',
                       }}
                     >
                       <div
@@ -943,7 +964,7 @@ export default function SupplierDashboard() {
                           </div>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
+                      <div style={{ display: 'flex', flexDirection: isMobile ? 'row' : 'column', alignItems: isMobile ? 'center' : 'flex-end', gap: 8, flexShrink: 0, width: isMobile ? '100%' : 'auto', flexWrap: 'wrap' }}>
                         <div style={{ padding: '3px 10px', borderRadius: 20, background: cfg.color + '18', color: cfg.color, fontSize: 11, fontWeight: 600 }}>{statusLabel(listing.status)}</div>
                         {canEdit(listing.status) && (
                           <button
