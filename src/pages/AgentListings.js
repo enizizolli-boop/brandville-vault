@@ -301,6 +301,7 @@ export default function AgentListings() {
   const location = useLocation()
   const { rate } = useExchangeRate()
   const { rate: cnyToEurRate } = useExchangeRate('CNY', 'EUR')
+  const { rate: hkdToEurRate } = useExchangeRate('HKD', 'EUR')
   const [tab, setTab] = useState(() => {
     const params = new URLSearchParams(window.location.search)
     return params.get('tab') || 'listings'
@@ -463,7 +464,7 @@ export default function AgentListings() {
   useEffect(() => { if (profile && tab === 'clients') fetchClients() }, [profile, tab, fetchClients])
   useEffect(() => { if (profile && tab === 'supplier') fetchSupplierListings() }, [profile, tab, fetchSupplierListings])
 
-  const CURRENCY_SYMBOLS = { EUR: '€', USD: '$', GBP: '£', CHF: 'CHF ', CNY: '¥' }
+  const CURRENCY_SYMBOLS = { EUR: '€', USD: '$', CNY: '¥', HKD: 'HK$' }
 
   async function approveSupplierListing(listing) {
     const rd = supReviewData[listing.id] || {}
@@ -479,6 +480,9 @@ export default function AgentListings() {
       priceEur = rate ? Math.round(num / rate) : num
     } else if (cur === 'CNY') {
       priceEur = cnyToEurRate ? Math.round(num * cnyToEurRate) : num
+      priceUsd = priceEur && rate ? Math.round(priceEur * rate) : null
+    } else if (cur === 'HKD') {
+      priceEur = hkdToEurRate ? Math.round(num * hkdToEurRate) : num
       priceUsd = priceEur && rate ? Math.round(priceEur * rate) : null
     } else {
       priceEur = num
@@ -1872,9 +1876,11 @@ export default function AgentListings() {
                     {listing.scope_of_delivery && <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>{listing.scope_of_delivery}</div>}
                     {listing.asking_price && (() => {
                       const cur = listing.asking_price_currency || 'CNY'
-                      const sym = { EUR: '€', USD: '$', GBP: '£', CHF: 'CHF ', CNY: '¥' }[cur] || ''
+                      const sym = { EUR: '€', USD: '$', CNY: '¥', HKD: 'HK$' }[cur] || ''
                       const eurEq = cur === 'CNY' && cnyToEurRate
                         ? ` (≈ €${Math.round(listing.asking_price * cnyToEurRate).toLocaleString()})`
+                        : cur === 'HKD' && hkdToEurRate
+                        ? ` (≈ €${Math.round(listing.asking_price * hkdToEurRate).toLocaleString()})`
                         : cur === 'USD' && rate
                         ? ` (≈ €${Math.round(listing.asking_price / rate).toLocaleString()})`
                         : ''
@@ -1898,14 +1904,20 @@ export default function AgentListings() {
                   <div style={{ flexShrink: 0 }}>
                     <div style={{ fontSize: 11, color: 'var(--faint)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
                       Selling price
-                      {listing.asking_price && listing.asking_price_currency === 'CNY' && cnyToEurRate && (
-                        <button
-                          onClick={() => setRd({ price: String(Math.round(listing.asking_price * cnyToEurRate)), currency: 'EUR' })}
-                          style={{ fontSize: 11, color: '#b8965a', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline' }}
-                        >
-                          Use ≈ €{Math.round(listing.asking_price * cnyToEurRate).toLocaleString()}
-                        </button>
-                      )}
+                      {(() => {
+                        const ac = listing.asking_price_currency
+                        const eurHint = ac === 'CNY' && cnyToEurRate ? Math.round(listing.asking_price * cnyToEurRate)
+                          : ac === 'HKD' && hkdToEurRate ? Math.round(listing.asking_price * hkdToEurRate)
+                          : null
+                        return listing.asking_price && eurHint ? (
+                          <button
+                            onClick={() => setRd({ price: String(eurHint), currency: 'EUR' })}
+                            style={{ fontSize: 11, color: '#b8965a', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline' }}
+                          >
+                            Use ≈ €{eurHint.toLocaleString()}
+                          </button>
+                        ) : null
+                      })()}
                     </div>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                       <select
@@ -1916,9 +1928,8 @@ export default function AgentListings() {
                       >
                         <option value="EUR">€ EUR</option>
                         <option value="USD">$ USD</option>
-                        <option value="GBP">£ GBP</option>
-                        <option value="CHF">CHF</option>
                         <option value="CNY">¥ CNY</option>
+                        <option value="HKD">HK$ HKD</option>
                       </select>
                       <input
                         className="input"

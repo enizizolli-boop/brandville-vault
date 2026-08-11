@@ -31,10 +31,9 @@ const EMPTY_FORM = {
 
 const PRICE_CURRENCIES = [
   { value: 'CNY', label: '¥ CNY' },
+  { value: 'HKD', label: 'HK$ HKD' },
   { value: 'EUR', label: '€ EUR' },
   { value: 'USD', label: '$ USD' },
-  { value: 'GBP', label: '£ GBP' },
-  { value: 'CHF', label: 'CHF' },
 ]
 
 const STATUS_CONFIG = {
