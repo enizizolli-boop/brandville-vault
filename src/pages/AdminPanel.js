@@ -17,8 +17,45 @@ function fmtAge(iso) {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
+function SidebarIcon({ id }) {
+  if (id === 'overview') return (
+    <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24">
+      <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+      <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+    </svg>
+  )
+  if (id === 'dealers') return (
+    <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24">
+      <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+    </svg>
+  )
+  if (id === 'agents') return (
+    <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24">
+      <circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/>
+      <path d="M16 11c1.7 0 3 1.3 3 3m3 6c0-2.8-1.8-5-4-5.5" strokeLinecap="round"/>
+    </svg>
+  )
+  if (id === 'suppliers') return (
+    <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24">
+      <path d="M20 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1z"/>
+      <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+    </svg>
+  )
+  if (id === 'invite') return (
+    <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24">
+      <path d="M12 5v14M5 12h14"/>
+    </svg>
+  )
+  if (id === 'sync') return (
+    <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24">
+      <path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15" strokeLinecap="round"/>
+    </svg>
+  )
+  return null
+}
+
 export default function AdminPanel() {
-  const [tab, setTab] = useState('dealers')
+  const [tab, setTab] = useState('overview')
   const [search, setSearch] = useState('')
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -49,7 +86,8 @@ export default function AdminPanel() {
   const [bagsMissingResult, setBagsMissingResult] = useState(null)
   const [imagesSyncing, setImagesSyncing] = useState(false)
   const [imagesResult, setImagesResult] = useState(null)
-const [syncLog, setSyncLog] = useState({})
+  const [syncLog, setSyncLog] = useState({})
+  const [supplierListings, setSupplierListings] = useState([])
 
   const fetchUsers = useCallback(async () => {
     const { data } = await supabase.from('profiles').select('*').order('created_at')
@@ -68,10 +106,7 @@ const [syncLog, setSyncLog] = useState({})
 
   const fetchStats = useCallback(async () => {
     const [
-      { count: total },
-      { count: available },
-      { count: reserved },
-      { count: sold },
+      { count: total }, { count: available }, { count: reserved }, { count: sold },
     ] = await Promise.all([
       supabase.from('products').select('*', { count: 'exact', head: true }),
       supabase.from('products').select('*', { count: 'exact', head: true }).eq('status', 'available'),
@@ -81,7 +116,16 @@ const [syncLog, setSyncLog] = useState({})
     setStats({ total: total || 0, available: available || 0, reserved: reserved || 0, sold: sold || 0 })
   }, [])
 
-  useEffect(() => { fetchUsers(); fetchStats(); fetchSyncLog() }, [fetchUsers, fetchStats, fetchSyncLog])
+  const fetchSupplierListings = useCallback(async () => {
+    const { data } = await supabase
+      .from('supplier_listings')
+      .select('*, supplier_listing_images(url, position), profiles!supplier_id(full_name, phone)')
+      .eq('status', 'pending_review')
+      .order('created_at', { ascending: false })
+    setSupplierListings(data || [])
+  }, [])
+
+  useEffect(() => { fetchUsers(); fetchStats(); fetchSyncLog(); fetchSupplierListings() }, [fetchUsers, fetchStats, fetchSyncLog, fetchSupplierListings])
 
   async function handleInvite(e) {
     e.preventDefault()
@@ -89,308 +133,145 @@ const [syncLog, setSyncLog] = useState({})
     if (!inviteEmail) return
     setInviting(true)
     try {
-      const body = JSON.stringify({
-        email: inviteEmail,
-        role: inviteRole,
-        full_name: inviteName || inviteEmail.split('@')[0]
-      })
+      const body = JSON.stringify({ email: inviteEmail, role: inviteRole, full_name: inviteName || inviteEmail.split('@')[0] })
       const res = await fetch('https://tulqgebsvpxgwocptnmy.supabase.co/functions/v1/send-invite', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1bHFnZWJzdnB4Z3dvY3B0bm15Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MjYzOTEsImV4cCI6MjA5MDIwMjM5MX0.H12dPM59cIxlvpR7jbuDjpX11qNdohvi-nhiMxNheJA'
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1bHFnZWJzdnB4Z3dvY3B0bm15Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MjYzOTEsImV4cCI6MjA5MDIwMjM5MX0.H12dPM59cIxlvpR7jbuDjpX11qNdohvi-nhiMxNheJA' },
         body
       })
       const result = await res.json()
       if (!res.ok) throw new Error(result.error || 'Invite failed')
-      setMsg(`Invite sent to ${inviteEmail} — they'll receive an email to set their password and access the catalog.`)
-      setInviteEmail('')
-      setInviteName('')
+      setMsg(`Invite sent to ${inviteEmail}`)
+      setInviteEmail(''); setInviteName('')
       fetchUsers()
-    } catch (err) {
-      setError(err.message || 'Something went wrong. Please try again.')
-    }
+    } catch (err) { setError(err.message || 'Something went wrong.') }
     setInviting(false)
   }
 
   async function handleSync() {
-    setSyncing(true)
-    setSyncResult(null)
-    setSyncError('')
-
-    const BATCH_SIZE = 20
-    let offset = 0
-    let totalAdded = 0
-    let totalUpdated = 0
-    let totalRemoved = 0
-    let totalImages = 0
-    let grandTotal = 0
-
+    setSyncing(true); setSyncResult(null); setSyncError('')
+    const BATCH_SIZE = 20; let offset = 0
+    let totalAdded = 0, totalUpdated = 0, totalRemoved = 0, totalImages = 0, grandTotal = 0
     try {
       while (true) {
-        let data = null
-        let attempt = 0
+        let data = null; let attempt = 0
         while (attempt < 5) {
           try {
-            const res = await fetch('/api/zoho-sync', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ batch_size: BATCH_SIZE, offset })
-            })
+            const res = await fetch('/api/zoho-sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ batch_size: BATCH_SIZE, offset }) })
             data = await res.json()
             if (!res.ok) {
-              const msg = data.error || ''
-              if (msg.toLowerCase().includes('too many') || msg.toLowerCase().includes('rate') || msg.toLowerCase().includes('access denied')) {
-                setSyncError(`Rate limit hit — auto-retrying in 8 seconds... (attempt ${attempt + 1}/5)`)
-                await new Promise(r => setTimeout(r, 8000))
-                setSyncError('')
-                attempt++
-                continue
+              const m = data.error || ''
+              if (m.toLowerCase().includes('too many') || m.toLowerCase().includes('rate') || m.toLowerCase().includes('access denied')) {
+                setSyncError(`Rate limit hit — retrying in 8s... (attempt ${attempt + 1}/5)`)
+                await new Promise(r => setTimeout(r, 8000)); setSyncError(''); attempt++; continue
               }
-              throw new Error(msg || 'Sync failed')
+              throw new Error(m || 'Sync failed')
             }
             break
-          } catch (err) {
-            if (attempt >= 4) throw err
-            await new Promise(r => setTimeout(r, 3000))
-            attempt++
-          }
+          } catch (err) { if (attempt >= 4) throw err; await new Promise(r => setTimeout(r, 3000)); attempt++ }
         }
-
-        totalAdded += data.added || 0
-        totalUpdated += data.updated || 0
-        totalRemoved += data.removed || 0
-        totalImages += data.images_added || 0
-        grandTotal = data.total || grandTotal
+        totalAdded += data.added || 0; totalUpdated += data.updated || 0; totalRemoved += data.removed || 0
+        totalImages += data.images_added || 0; grandTotal = data.total || grandTotal
         const processed = offset + (data.processed || 0)
-
-        setSyncResult({
-          inProgress: !data.done,
-          added: totalAdded,
-          updated: totalUpdated,
-          removed: totalRemoved,
-          images_added: totalImages,
-          processed,
-          total: grandTotal,
-          pct: grandTotal ? Math.round((processed / grandTotal) * 100) : 0,
-        })
-
+        setSyncResult({ inProgress: !data.done, added: totalAdded, updated: totalUpdated, removed: totalRemoved, images_added: totalImages, processed, total: grandTotal, pct: grandTotal ? Math.round((processed / grandTotal) * 100) : 0 })
         if (data.done || !data.next_offset) break
         offset = data.next_offset
       }
       fetchStats()
-    } catch (err) {
-      setSyncError(`Failed at item ${offset} — ${err.message}`)
-      setSyncResult(prev => prev ? { ...prev, inProgress: false } : null)
-    }
+    } catch (err) { setSyncError(`Failed at item ${offset} — ${err.message}`); setSyncResult(prev => prev ? { ...prev, inProgress: false } : null) }
     setSyncing(false)
   }
 
   async function handleTestCronZoho() {
-    setCronZohoRunning(true)
-    setCronZohoResult(null)
-    try {
-      const res = await fetch('/api/cron-zoho-sync')
-      const data = await res.json()
-      setCronZohoResult(data)
-    } catch (err) {
-      setCronZohoResult({ error: err.message })
-    }
+    setCronZohoRunning(true); setCronZohoResult(null)
+    try { const res = await fetch('/api/cron-zoho-sync'); setCronZohoResult(await res.json()) }
+    catch (err) { setCronZohoResult({ error: err.message }) }
     setCronZohoRunning(false)
   }
 
   async function handleSyncImages() {
-    setImagesSyncing(true)
-    setImagesResult(null)
-    const BATCH_SIZE = 5
-    let offset = 0
-    let totalImages = 0
-    let grandTotal = 0
+    setImagesSyncing(true); setImagesResult(null)
+    const BATCH_SIZE = 5; let offset = 0; let totalImages = 0; let grandTotal = 0
     try {
       while (true) {
-        const res = await fetch('/api/zoho-images', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ batch_size: BATCH_SIZE, offset })
-        })
+        const res = await fetch('/api/zoho-images', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ batch_size: BATCH_SIZE, offset }) })
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Image sync failed')
-        totalImages += data.images_added || 0
-        grandTotal = data.total || grandTotal
+        totalImages += data.images_added || 0; grandTotal = data.total || grandTotal
         setImagesResult({ inProgress: !data.done, images_added: totalImages, processed: offset + (data.processed || 0), total: grandTotal })
         if (data.done || !data.next_offset) break
         offset = data.next_offset
       }
-    } catch (err) {
-      setImagesResult({ error: err.message })
-    }
+    } catch (err) { setImagesResult({ error: err.message }) }
     setImagesSyncing(false)
   }
 
-async function handleTestCronBags() {
-    setCronBagsRunning(true)
-    setCronBagsResult(null)
-    try {
-      const res = await fetch('/api/cron-odoo-bags-sync')
-      const data = await res.json()
-      setCronBagsResult(data)
-    } catch (err) {
-      setCronBagsResult({ error: err.message })
-    }
+  async function handleTestCronBags() {
+    setCronBagsRunning(true); setCronBagsResult(null)
+    try { const res = await fetch('/api/cron-odoo-bags-sync'); setCronBagsResult(await res.json()) }
+    catch (err) { setCronBagsResult({ error: err.message }) }
     setCronBagsRunning(false)
   }
 
   async function handleBagsMissingSync() {
-    setBagsMissingRunning(true)
-    setBagsMissingResult(null)
-    try {
-      const res = await fetch('/api/odoo-bags-sync-missing?limit=50')
-      const data = await res.json()
-      setBagsMissingResult(data)
-    } catch (err) {
-      setBagsMissingResult({ error: err.message })
-    }
+    setBagsMissingRunning(true); setBagsMissingResult(null)
+    try { const res = await fetch('/api/odoo-bags-sync-missing?limit=50'); setBagsMissingResult(await res.json()) }
+    catch (err) { setBagsMissingResult({ error: err.message }) }
     setBagsMissingRunning(false)
   }
 
   async function handleOdooSync() {
-    setOdooSyncing(true)
-    setOdooResult(null)
-    setOdooError('')
-
-    const BATCH_SIZE = 5
-    let offset = 0
-    let totalAdded = 0
-    let totalUpdated = 0
-    let totalImages = 0
-    let grandTotal = 0
-    const MAX_RETRIES = 3
-
+    setOdooSyncing(true); setOdooResult(null); setOdooError('')
+    const BATCH_SIZE = 5; let offset = 0; let totalAdded = 0, totalUpdated = 0, totalImages = 0, grandTotal = 0
     try {
       while (true) {
-        let data = null
-        let lastError = null
-
-        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        let data = null; let lastError = null
+        for (let attempt = 0; attempt < 3; attempt++) {
           try {
-            const res = await fetch('/api/odoo-sync', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ batch_size: BATCH_SIZE, offset })
-            })
-            data = await res.json()
-            if (!res.ok) throw new Error(data.error || 'Odoo sync failed')
-            lastError = null
-            break
-          } catch (err) {
-            lastError = err
-            await new Promise(r => setTimeout(r, 2000))
-          }
+            const res = await fetch('/api/odoo-sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ batch_size: BATCH_SIZE, offset }) })
+            data = await res.json(); if (!res.ok) throw new Error(data.error || 'Odoo sync failed'); lastError = null; break
+          } catch (err) { lastError = err; await new Promise(r => setTimeout(r, 2000)) }
         }
-
         if (lastError) throw lastError
-
-        totalAdded += data.added || 0
-        totalUpdated += data.updated || 0
-        totalImages += data.images_added || 0
-        grandTotal = data.total || grandTotal
-
-        setOdooResult({
-          inProgress: !data.done,
-          added: totalAdded,
-          updated: totalUpdated,
-          images_added: totalImages,
-          processed: offset + (data.processed || 0),
-          total: grandTotal,
-        })
-
-        if (data.done || !data.next_offset) break
-        offset = data.next_offset
+        totalAdded += data.added || 0; totalUpdated += data.updated || 0; totalImages += data.images_added || 0; grandTotal = data.total || grandTotal
+        setOdooResult({ inProgress: !data.done, added: totalAdded, updated: totalUpdated, images_added: totalImages, processed: offset + (data.processed || 0), total: grandTotal })
+        if (data.done || !data.next_offset) break; offset = data.next_offset
       }
       fetchStats()
-    } catch (err) {
-      setOdooError(err.message || 'Odoo sync failed.')
-    }
+    } catch (err) { setOdooError(err.message || 'Odoo sync failed.') }
     setOdooSyncing(false)
   }
 
   async function handleBagsSync() {
-    setBagsSyncing(true)
-    setBagsResult(null)
-    setBagsError('')
-
-    const BATCH_SIZE = 2
-    let offset = 0
-    let totalAdded = 0
-    let totalUpdated = 0
-    let totalRemoved = 0
-    let totalImages = 0
-    let grandTotal = 0
-    const MAX_RETRIES = 3
-
+    setBagsSyncing(true); setBagsResult(null); setBagsError('')
+    const BATCH_SIZE = 2; let offset = 0; let totalAdded = 0, totalUpdated = 0, totalRemoved = 0, totalImages = 0, grandTotal = 0
     try {
       while (true) {
-        let data = null
-        let lastError = null
-
-        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        let data = null; let lastError = null
+        for (let attempt = 0; attempt < 3; attempt++) {
           try {
-            const res = await fetch('/api/odoo-bags-sync', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ batch_size: BATCH_SIZE, offset })
-            })
-            data = await res.json()
-            if (!res.ok) throw new Error(data.error || 'Bags sync failed')
-            lastError = null
-            break
-          } catch (err) {
-            lastError = err
-            await new Promise(r => setTimeout(r, 2000))
-          }
+            const res = await fetch('/api/odoo-bags-sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ batch_size: BATCH_SIZE, offset }) })
+            data = await res.json(); if (!res.ok) throw new Error(data.error || 'Bags sync failed'); lastError = null; break
+          } catch (err) { lastError = err; await new Promise(r => setTimeout(r, 2000)) }
         }
-
         if (lastError) throw lastError
-
-        totalAdded += data.added || 0
-        totalUpdated += data.updated || 0
-        totalRemoved += data.removed || 0
-        totalImages += data.images_added || 0
-        grandTotal = data.total || grandTotal
-
-        setBagsResult({
-          inProgress: !data.done,
-          added: totalAdded,
-          updated: totalUpdated,
-          removed: totalRemoved,
-          images_added: totalImages,
-          processed: offset + (data.processed || 0),
-          total: grandTotal,
-        })
-
-        if (data.done || !data.next_offset) break
-        offset = data.next_offset
+        totalAdded += data.added || 0; totalUpdated += data.updated || 0; totalRemoved += data.removed || 0; totalImages += data.images_added || 0; grandTotal = data.total || grandTotal
+        setBagsResult({ inProgress: !data.done, added: totalAdded, updated: totalUpdated, removed: totalRemoved, images_added: totalImages, processed: offset + (data.processed || 0), total: grandTotal })
+        if (data.done || !data.next_offset) break; offset = data.next_offset
       }
       fetchStats()
-    } catch (err) {
-      setBagsError(err.message || 'Bags sync failed.')
-    }
+    } catch (err) { setBagsError(err.message || 'Bags sync failed.') }
     setBagsSyncing(false)
   }
 
   async function handleExtractJewelleryTypes() {
-    setExtractingJewellery(true)
-    setExtractResult(null)
-    setExtractError('')
+    setExtractingJewellery(true); setExtractResult(null); setExtractError('')
     try {
       const res = await fetch('/api/extract-jewellery-types', { method: 'POST' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Extraction failed')
       setExtractResult(data)
-    } catch (err) {
-      setExtractError(err.message || 'Something went wrong')
-    }
+    } catch (err) { setExtractError(err.message || 'Something went wrong') }
     setExtractingJewellery(false)
   }
 
@@ -411,333 +292,347 @@ async function handleTestCronBags() {
   const dealers = users.filter(u => u.role === 'dealer')
   const agents = users.filter(u => u.role === 'agent')
 
+  const NAV = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'dealers', label: 'Dealers', count: dealers.length },
+    { id: 'agents', label: 'Agents', count: agents.length },
+    { id: 'suppliers', label: 'Supplier Queue', count: supplierListings.length, accent: supplierListings.length > 0 },
+    { id: 'invite', label: 'Invite User' },
+    { id: 'sync', label: 'Sync' },
+  ]
+
+  const q = search.trim().toLowerCase()
+
+  function UserList({ list }) {
+    const filtered = q ? list.filter(u =>
+      (u.full_name || '').toLowerCase().includes(q) ||
+      (u.email || '').toLowerCase().includes(q) ||
+      (u.phone || '').toLowerCase().includes(q)
+    ) : list
+
+    if (loading) return <div style={{ padding: 40, display: 'flex', justifyContent: 'center' }}><div className="spinner" /></div>
+
+    return (
+      <div>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+          <div style={{ position: 'relative', flex: 1, maxWidth: 340 }}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', opacity: 0.35 }}>
+              <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5"/>
+              <path d="M11 11l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, email or phone…" style={{ paddingLeft: 32, width: '100%', boxSizing: 'border-box' }} />
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--faint)', display: 'flex', alignItems: 'center' }}>
+            {filtered.length}{filtered.length !== list.length ? ` of ${list.length}` : ''} user{list.length !== 1 ? 's' : ''}
+          </div>
+        </div>
+
+        {filtered.length === 0 ? (
+          <div className="empty-state">{search ? 'No results for that search.' : `No users yet — invite one below.`}</div>
+        ) : (
+          <div style={{ border: '1px solid var(--border-light)', borderRadius: 14, overflow: 'hidden' }}>
+            {filtered.map((u, i) => (
+              <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 16px', background: 'var(--surface)', borderTop: i > 0 ? '1px solid var(--border-light)' : 'none' }}>
+                <div className={`avatar ${avatarColor(u.full_name)}`} style={{ flexShrink: 0, width: 38, height: 38, fontSize: 13 }}>
+                  {initials(u.full_name)}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{u.full_name || '—'}</div>
+                  <div style={{ fontSize: 12, color: 'var(--faint)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {u.email}{u.phone ? ` · ${u.phone}` : ''}
+                  </div>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--faint)', flexShrink: 0 }}>
+                  {new Date(u.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                  {u.role === 'dealer' && <button className="btn btn-sm" onClick={() => changeRole(u.id, 'agent')} style={{ fontSize: 11 }}>Make agent</button>}
+                  {u.role === 'agent' && <button className="btn btn-sm" onClick={() => changeRole(u.id, 'dealer')} style={{ fontSize: 11 }}>Make dealer</button>}
+                  {u.role !== 'admin' && <button className="btn btn-sm btn-danger" onClick={() => handleRevoke(u.id, u.full_name)} style={{ fontSize: 11 }}>Revoke</button>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  function SyncCard({ icon, title, subtitle, logKey, description, children }) {
+    return (
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 14, padding: 20, marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>{icon}</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>{title}</div>
+            <div style={{ fontSize: 11, color: 'var(--faint)' }}>{subtitle}</div>
+          </div>
+          {syncLog[logKey] && (
+            <div style={{ fontSize: 11, color: 'var(--faint)', textAlign: 'right', lineHeight: 1.5 }}>
+              <div style={{ color: '#4ade80', fontWeight: 600, fontSize: 10 }}>● SYNCED</div>
+              <div>{fmtAge(syncLog[logKey])}</div>
+            </div>
+          )}
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--faint)', lineHeight: 1.6, marginBottom: 14 }}>{description}</div>
+        {children}
+      </div>
+    )
+  }
+
+  function SyncResultBar({ result, error }) {
+    if (!result && !error) return null
+    if (error) return <div className="error-msg" style={{ marginBottom: 10, fontSize: 12 }}>{error}</div>
+    return (
+      <div style={{ marginBottom: 12 }}>
+        <div className="progress-wrap">
+          <div className="progress-bar" style={{ width: `${result.pct ?? (result.total ? Math.round((result.processed / result.total) * 100) : (result.inProgress ? 5 : 100))}%` }} />
+        </div>
+        <div className="progress-label">
+          {result.error ? `Error: ${result.error}` : result.inProgress
+            ? `${result.processed} / ${result.total} items${result.pct != null ? ` (${result.pct}%)` : ''}`
+            : `✓ Done — ${[result.added != null && `${result.added} added`, result.updated != null && `${result.updated} updated`, result.removed != null && `${result.removed} removed`, result.images_added != null && `${result.images_added} images`].filter(Boolean).join(' · ')}`
+          }
+        </div>
+      </div>
+    )
+  }
+
+  function SyncBtn({ onClick, disabled, running, label, runningLabel, secondary }) {
+    return (
+      <button className={`btn btn-full${secondary ? '' : ' btn-dark'}`} onClick={onClick} disabled={disabled} style={{ marginTop: secondary ? 8 : 0 }}>
+        {running ? <><span className="spinner" style={{ width: 14, height: 14 }} /> {runningLabel || 'Running...'}</> : label}
+      </button>
+    )
+  }
+
+  function InlineResult({ result, fallback }) {
+    if (!result) return null
+    return (
+      <div style={{ marginTop: 8, fontSize: 12, padding: '8px 10px', borderRadius: 8, background: result.error ? 'rgba(220,38,38,0.08)' : 'rgba(22,163,74,0.08)', color: result.error ? '#f87171' : '#4ade80' }}>
+        {result.error ? `Error: ${result.error}` : (fallback ? fallback(result) : JSON.stringify(result))}
+      </div>
+    )
+  }
+
   return (
-    <div className="page">
+    <div className="page" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Topbar />
-      <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
-        <div className="stat-card"><div className="stat-val">{stats.total}</div><div className="stat-lbl">Total items</div></div>
-        <div className="stat-card"><div className="stat-val">{stats.available}</div><div className="stat-lbl">Available</div></div>
-        <div className="stat-card"><div className="stat-val">{stats.reserved}</div><div className="stat-lbl">Reserved</div></div>
-        <div className="stat-card"><div className="stat-val">{stats.sold}</div><div className="stat-lbl">Sold</div></div>
-      </div>
 
-      <div className="tabs">
-        <div className={`tab ${tab === 'dealers' ? 'active' : ''}`} onClick={() => setTab('dealers')}>Dealers ({dealers.length})</div>
-        <div className={`tab ${tab === 'agents' ? 'active' : ''}`} onClick={() => setTab('agents')}>Agents ({agents.length})</div>
-        <div className={`tab ${tab === 'invite' ? 'active' : ''}`} onClick={() => setTab('invite')}>Invite user</div>
-        <div className={`tab ${tab === 'sync' ? 'active' : ''}`} onClick={() => setTab('sync')}>Sync</div>
-      </div>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
-      {tab === 'sync' && (
-        <div className="admin-section" style={{ maxWidth: 520 }}>
+        {/* Sidebar */}
+        <aside style={{
+          width: 220, flexShrink: 0,
+          borderRight: '1px solid var(--border-light)',
+          background: 'var(--surface)',
+          display: 'flex', flexDirection: 'column',
+          padding: '24px 12px',
+          overflowY: 'auto',
+        }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--faint)', padding: '0 8px', marginBottom: 8 }}>Admin</div>
 
-          {/* Zoho sync */}
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 14, padding: 20, marginBottom: 16, boxShadow: 'var(--shadow-xs)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(22,163,74,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🛍</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 600 }}>Zoho Commerce</div>
-                <div style={{ fontSize: 11, color: 'var(--faint)' }}>Watches & Bags</div>
-              </div>
-              {syncLog.sync_zoho && (
-                <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'right', lineHeight: 1.4 }}>
-                  <div style={{ color: '#4ade80', fontWeight: 600 }}>● synced</div>
-                  <div>{fmtAge(syncLog.sync_zoho)}</div>
-                </div>
-              )}
-            </div>
-            <div style={{ fontSize: 12, color: '#888', lineHeight: 1.6, marginBottom: 14 }}>
-              Pulls all items from your Zoho store. Removed items are deleted automatically. Manually added items are never affected.
-            </div>
-
-            {syncResult && (
-              <div style={{ marginBottom: 12 }}>
-                <div className="progress-wrap">
-                  <div className="progress-bar" style={{ width: `${syncResult.pct || (syncResult.inProgress ? 5 : 100)}%` }} />
-                </div>
-                <div className="progress-label">
-                  {syncResult.inProgress
-                    ? `${syncResult.processed} / ${syncResult.total} items (${syncResult.pct || 0}%)`
-                    : `✓ Done — ${syncResult.added} added · ${syncResult.updated} updated · ${syncResult.removed} removed · ${syncResult.images_added} images`
-                  }
-                </div>
-              </div>
-            )}
-
-            {syncError && <div className="error-msg" style={{ marginBottom: 10, fontSize: 12 }}>{syncError}</div>}
-
-            <button className="btn btn-dark btn-full" onClick={handleSync} disabled={syncing}>
-              {syncing ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Syncing...</> : '↻ Sync now'}
-            </button>
-            <button className="btn btn-full" onClick={handleTestCronZoho} disabled={cronZohoRunning} style={{ marginTop: 8 }}>
-              {cronZohoRunning ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Running cron...</> : '⏱ Test auto-sync cron'}
-            </button>
-            {cronZohoResult && (
-              <div style={{ marginTop: 8, fontSize: 12, padding: '8px 10px', borderRadius: 8, background: cronZohoResult.error ? 'rgba(220,38,38,0.1)' : 'rgba(22,163,74,0.1)', color: cronZohoResult.error ? '#f87171' : '#4ade80' }}>
-                {cronZohoResult.error
-                  ? `Error: ${cronZohoResult.error}`
-                  : `✓ Cron OK — ${cronZohoResult.upserted} updated · ${cronZohoResult.marked_sold} marked sold · ${cronZohoResult.total_recent} recent changes`
-                }
-              </div>
-            )}
-            <button className="btn btn-full" onClick={handleSyncImages} disabled={imagesSyncing} style={{ marginTop: 8 }}>
-              {imagesSyncing ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Syncing images...</> : '🖼 Sync missing images'}
-            </button>
-            {imagesResult && (
-              <div style={{ marginTop: 8, fontSize: 12, padding: '8px 10px', borderRadius: 8, background: imagesResult.error ? 'rgba(220,38,38,0.1)' : 'rgba(22,163,74,0.1)', color: imagesResult.error ? '#f87171' : '#4ade80' }}>
-                {imagesResult.error
-                  ? `Error: ${imagesResult.error}`
-                  : imagesResult.inProgress
-                    ? `Fetching... ${imagesResult.processed} / ${imagesResult.total} · ${imagesResult.images_added} images added`
-                    : `✓ Done — ${imagesResult.images_added} images added across ${imagesResult.total} items`
-                }
-              </div>
-            )}
-          </div>
-
-          {/* Odoo sync */}
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 14, padding: 20, marginBottom: 16, boxShadow: 'var(--shadow-xs)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--gold-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>💎</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 600 }}>Odoo</div>
-                <div style={{ fontSize: 11, color: 'var(--faint)' }}>Jewellery</div>
-              </div>
-              {syncLog.sync_odoo_jewellery && (
-                <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'right', lineHeight: 1.4 }}>
-                  <div style={{ color: '#4ade80', fontWeight: 600 }}>● synced</div>
-                  <div>{fmtAge(syncLog.sync_odoo_jewellery)}</div>
-                </div>
-              )}
-            </div>
-            <div style={{ fontSize: 12, color: '#888', lineHeight: 1.6, marginBottom: 14 }}>
-              Pulls all jewellery items from Odoo. Status (available/sold) is updated automatically every 15 minutes.
-            </div>
-
-            {odooResult && (
-              <div style={{ marginBottom: 12 }}>
-                <div className="progress-wrap">
-                  <div className="progress-bar" style={{ width: `${odooResult.total ? Math.round((odooResult.processed / odooResult.total) * 100) : (odooResult.inProgress ? 5 : 100)}%` }} />
-                </div>
-                <div className="progress-label">
-                  {odooResult.inProgress
-                    ? `${odooResult.processed} / ${odooResult.total} items`
-                    : `✓ Done — ${odooResult.added} added · ${odooResult.updated} updated · ${odooResult.images_added} images`
-                  }
-                </div>
-              </div>
-            )}
-
-            {odooError && <div className="error-msg" style={{ marginBottom: 10, fontSize: 12 }}>{odooError}</div>}
-
-            <button className="btn btn-dark btn-full" onClick={handleOdooSync} disabled={odooSyncing || syncing}>
-              {odooSyncing ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Syncing...</> : '↻ Sync Jewellery from Odoo'}
-            </button>
-          </div>
-
-          {/* Bags sync */}
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 14, padding: 20, marginBottom: 16, boxShadow: 'var(--shadow-xs)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(220,38,38,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>👜</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 600 }}>Odoo — Bags</div>
-                <div style={{ fontSize: 11, color: 'var(--faint)' }}>Handbags · Totes · Backpacks · Pouches</div>
-              </div>
-              {syncLog.sync_odoo_bags && (
-                <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'right', lineHeight: 1.4 }}>
-                  <div style={{ color: '#4ade80', fontWeight: 600 }}>● synced</div>
-                  <div>{fmtAge(syncLog.sync_odoo_bags)}</div>
-                </div>
-              )}
-            </div>
-            <div style={{ fontSize: 12, color: '#888', lineHeight: 1.6, marginBottom: 14 }}>
-              Pulls published bags from Odoo with images. Price is calculated as cost + 40%. Only items visible on the website are synced.
-            </div>
-
-            {bagsResult && (
-              <div style={{ marginBottom: 12 }}>
-                <div className="progress-wrap">
-                  <div className="progress-bar" style={{ width: `${bagsResult.total ? Math.round((bagsResult.processed / bagsResult.total) * 100) : (bagsResult.inProgress ? 5 : 100)}%` }} />
-                </div>
-                <div className="progress-label">
-                  {bagsResult.inProgress
-                    ? `${bagsResult.processed} / ${bagsResult.total} items`
-                    : `✓ Done — ${bagsResult.added} added · ${bagsResult.updated} updated · ${bagsResult.removed} removed · ${bagsResult.images_added} images`
-                  }
-                </div>
-              </div>
-            )}
-
-            {bagsError && <div className="error-msg" style={{ marginBottom: 10, fontSize: 12 }}>{bagsError}</div>}
-
-            <button className="btn btn-dark btn-full" onClick={handleBagsSync} disabled={bagsSyncing || syncing || odooSyncing}>
-              {bagsSyncing ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Syncing...</> : '↻ Sync Bags from Odoo'}
-            </button>
-            <button className="btn btn-full" onClick={handleTestCronBags} disabled={cronBagsRunning} style={{ marginTop: 8 }}>
-              {cronBagsRunning ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Running...</> : '⏱ Run nightly bags sync now'}
-            </button>
-            {cronBagsResult && (
-              <div style={{ marginTop: 8, fontSize: 12, padding: '8px 10px', borderRadius: 8, background: cronBagsResult.error ? 'rgba(220,38,38,0.1)' : 'rgba(22,163,74,0.1)', color: cronBagsResult.error ? '#f87171' : '#4ade80' }}>
-                {cronBagsResult.error
-                  ? `Error: ${cronBagsResult.error}`
-                  : `✓ Done — ${cronBagsResult.upserted} updated · ${cronBagsResult.removed} removed · ${cronBagsResult.total} total`
-                }
-              </div>
-            )}
-            <button className="btn btn-full" onClick={handleBagsMissingSync} disabled={bagsMissingRunning} style={{ marginTop: 8 }}>
-              {bagsMissingRunning ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Running...</> : '🖼 Fix missing bag images'}
-            </button>
-            {bagsMissingResult && (
-              <div style={{ marginTop: 8, fontSize: 12, padding: '8px 10px', borderRadius: 8, background: bagsMissingResult.error ? 'rgba(220,38,38,0.1)' : 'rgba(22,163,74,0.1)', color: bagsMissingResult.error ? '#f87171' : '#4ade80' }}>
-                {bagsMissingResult.error
-                  ? `Error: ${bagsMissingResult.error}`
-                  : `✓ Done — ${bagsMissingResult.images_added} images added · ${bagsMissingResult.remaining || 0} remaining`
-                }
-              </div>
-            )}
-          </div>
-
-          {/* Extract types */}
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 14, padding: 20, boxShadow: 'var(--shadow-xs)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(99,102,241,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>✨</div>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 600 }}>Extract Jewellery Types</div>
-                <div style={{ fontSize: 11, color: 'var(--faint)' }}>Rings · Bracelets · Necklaces · Earrings</div>
-              </div>
-            </div>
-            <div style={{ fontSize: 12, color: '#888', lineHeight: 1.6, marginBottom: 14 }}>
-              Scans product names and sets the jewellery type for existing items that are missing it.
-            </div>
-
-            {extractResult && (
-              <div className="success-msg" style={{ marginBottom: 10, fontSize: 12 }}>
-                ✓ Updated {extractResult.updated} items — {extractResult.skipped} unrecognized
-              </div>
-            )}
-            {extractError && <div className="error-msg" style={{ marginBottom: 10, fontSize: 12 }}>{extractError}</div>}
-
-            <button className="btn btn-dark btn-full" onClick={handleExtractJewelleryTypes} disabled={extractingJewellery || syncing || odooSyncing}>
-              {extractingJewellery ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Extracting...</> : '✨ Extract Types'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {tab === 'invite' && (
-        <div className="admin-section" style={{ maxWidth: 500 }}>
-          {msg && <div className="success-msg">{msg}</div>}
-          {error && <div className="error-msg">{error}</div>}
-          <form onSubmit={handleInvite}>
-            <div className="form-row">
-              <label>Full name</label>
-              <input
-                type="text"
-                value={inviteName}
-                onChange={e => setInviteName(e.target.value)}
-                placeholder="Jean Michel"
-              />
-            </div>
-            <div className="form-row">
-              <label>Email address</label>
-              <input
-                type="email"
-                value={inviteEmail}
-                onChange={e => setInviteEmail(e.target.value)}
-                placeholder="dealer@company.com"
-                required
-              />
-            </div>
-            <div className="form-row">
-              <label>Role</label>
-              <select value={inviteRole} onChange={e => setInviteRole(e.target.value)}>
-                <option value="dealer">Dealer — can browse catalog, reserve items</option>
-                <option value="agent">Agent — can post new items</option>
-              </select>
-            </div>
-            <button type="submit" className="btn btn-dark btn-full" disabled={inviting}>
-              {inviting ? <span className="spinner" style={{ width: 16, height: 16 }} /> : 'Send invitation'}
-            </button>
-          </form>
-          <div style={{ marginTop: 16, padding: 14, background: 'var(--surface2)', borderRadius: 10, fontSize: 12, color: 'var(--muted)', lineHeight: 1.6 }}>
-            They will receive an email with a link to set their password and access Brandville Vault immediately.
-          </div>
-        </div>
-      )}
-
-      {(tab === 'dealers' || tab === 'agents') && (
-        <div className="admin-section" style={{ maxWidth: 780, margin: '0 auto' }}>
-          {loading ? (
-            <div style={{ padding: 40, display: 'flex', justifyContent: 'center' }}><div className="spinner" /></div>
-          ) : (() => {
-            const list = (tab === 'dealers' ? dealers : agents)
-            const q = search.trim().toLowerCase()
-            const filtered = q ? list.filter(u =>
-              (u.full_name || '').toLowerCase().includes(q) ||
-              (u.email || '').toLowerCase().includes(q) ||
-              (u.phone || '').toLowerCase().includes(q)
-            ) : list
-
+          {NAV.map((item, i) => {
+            const divider = i === 3
             return (
-              <>
-                {/* Search + count header */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-                  <div style={{ position: 'relative', flex: 1, maxWidth: 320 }}>
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', opacity: 0.4 }}>
-                      <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5"/>
-                      <path d="M11 11l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                    </svg>
-                    <input
-                      type="text"
-                      value={search}
-                      onChange={e => setSearch(e.target.value)}
-                      placeholder={`Search ${tab}…`}
-                      style={{ paddingLeft: 32, width: '100%' }}
-                    />
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', flexShrink: 0 }}>
-                    {filtered.length} {filtered.length !== list.length ? `of ${list.length} ` : ''}{tab}
-                  </div>
-                </div>
+              <div key={item.id}>
+                {divider && <div style={{ height: 1, background: 'var(--border-light)', margin: '10px 8px' }} />}
+                <button
+                  onClick={() => { setTab(item.id); setSearch('') }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    width: '100%', padding: '8px 10px', borderRadius: 8,
+                    border: 'none', cursor: 'pointer', textAlign: 'left',
+                    background: tab === item.id ? 'var(--surface2)' : 'transparent',
+                    color: tab === item.id ? 'var(--text)' : 'var(--faint)',
+                    fontWeight: tab === item.id ? 600 : 400,
+                    fontSize: 13,
+                    transition: 'background 0.12s, color 0.12s',
+                  }}
+                >
+                  <span style={{ opacity: tab === item.id ? 1 : 0.6 }}><SidebarIcon id={item.id} /></span>
+                  <span style={{ flex: 1 }}>{item.label}</span>
+                  {item.count > 0 && (
+                    <span style={{
+                      background: item.accent ? '#f59e0b' : 'var(--border)',
+                      color: item.accent ? '#fff' : 'var(--faint)',
+                      borderRadius: 10, fontSize: 10, fontWeight: 700,
+                      padding: '1px 6px', lineHeight: '16px',
+                    }}>
+                      {item.count}
+                    </span>
+                  )}
+                </button>
+              </div>
+            )
+          })}
+        </aside>
 
-                {filtered.length === 0 ? (
-                  <div className="empty-state">{search ? 'No results' : `No ${tab} yet — invite one from the Invite tab`}</div>
-                ) : (
-                  <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-                    {filtered.map((u, i) => (
-                      <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', background: 'var(--surface)', borderTop: i > 0 ? '1px solid var(--border)' : 'none' }}>
-                        <div className={`avatar ${avatarColor(u.full_name)}`} style={{ flexShrink: 0, width: 36, height: 36, fontSize: 13 }}>
-                          {initials(u.full_name)}
-                        </div>
+        {/* Main content */}
+        <main style={{ flex: 1, overflowY: 'auto', padding: '32px 36px' }}>
+
+          {/* Overview */}
+          {tab === 'overview' && (
+            <div>
+              <h2 style={{ margin: '0 0 24px', fontSize: 20, fontWeight: 700 }}>Overview</h2>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 32 }}>
+                {[
+                  { label: 'Total Items', value: stats.total, color: 'var(--text)' },
+                  { label: 'Available', value: stats.available, color: '#22c55e' },
+                  { label: 'Reserved', value: stats.reserved, color: '#f59e0b' },
+                  { label: 'Sold', value: stats.sold, color: 'var(--faint)' },
+                ].map(s => (
+                  <div key={s.label} style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 14, padding: '20px 22px' }}>
+                    <div style={{ fontSize: 28, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.value.toLocaleString()}</div>
+                    <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 6 }}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                {[
+                  { id: 'dealers', label: 'Dealers', value: dealers.length, desc: 'Active dealer accounts' },
+                  { id: 'agents', label: 'Agents', value: agents.length, desc: 'Active agent accounts' },
+                  { id: 'suppliers', label: 'Supplier Queue', value: supplierListings.length, desc: 'Pending submissions', accent: supplierListings.length > 0 },
+                ].map(card => (
+                  <div key={card.id}
+                    onClick={() => setTab(card.id)}
+                    style={{ background: 'var(--surface)', border: `1px solid ${card.accent ? '#f59e0b44' : 'var(--border-light)'}`, borderRadius: 14, padding: '18px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 16, transition: 'opacity 0.15s' }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = '0.8'}
+                    onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 22, fontWeight: 700, color: card.accent ? '#f59e0b' : 'var(--text)' }}>{card.value}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, marginTop: 2 }}>{card.label}</div>
+                      <div style={{ fontSize: 11, color: 'var(--faint)' }}>{card.desc}</div>
+                    </div>
+                    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24" style={{ opacity: 0.3 }}>
+                      <path d="M9 18l6-6-6-6"/>
+                    </svg>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Dealers */}
+          {tab === 'dealers' && (
+            <div>
+              <h2 style={{ margin: '0 0 24px', fontSize: 20, fontWeight: 700 }}>Dealers</h2>
+              <UserList list={dealers} />
+            </div>
+          )}
+
+          {/* Agents */}
+          {tab === 'agents' && (
+            <div>
+              <h2 style={{ margin: '0 0 24px', fontSize: 20, fontWeight: 700 }}>Agents</h2>
+              <UserList list={agents} />
+            </div>
+          )}
+
+          {/* Supplier Queue */}
+          {tab === 'suppliers' && (
+            <div>
+              <h2 style={{ margin: '0 0 24px', fontSize: 20, fontWeight: 700 }}>Supplier Queue</h2>
+              {supplierListings.length === 0 ? (
+                <div className="empty-state">No pending supplier submissions.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 640 }}>
+                  {supplierListings.map(listing => {
+                    const imgs = (listing.supplier_listing_images || []).sort((a, b) => a.position - b.position)
+                    return (
+                      <div key={listing.id} style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 14, padding: 16, display: 'flex', gap: 14 }}>
+                        {imgs[0] && <img src={imgs[0].url} alt="" style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} />}
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>{u.full_name || '—'}</div>
-                          <div style={{ fontSize: 12, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {u.email}{u.phone ? ` · ${u.phone}` : ''}
+                          <div style={{ fontWeight: 600, fontSize: 14 }}>{listing.brand} {listing.model}</div>
+                          {listing.reference && <div style={{ fontSize: 12, color: 'var(--faint)' }}>Ref. {listing.reference}</div>}
+                          {listing.asking_price && <div style={{ fontSize: 13, fontWeight: 600, marginTop: 2 }}>€{Number(listing.asking_price).toLocaleString()}</div>}
+                          <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 4 }}>
+                            From {listing.profiles?.full_name || '—'}{listing.profiles?.phone ? ` · ${listing.profiles.phone}` : ''}
+                            {' · '}{new Date(listing.created_at).toLocaleDateString()}
                           </div>
                         </div>
-                        <div style={{ fontSize: 11, color: 'var(--muted)', flexShrink: 0 }}>
-                          {new Date(u.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                        </div>
-                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
-                          {u.role === 'dealer' && (
-                            <button className="btn btn-sm" onClick={() => changeRole(u.id, 'agent')} style={{ fontSize: 11 }}>Make agent</button>
-                          )}
-                          {u.role === 'agent' && (
-                            <button className="btn btn-sm" onClick={() => changeRole(u.id, 'dealer')} style={{ fontSize: 11 }}>Make dealer</button>
-                          )}
-                          {u.role !== 'admin' && (
-                            <button className="btn btn-sm btn-danger" onClick={() => handleRevoke(u.id, u.full_name)} style={{ fontSize: 11 }}>Revoke</button>
-                          )}
-                        </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </>
-            )
-          })()}
-        </div>
-      )}
+                    )
+                  })}
+                  <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 4 }}>To approve or reject, use the Agent Panel → Supplier Queue.</div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Invite */}
+          {tab === 'invite' && (
+            <div style={{ maxWidth: 480 }}>
+              <h2 style={{ margin: '0 0 24px', fontSize: 20, fontWeight: 700 }}>Invite User</h2>
+              {msg && <div className="success-msg" style={{ marginBottom: 14 }}>{msg}</div>}
+              {error && <div className="error-msg" style={{ marginBottom: 14 }}>{error}</div>}
+              <form onSubmit={handleInvite} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--faint)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Full name</label>
+                  <input type="text" value={inviteName} onChange={e => setInviteName(e.target.value)} placeholder="Jean Michel" style={{ width: '100%', boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--faint)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Email address</label>
+                  <input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="dealer@company.com" required style={{ width: '100%', boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--faint)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Role</label>
+                  <select value={inviteRole} onChange={e => setInviteRole(e.target.value)} style={{ width: '100%' }}>
+                    <option value="dealer">Dealer — browse catalog, reserve items</option>
+                    <option value="agent">Agent — post new items</option>
+                    <option value="supplier">Supplier — submit listings for review</option>
+                  </select>
+                </div>
+                <button type="submit" className="btn btn-dark btn-full" disabled={inviting} style={{ marginTop: 4 }}>
+                  {inviting ? <span className="spinner" style={{ width: 16, height: 16 }} /> : 'Send invitation'}
+                </button>
+              </form>
+              <div style={{ marginTop: 16, padding: '12px 14px', background: 'var(--surface2)', borderRadius: 10, fontSize: 12, color: 'var(--faint)', lineHeight: 1.6 }}>
+                They'll receive an email with a link to set their password and access Brandville Vault immediately.
+              </div>
+            </div>
+          )}
+
+          {/* Sync */}
+          {tab === 'sync' && (
+            <div style={{ maxWidth: 560 }}>
+              <h2 style={{ margin: '0 0 24px', fontSize: 20, fontWeight: 700 }}>Sync</h2>
+
+              <SyncCard icon="🛍" title="Zoho Commerce" subtitle="Watches & Bags" logKey="sync_zoho" description="Pulls all items from your Zoho store. Removed items are deleted automatically. Manually added items are never affected.">
+                <SyncResultBar result={syncResult} error={syncError} />
+                <SyncBtn onClick={handleSync} disabled={syncing} running={syncing} label="↻ Sync now" runningLabel="Syncing…" />
+                <SyncBtn onClick={handleTestCronZoho} disabled={cronZohoRunning} running={cronZohoRunning} label="⏱ Test auto-sync cron" runningLabel="Running cron…" secondary />
+                <InlineResult result={cronZohoResult} fallback={r => r.error ? `Error: ${r.error}` : `✓ Cron OK — ${r.upserted} updated · ${r.marked_sold} marked sold · ${r.total_recent} recent changes`} />
+                <SyncBtn onClick={handleSyncImages} disabled={imagesSyncing} running={imagesSyncing} label="🖼 Sync missing images" runningLabel="Syncing images…" secondary />
+                <InlineResult result={imagesResult} fallback={r => r.error ? `Error: ${r.error}` : r.inProgress ? `Fetching… ${r.processed} / ${r.total} · ${r.images_added} images` : `✓ Done — ${r.images_added} images added across ${r.total} items`} />
+              </SyncCard>
+
+              <SyncCard icon="💎" title="Odoo" subtitle="Jewellery" logKey="sync_odoo_jewellery" description="Pulls all jewellery items from Odoo. Status is updated automatically every 15 minutes.">
+                <SyncResultBar result={odooResult} error={odooError} />
+                <SyncBtn onClick={handleOdooSync} disabled={odooSyncing || syncing} running={odooSyncing} label="↻ Sync Jewellery from Odoo" runningLabel="Syncing…" />
+              </SyncCard>
+
+              <SyncCard icon="👜" title="Odoo — Bags" subtitle="Handbags · Totes · Backpacks · Pouches" logKey="sync_odoo_bags" description="Pulls published bags from Odoo with images. Price is calculated as cost + 40%. Only items visible on the website are synced.">
+                <SyncResultBar result={bagsResult} error={bagsError} />
+                <SyncBtn onClick={handleBagsSync} disabled={bagsSyncing || syncing || odooSyncing} running={bagsSyncing} label="↻ Sync Bags from Odoo" runningLabel="Syncing…" />
+                <SyncBtn onClick={handleTestCronBags} disabled={cronBagsRunning} running={cronBagsRunning} label="⏱ Run nightly bags sync now" runningLabel="Running…" secondary />
+                <InlineResult result={cronBagsResult} fallback={r => r.error ? `Error: ${r.error}` : `✓ Done — ${r.upserted} updated · ${r.removed} removed · ${r.total} total`} />
+                <SyncBtn onClick={handleBagsMissingSync} disabled={bagsMissingRunning} running={bagsMissingRunning} label="🖼 Fix missing bag images" runningLabel="Running…" secondary />
+                <InlineResult result={bagsMissingResult} fallback={r => r.error ? `Error: ${r.error}` : `✓ Done — ${r.images_added} images added · ${r.remaining || 0} remaining`} />
+              </SyncCard>
+
+              <SyncCard icon="✨" title="Extract Jewellery Types" subtitle="Rings · Bracelets · Necklaces · Earrings" description="Scans product names and sets the jewellery type for existing items that are missing it.">
+                {extractResult && <div className="success-msg" style={{ marginBottom: 10, fontSize: 12 }}>✓ Updated {extractResult.updated} items — {extractResult.skipped} unrecognized</div>}
+                {extractError && <div className="error-msg" style={{ marginBottom: 10, fontSize: 12 }}>{extractError}</div>}
+                <SyncBtn onClick={handleExtractJewelleryTypes} disabled={extractingJewellery || syncing || odooSyncing} running={extractingJewellery} label="✨ Extract Types" runningLabel="Extracting…" />
+              </SyncCard>
+            </div>
+          )}
+
+        </main>
+      </div>
     </div>
   )
 }
