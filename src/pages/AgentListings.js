@@ -892,18 +892,18 @@ export default function AgentListings() {
     const isActive = tab === id
     return (
       <button onClick={() => setTab(id)} style={{
-        display: 'flex', alignItems: 'center', gap: 9,
-        width: '100%', padding: '7px 10px', borderRadius: 8,
+        display: 'flex', alignItems: 'center', gap: 10,
+        width: '100%', padding: '8px 12px', borderRadius: 8,
         border: 'none', cursor: 'pointer', textAlign: 'left',
         background: isActive ? '#f5ede0' : 'transparent',
-        color: isActive ? 'var(--text)' : '#374151',
+        color: isActive ? '#b8965a' : '#374151',
         fontWeight: isActive ? 600 : 400, fontSize: 14,
         transition: 'background 0.12s, color 0.12s',
       }}>
-        <span style={{ color: isActive ? '#b8965a' : '#6b7280', display: 'flex' }}>{icon}</span>
+        <span style={{ color: isActive ? '#b8965a' : '#6b7280', display: 'flex', flexShrink: 0 }}>{icon}</span>
         <span style={{ flex: 1 }}>{label}</span>
         {count > 0 && (
-          <span style={{ background: accent ? '#f59e0b' : '#f3f4f6', color: accent ? '#fff' : '#6b7280', borderRadius: 10, fontSize: 10, fontWeight: 700, padding: '1px 6px' }}>
+          <span style={{ background: accent ? '#f59e0b' : '#f3f4f6', color: accent ? '#fff' : '#6b7280', borderRadius: 10, fontSize: 11, fontWeight: 700, padding: '1px 7px' }}>
             {count}
           </span>
         )}
@@ -916,15 +916,15 @@ export default function AgentListings() {
     return (
       <button onClick={() => { setTab('listings'); setListingType(lType) }} style={{
         display: 'flex', alignItems: 'center',
-        width: '100%', padding: '4px 10px 4px 33px', borderRadius: 8,
+        width: '100%', padding: '5px 12px 5px 38px', borderRadius: 8,
         border: 'none', cursor: 'pointer', textAlign: 'left',
         background: 'transparent',
-        color: isActive ? 'var(--text)' : '#4b5563',
+        color: isActive ? '#1f2937' : '#6b7280',
         fontWeight: isActive ? 500 : 400, fontSize: 13,
         transition: 'color 0.12s',
       }}>
         <span style={{ flex: 1 }}>{label}</span>
-        <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 400 }}>{count}</span>
+        <span style={{ fontSize: 12, color: '#6b7280' }}>{count}</span>
       </button>
     )
   }
@@ -934,8 +934,8 @@ export default function AgentListings() {
   const IconTag = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
   const IconPerson = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
   const IconBox = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-  const IconChevronUp = () => <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 15l-6-6-6 6"/></svg>
-  const IconChevronDown = () => <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+  const IconChevronUp = () => <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 15l-6-6-6 6"/></svg>
+  const IconChevronRight = () => <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
 
   const selStyle = { fontSize: 13, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border-light)', background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }
 
@@ -955,12 +955,12 @@ export default function AgentListings() {
         }}>
           {navItem('overview', 'Overview', <IconHome />, 0)}
 
-          <div style={{ height: 8 }} />
+          <div style={{ height: 6 }} />
 
           {/* Listings section */}
-          <button onClick={() => setListingsOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '4px 10px', border: 'none', background: 'none', cursor: 'pointer', color: '#6b7280', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-            <span style={{ flex: 1 }}>Listings</span>
-            {listingsOpen ? <IconChevronUp /> : <IconChevronDown />}
+          <button onClick={() => setListingsOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', width: '100%', padding: '8px 12px', border: 'none', background: 'none', cursor: 'pointer', color: '#374151', fontSize: 14, fontWeight: 500 }}>
+            <span style={{ flex: 1, textAlign: 'left' }}>Listings</span>
+            {listingsOpen ? <IconChevronUp /> : <IconChevronRight />}
           </button>
           {listingsOpen && (
             <>
@@ -974,12 +974,12 @@ export default function AgentListings() {
             </>
           )}
 
-          <div style={{ height: 8 }} />
+          <div style={{ height: 4 }} />
 
           {/* Activity section */}
-          <button onClick={() => setActivityOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '4px 10px', border: 'none', background: 'none', cursor: 'pointer', color: '#6b7280', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-            <span style={{ flex: 1 }}>Activity</span>
-            {activityOpen ? <IconChevronUp /> : <IconChevronDown />}
+          <button onClick={() => setActivityOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', width: '100%', padding: '8px 12px', border: 'none', background: 'none', cursor: 'pointer', color: '#374151', fontSize: 14, fontWeight: 500 }}>
+            <span style={{ flex: 1, textAlign: 'left' }}>Activity</span>
+            {activityOpen ? <IconChevronUp /> : <IconChevronRight />}
           </button>
           {activityOpen && (
             <>
