@@ -270,8 +270,19 @@ export default function SupplierDashboard() {
   const lightboxUrl = lightboxIdx !== null ? lightboxImgs[lightboxIdx] : null
   const openLightbox = (imgs, idx) => { setLightboxImgs(imgs); setLightboxIdx(idx) }
   const closeLightbox = () => { setLightboxIdx(null); setLightboxImgs([]) }
-  const lightboxPrev = e => { e.stopPropagation(); setLightboxIdx(i => (i - 1 + lightboxImgs.length) % lightboxImgs.length) }
-  const lightboxNext = e => { e.stopPropagation(); setLightboxIdx(i => (i + 1) % lightboxImgs.length) }
+  const lightboxPrev = e => { if (e) e.stopPropagation(); setLightboxIdx(i => (i - 1 + lightboxImgs.length) % lightboxImgs.length) }
+  const lightboxNext = e => { if (e) e.stopPropagation(); setLightboxIdx(i => (i + 1) % lightboxImgs.length) }
+
+  useEffect(() => {
+    if (lightboxIdx === null) return
+    const handler = e => {
+      if (e.key === 'ArrowRight') lightboxNext()
+      else if (e.key === 'ArrowLeft') lightboxPrev()
+      else if (e.key === 'Escape') closeLightbox()
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [lightboxIdx, lightboxImgs])
 
   const statusCfg = s => STATUS_CONFIG[s] || STATUS_CONFIG.draft
   const canEdit = s => s === 'draft' || s === 'rejected' || s === 'pending_review'

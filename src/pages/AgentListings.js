@@ -366,8 +366,19 @@ export default function AgentListings() {
   const [lbIdx, setLbIdx] = useState(null)
   const openLb = (urls, idx) => { setLbImgs(urls); setLbIdx(idx) }
   const closeLb = () => { setLbIdx(null); setLbImgs([]) }
-  const lbPrev = e => { e.stopPropagation(); setLbIdx(i => (i - 1 + lbImgs.length) % lbImgs.length) }
-  const lbNext = e => { e.stopPropagation(); setLbIdx(i => (i + 1) % lbImgs.length) }
+  const lbPrev = e => { if (e) e.stopPropagation(); setLbIdx(i => (i - 1 + lbImgs.length) % lbImgs.length) }
+  const lbNext = e => { if (e) e.stopPropagation(); setLbIdx(i => (i + 1) % lbImgs.length) }
+
+  useEffect(() => {
+    if (lbIdx === null) return
+    const handler = e => {
+      if (e.key === 'ArrowRight') lbNext()
+      else if (e.key === 'ArrowLeft') lbPrev()
+      else if (e.key === 'Escape') closeLb()
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [lbIdx, lbImgs])
   const [listingsOpen, setListingsOpen] = useState(true)
   const [activityOpen, setActivityOpen] = useState(true)
   const [inStockBrand, setInStockBrand] = useState('all')
