@@ -137,9 +137,10 @@ export default function SupplierDashboard() {
   async function handleCreate(submitForReview = false) {
     if (!form.brand) { setError('Brand is required.'); return }
     if (!form.model) { setError('Model is required.'); return }
-    if (submitForReview && newImages.length === 0) {
-      setError('At least one photo is required to submit for review.'); return
-    }
+    if (!form.reference) { setError('Reference is required.'); return }
+    if (!form.scope_of_delivery) { setError('Scope is required.'); return }
+    if (!form.asking_price) { setError('Asking price is required.'); return }
+    if (newImages.length === 0) { setError('At least one photo is required.'); return }
 
     submitForReview ? setSubmitting(true) : setSaving(true)
     setError('')
@@ -181,10 +182,11 @@ export default function SupplierDashboard() {
   async function handleEdit(submitForReview = false) {
     if (!form.brand) { setError('Brand is required.'); return }
     if (!form.model) { setError('Model is required.'); return }
+    if (!form.reference) { setError('Reference is required.'); return }
+    if (!form.scope_of_delivery) { setError('Scope is required.'); return }
+    if (!form.asking_price) { setError('Asking price is required.'); return }
     const totalImages = existingImgs.length + newImages.length
-    if (submitForReview && totalImages === 0) {
-      setError('At least one photo is required to submit for review.'); return
-    }
+    if (totalImages === 0) { setError('At least one photo is required.'); return }
 
     submitForReview ? setSubmitting(true) : setSaving(true)
     setError('')
