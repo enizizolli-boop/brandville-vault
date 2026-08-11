@@ -888,14 +888,16 @@ export default function AgentListings() {
 
   const pendingOffers = offers.filter(o => o.status === 'pending').length
 
-  const navItem = (id, label, icon, count, accent) => {
+  const SBItem = ({ id, label, icon, count, accent }) => {
     const isActive = tab === id
     return (
       <button onClick={() => setTab(id)} style={{
         display: 'flex', alignItems: 'center', gap: 10,
-        width: '100%', padding: '8px 12px', borderRadius: 8,
-        border: 'none', cursor: 'pointer', textAlign: 'left',
-        background: isActive ? '#f5ede0' : 'transparent',
+        width: '100%', padding: '8px 16px',
+        borderTop: 'none', borderRight: 'none', borderBottom: 'none',
+        borderLeft: isActive ? '2px solid #b8965a' : '2px solid transparent',
+        cursor: 'pointer', textAlign: 'left',
+        background: isActive ? '#faf6f0' : 'transparent',
         color: isActive ? '#b8965a' : '#374151',
         fontWeight: isActive ? 600 : 400, fontSize: 14,
         transition: 'background 0.12s, color 0.12s',
@@ -903,39 +905,38 @@ export default function AgentListings() {
         <span style={{ color: isActive ? '#b8965a' : '#6b7280', display: 'flex', flexShrink: 0 }}>{icon}</span>
         <span style={{ flex: 1 }}>{label}</span>
         {count > 0 && (
-          <span style={{ background: accent ? '#f59e0b' : '#f3f4f6', color: accent ? '#fff' : '#6b7280', borderRadius: 10, fontSize: 11, fontWeight: 700, padding: '1px 7px' }}>
-            {count}
-          </span>
+          <span style={{ background: accent ? '#f59e0b' : '#f3f4f6', color: accent ? '#fff' : '#6b7280', borderRadius: 10, fontSize: 11, fontWeight: 700, padding: '1px 7px' }}>{count}</span>
         )}
       </button>
     )
   }
 
-  const subItem = (lType, label, count) => {
+  const SBSubItem = ({ lType, label, icon, count }) => {
     const isActive = tab === 'listings' && listingType === lType
     return (
       <button onClick={() => { setTab('listings'); setListingType(lType) }} style={{
-        display: 'flex', alignItems: 'center',
-        width: '100%', padding: '5px 12px 5px 38px', borderRadius: 8,
-        border: 'none', cursor: 'pointer', textAlign: 'left',
-        background: 'transparent',
-        color: isActive ? '#1f2937' : '#6b7280',
+        display: 'flex', alignItems: 'center', gap: 10,
+        width: '100%', padding: '6px 16px',
+        border: 'none', cursor: 'pointer', textAlign: 'left', background: 'transparent',
+        color: isActive ? '#374151' : '#6b7280',
         fontWeight: isActive ? 500 : 400, fontSize: 13,
         transition: 'color 0.12s',
       }}>
+        <span style={{ color: '#9ca3af', display: 'flex', flexShrink: 0 }}>{icon}</span>
         <span style={{ flex: 1 }}>{label}</span>
-        <span style={{ fontSize: 12, color: '#6b7280' }}>{count}</span>
+        <span style={{ fontSize: 12, color: '#9ca3af' }}>{count > 0 ? count : '—'}</span>
       </button>
     )
   }
 
-  const IconHome = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
   const IconBag = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+  const IconWatch = () => <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><polyline points="12 9 12 12 13.5 13.5"/><path d="M16.51 17.35l-.35 3.83a2 2 0 0 1-2 1.82H9.83a2 2 0 0 1-2-1.82l-.35-3.83m.01-10.7l.35-3.83A2 2 0 0 1 9.83 1h4.35a2 2 0 0 1 2 1.82l.35 3.83"/></svg>
+  const IconHandbag = () => <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M3 6h18l-2 13H5L3 6z"/><path d="M8 6V4a4 4 0 0 1 8 0v2"/></svg>
+  const IconArchive = () => <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
   const IconTag = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
   const IconPerson = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-  const IconBox = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-  const IconChevronUp = () => <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 15l-6-6-6 6"/></svg>
-  const IconChevronRight = () => <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+  const IconTruck = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+  const IconPlus = () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 
   const selStyle = { fontSize: 13, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border-light)', background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }
 
@@ -946,59 +947,53 @@ export default function AgentListings() {
 
         {/* Sidebar */}
         <aside style={{
-          width: 220, flexShrink: 0,
-          borderRight: '1px solid var(--border-light)',
-          background: 'var(--surface)',
+          width: 230, flexShrink: 0,
+          borderRight: '1px solid #e5e7eb',
+          background: '#fff',
           display: 'flex', flexDirection: 'column',
-          padding: '16px 10px 12px',
+          padding: '20px 0 16px',
           overflowY: 'auto',
         }}>
-          {navItem('overview', 'Overview', <IconHome />, 0)}
+          {/* LISTINGS label */}
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#9ca3af', padding: '0 16px', marginBottom: 6 }}>Listings</div>
 
-          <div style={{ height: 1, background: 'var(--border-light)', margin: '8px 4px' }} />
+          <SBItem id="listings" label="My Listings" icon={<IconBag />} />
 
-          {/* Listings section */}
-          <button onClick={() => setListingsOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', width: '100%', padding: '8px 12px', border: 'none', background: 'none', cursor: 'pointer', color: '#374151', fontSize: 14, fontWeight: 500 }}>
-            <span style={{ flex: 1, textAlign: 'left' }}>Listings</span>
-            {listingsOpen ? <IconChevronUp /> : <IconChevronRight />}
+          {/* In stock pill sub-item */}
+          <button onClick={() => { setTab('listings'); setListingType('instock') }} style={{ display: 'block', width: '100%', padding: '3px 16px 3px 42px', border: 'none', cursor: 'pointer', textAlign: 'left', background: 'transparent' }}>
+            <span style={{ display: 'inline-block', padding: '4px 14px', borderRadius: 20, fontSize: 13, fontWeight: tab === 'listings' && listingType === 'instock' ? 500 : 400, background: tab === 'listings' && listingType === 'instock' ? '#f5ede0' : 'transparent', color: tab === 'listings' && listingType === 'instock' ? '#374151' : '#6b7280' }}>In stock</span>
           </button>
-          {listingsOpen && (
-            <>
-              {navItem('listings', 'My Listings', <IconBag />, 0)}
-              <div style={{ marginBottom: 4 }}>
-                {subItem('instock', 'In stock', watches.length)}
-                {subItem('preorders-watches', 'Preorders Watches', watchPreorders.length)}
-                {subItem('preorders-bags', 'Preorders Bags', bagPreorders.length)}
-                {subItem('preorders-archived', 'Archived', archivedPreorders.length)}
-              </div>
-            </>
-          )}
 
-          {/* Activity section */}
-          <button onClick={() => setActivityOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', width: '100%', padding: '8px 12px', border: 'none', background: 'none', cursor: 'pointer', color: '#374151', fontSize: 14, fontWeight: 500 }}>
-            <span style={{ flex: 1, textAlign: 'left' }}>Activity</span>
-            {activityOpen ? <IconChevronUp /> : <IconChevronRight />}
-          </button>
-          {activityOpen && (
-            <>
-              {navItem('offers', 'Offers', <IconTag />, pendingOffers, false)}
-              {navItem('clients', 'Clients', <IconPerson />, 0)}
-              {navItem('supplier', 'Supplier Queue', <IconBox />, supplierListings.length, supplierListings.length > 0)}
-            </>
-          )}
+          <SBSubItem lType="preorders-watches" label="Preorders Watches" icon={<IconWatch />} count={watchPreorders.length} />
+          <SBSubItem lType="preorders-bags" label="Preorders Bags" icon={<IconHandbag />} count={bagPreorders.length} />
+          <SBSubItem lType="preorders-archived" label="Archived" icon={<IconArchive />} count={archivedPreorders.length} />
+
+          <div style={{ height: 1, background: '#e5e7eb', margin: '10px 16px' }} />
+
+          <SBItem id="post" label="Post a Watch" icon={<IconWatch />} />
+          <SBItem id="bagpreorder" label="Post a Bag" icon={<IconHandbag />} />
+
+          <div style={{ height: 1, background: '#e5e7eb', margin: '10px 16px' }} />
+
+          {/* ACTIVITY label */}
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#9ca3af', padding: '0 16px', marginBottom: 6 }}>Activity</div>
+
+          <SBItem id="offers" label="Offers" icon={<IconTag />} count={pendingOffers} />
+          <SBItem id="clients" label="Clients" icon={<IconPerson />} />
+          <SBItem id="supplier" label="Supplier Queue" icon={<IconTruck />} count={supplierListings.length} accent={supplierListings.length > 0} />
 
           <div style={{ flex: 1 }} />
 
           {/* Need help? */}
-          <div style={{ margin: '12px 4px 0', background: '#fdf8f2', border: '1px solid #e9d8bc', borderRadius: 12, padding: '14px 12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-              <div style={{ width: 30, height: 30, borderRadius: 50, background: '#f5ede0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <div style={{ margin: '16px 12px 0', background: '#fdf8f2', border: '1px solid #e9d8bc', borderRadius: 12, padding: '14px 14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 50, background: '#f5ede0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <svg width="16" height="16" fill="none" stroke="#b8965a" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
               </div>
-              <span style={{ fontSize: 13, fontWeight: 600 }}>Need help?</span>
+              <span style={{ fontSize: 14, fontWeight: 600 }}>Need help?</span>
             </div>
-            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 10, lineHeight: 1.5 }}>Our team is here to help you.</div>
-            <button style={{ width: '100%', fontSize: 12, padding: '7px 0', border: '1px solid #b8965a', borderRadius: 8, background: 'transparent', color: '#b8965a', cursor: 'pointer', fontWeight: 500 }}>Contact Support</button>
+            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 12, lineHeight: 1.5 }}>Our team is here to help you.</div>
+            <button style={{ width: '100%', fontSize: 13, padding: '8px 0', border: '1px solid #c8a76a', borderRadius: 8, background: 'transparent', color: '#b8965a', cursor: 'pointer', fontWeight: 500 }}>Contact Support</button>
           </div>
         </aside>
 
@@ -1031,83 +1026,58 @@ export default function AgentListings() {
       {tab === 'listings' && (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
           {/* Page header */}
-          <div style={{ padding: '24px 28px 0', borderBottom: '1px solid var(--border-light)' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 16 }}>
-              <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>My Listings</h2>
-              <span style={{ fontSize: 13, color: 'var(--faint)' }}>Manage your inventory and listings.</span>
+          <div style={{ padding: '20px 28px 16px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: '#faf6f0', border: '1px solid #e9d8bc', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="24" height="24" fill="none" stroke="#b8965a" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
             </div>
-
-            {/* Underline tabs */}
-            <div style={{ display: 'flex', gap: 0 }}>
-              {[
-                { id: 'instock', label: 'In stock', count: watches.length },
-                { id: 'preorders-watches', label: 'Preorders Watches', count: watchPreorders.length },
-                { id: 'preorders-bags', label: 'Preorders Bags', count: bagPreorders.length },
-                { id: 'preorders-archived', label: 'Archived', count: archivedPreorders.length },
-              ].map(({ id, label, count }) => (
-                <button key={id} onClick={() => setListingType(id)} style={{
-                  padding: '8px 16px', border: 'none', background: 'none', cursor: 'pointer',
-                  fontSize: 13, fontWeight: listingType === id ? 600 : 400,
-                  color: listingType === id ? 'var(--text)' : 'var(--faint)',
-                  borderBottom: listingType === id ? '2px solid #b8965a' : '2px solid transparent',
-                  marginBottom: -1, transition: 'color 0.12s, border-color 0.12s',
-                  display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
-                }}>
-                  {label}
-                  {count > 0 && <span style={{ fontSize: 11, background: listingType === id ? 'rgba(184,150,90,0.12)' : 'var(--surface2)', color: listingType === id ? '#b8965a' : 'var(--faint)', borderRadius: 8, padding: '0 5px', fontWeight: 600 }}>{count}</span>}
-                </button>
-              ))}
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.2 }}>My Listings</div>
+              <div style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>Manage your listed products.</div>
             </div>
-          </div>
-
-          <div style={{ padding: '16px 28px', flex: 1, overflowY: 'auto' }}>
-          {msg && <div className="success-msg" style={{ marginBottom: 12 }}>{msg}</div>}
-
-          {/* Search + New Listing */}
-          <div style={{ display: 'flex', gap: 10, marginBottom: 14, alignItems: 'center' }}>
-            <div style={{ flex: 1, position: 'relative' }}>
-              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--faint)', pointerEvents: 'none' }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input
-                placeholder="Search brand, model or reference..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 32 }}
-              />
-            </div>
-            <button className="btn" onClick={() => setTab('post')} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '8px 18px', whiteSpace: 'nowrap', background: '#b8965a', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
-              <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              New Listing
+            <button onClick={() => setTab('post')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#b8965a', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 14, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              <IconPlus /> Add Listing
             </button>
           </div>
 
-          {/* Filter row with labels above each dropdown */}
-          {listingType === 'instock' && (
-            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', marginBottom: 16, flexWrap: 'wrap' }}>
-              {[
-                { label: 'Brand', value: inStockBrand, set: setInStockBrand, options: [['all', 'All brands'], ...BRANDS.map(b => [b, b])] },
-                { label: 'Listings Type', value: 'all', set: () => {}, options: [['all', 'All listings'], ['instock', 'In stock'], ['preorder', 'Preorder']] },
-                { label: 'Condition', value: inStockCondition, set: setInStockCondition, options: [['all', 'All conditions'], ...CONDITIONS.map(c => [c, c])] },
-                { label: 'Status', value: inStockStatus, set: setInStockStatus, options: [['all', 'All status'], ['available', 'Available'], ['sold', 'Sold']] },
-                { label: 'Sort by', value: inStockSortBy, set: setInStockSortBy, options: [['newest', 'Newest first'], ['oldest', 'Oldest first'], ['price_asc', 'Price: Low–High'], ['price_desc', 'Price: High–Low']] },
-              ].map(f => (
-                <div key={f.label}>
-                  <div style={{ fontSize: 11, color: 'var(--faint)', marginBottom: 4, fontWeight: 500 }}>{f.label}</div>
-                  <select value={f.value} onChange={e => f.set(e.target.value)} style={selStyle}>
-                    {f.options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                  </select>
-                </div>
-              ))}
-              {/* Grid / List toggle */}
-              <div style={{ marginLeft: 'auto', display: 'flex', border: '1px solid var(--border-light)', borderRadius: 8, overflow: 'hidden', alignSelf: 'flex-end' }}>
-                <button onClick={() => setViewMode('grid')} title="Grid view" style={{ padding: '7px 10px', border: 'none', cursor: 'pointer', background: viewMode === 'grid' ? 'var(--surface2)' : 'transparent', color: viewMode === 'grid' ? 'var(--text)' : 'var(--faint)', display: 'flex', alignItems: 'center' }}>
-                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                </button>
-                <button onClick={() => setViewMode('list')} title="List view" style={{ padding: '7px 10px', border: 'none', cursor: 'pointer', background: viewMode === 'list' ? 'var(--surface2)' : 'transparent', color: viewMode === 'list' ? 'var(--text)' : 'var(--faint)', display: 'flex', alignItems: 'center' }}>
-                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-                </button>
-              </div>
+          {/* Pill tabs */}
+          <div style={{ padding: '14px 28px 0', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {[
+              { id: 'instock', label: 'In stock', count: watches.length },
+              { id: 'preorders-watches', label: 'Preorders Watches', count: watchPreorders.length },
+              { id: 'preorders-bags', label: 'Preorders Bags', count: bagPreorders.length },
+              { id: 'preorders-archived', label: 'Archived', count: archivedPreorders.length },
+            ].map(({ id, label, count }) => (
+              <button key={id} onClick={() => setListingType(id)} style={{
+                padding: '6px 16px', borderRadius: 20, cursor: 'pointer', whiteSpace: 'nowrap',
+                fontSize: 13, fontWeight: listingType === id ? 600 : 400,
+                background: listingType === id ? '#b8965a' : '#fff',
+                color: listingType === id ? '#fff' : '#6b7280',
+                border: listingType === id ? '1px solid #b8965a' : '1px solid #e5e7eb',
+                transition: 'background 0.12s, color 0.12s',
+              }}>
+                {label}{count > 0 ? ` (${count})` : ''}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ padding: '14px 28px', flex: 1, overflowY: 'auto' }}>
+          {msg && <div className="success-msg" style={{ marginBottom: 12 }}>{msg}</div>}
+
+          {/* Search + grid/list toggle */}
+          <div style={{ display: 'flex', gap: 10, marginBottom: 14, alignItems: 'center' }}>
+            <div style={{ flex: 1, position: 'relative' }}>
+              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input placeholder="Search brand, model or reference..." value={search} onChange={e => setSearch(e.target.value)} style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 32 }} />
             </div>
-          )}
+            <div style={{ display: 'flex', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+              <button onClick={() => setViewMode('grid')} title="Grid view" style={{ padding: '7px 10px', border: 'none', cursor: 'pointer', background: viewMode === 'grid' ? '#f5ede0' : '#fff', color: viewMode === 'grid' ? '#b8965a' : '#6b7280', display: 'flex', alignItems: 'center' }}>
+                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+              </button>
+              <button onClick={() => setViewMode('list')} title="List view" style={{ padding: '7px 10px', border: 'none', cursor: 'pointer', background: viewMode === 'list' ? '#f5ede0' : '#fff', color: viewMode === 'list' ? '#b8965a' : '#6b7280', display: 'flex', alignItems: 'center' }}>
+                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              </button>
+            </div>
+          </div>
 
           {(listingType === 'preorders-watches' || listingType === 'preorders-bags' || listingType === 'preorders-archived') && (
             <>
@@ -1166,9 +1136,9 @@ export default function AgentListings() {
                       <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
                       <line x1="12" y1="22.08" x2="12" y2="12"/>
                     </svg>
-                    <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6, color: 'var(--text)' }}>{search ? 'No results found' : 'No listings yet'}</div>
-                    <div style={{ fontSize: 13, marginBottom: 20 }}>{search ? 'Try a different search or filter' : 'Post your first watch or bag to get started'}</div>
-                    {!search && <button className="btn" onClick={() => setTab('post')} style={{ fontSize: 13 }}>Post a Watch</button>}
+                    <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6, color: '#1f2937' }}>{search ? 'No results found' : 'No items posted yet'}</div>
+                    <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 20 }}>{search ? 'Try a different search or filter' : 'Start adding products to your listings.'}</div>
+                    {!search && <button onClick={() => setTab('post')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#b8965a', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}><IconPlus /> Add your first listing</button>}
                   </div>
                 )
                 : filteredWatches.map(w => (
