@@ -1882,65 +1882,64 @@ export default function AgentListings() {
                   </div>
                 )}
 
-                <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: 14, display: 'flex', gap: 0, alignItems: 'stretch', flexWrap: 'wrap' }}>
+                <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: 14, display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
                   {/* Selling price + Approve */}
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexShrink: 0, paddingRight: 16, marginRight: 16, borderRight: '1px solid var(--border-light)' }}>
-                    <div>
-                      <div style={{ fontSize: 11, color: 'var(--faint)', marginBottom: 5 }}>
-                        Selling price
-                      </div>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <select
-                          value={rd.currency || 'EUR'}
-                          onChange={e => setRd({ currency: e.target.value })}
-                          className="input"
-                          style={{ width: 76, marginBottom: 0, fontSize: 13 }}
-                        >
-                          <option value="EUR">€ EUR</option>
-                          <option value="USD">$ USD</option>
-                          <option value="GBP">£ GBP</option>
-                          <option value="CHF">CHF</option>
-                          <option value="CNY">¥ CNY</option>
-                        </select>
-                        <input
-                          className="input"
-                          type="number"
-                          placeholder="0"
-                          value={rd.price || ''}
-                          onChange={e => setRd({ price: e.target.value })}
-                          style={{ width: 110, marginBottom: 0, fontWeight: 600, fontSize: 15 }}
-                        />
-                      </div>
-                      {/* Suggested EUR price from asking price */}
-                      {listing.asking_price && listing.asking_price_currency === 'CNY' && cnyToEurRate && !rd.price && (
+                  <div style={{ flexShrink: 0 }}>
+                    <div style={{ fontSize: 11, color: 'var(--faint)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      Selling price
+                      {listing.asking_price && listing.asking_price_currency === 'CNY' && cnyToEurRate && (
                         <button
                           onClick={() => setRd({ price: String(Math.round(listing.asking_price * cnyToEurRate)), currency: 'EUR' })}
-                          style={{ marginTop: 4, fontSize: 11, color: '#b8965a', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline' }}
+                          style={{ fontSize: 11, color: '#b8965a', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline' }}
                         >
                           Use ≈ €{Math.round(listing.asking_price * cnyToEurRate).toLocaleString()}
                         </button>
                       )}
                     </div>
-                    <button className="btn btn-dark btn-sm" onClick={() => approveSupplierListing(listing)} style={{ height: 38, whiteSpace: 'nowrap' }}>
-                      ✓ Approve & Publish
-                    </button>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <select
+                        value={rd.currency || 'EUR'}
+                        onChange={e => setRd({ currency: e.target.value })}
+                        className="input"
+                        style={{ width: 80, marginBottom: 0, fontSize: 13, height: 36 }}
+                      >
+                        <option value="EUR">€ EUR</option>
+                        <option value="USD">$ USD</option>
+                        <option value="GBP">£ GBP</option>
+                        <option value="CHF">CHF</option>
+                        <option value="CNY">¥ CNY</option>
+                      </select>
+                      <input
+                        className="input"
+                        type="number"
+                        placeholder="0"
+                        value={rd.price || ''}
+                        onChange={e => setRd({ price: e.target.value })}
+                        style={{ width: 110, marginBottom: 0, fontWeight: 600, fontSize: 15, height: 36 }}
+                      />
+                      <button className="btn btn-dark btn-sm" onClick={() => approveSupplierListing(listing)} style={{ height: 36, whiteSpace: 'nowrap' }}>
+                        ✓ Approve & Publish
+                      </button>
+                    </div>
                   </div>
 
+                  <div style={{ width: 1, height: 36, background: 'var(--border-light)', flexShrink: 0 }} />
+
                   {/* Rejection reason + Reject */}
-                  <div style={{ flex: 1, minWidth: 220, display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 11, color: 'var(--faint)', marginBottom: 5 }}>Rejection reason <span style={{ color: '#9ca3af' }}>(optional)</span></div>
+                  <div style={{ flex: 1, minWidth: 220 }}>
+                    <div style={{ fontSize: 11, color: 'var(--faint)', marginBottom: 6 }}>Rejection reason <span style={{ color: '#9ca3af' }}>(optional)</span></div>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                       <input
                         className="input"
                         placeholder="Add a reason for rejection..."
                         value={rd.reason || ''}
                         onChange={e => setRd({ reason: e.target.value })}
-                        style={{ width: '100%', marginBottom: 0 }}
+                        style={{ flex: 1, marginBottom: 0, height: 36 }}
                       />
+                      <button className="btn btn-danger btn-sm" onClick={() => rejectSupplierListing(listing)} style={{ height: 36, whiteSpace: 'nowrap' }}>
+                        ✕ Reject
+                      </button>
                     </div>
-                    <button className="btn btn-danger btn-sm" onClick={() => rejectSupplierListing(listing)} style={{ height: 38, whiteSpace: 'nowrap' }}>
-                      ✕ Reject
-                    </button>
                   </div>
                 </div>
               </div>
