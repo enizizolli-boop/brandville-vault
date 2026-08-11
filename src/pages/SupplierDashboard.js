@@ -243,8 +243,15 @@ export default function SupplierDashboard() {
   }
 
   const [filterStatus, setFilterStatus] = useState('all')
-  const [lightboxUrl, setLightboxUrl] = useState(null)
+  const [lightboxIdx, setLightboxIdx] = useState(null)
+  const [lightboxImgs, setLightboxImgs] = useState([])
   const [supSearch, setSupSearch] = useState('')
+
+  const lightboxUrl = lightboxIdx !== null ? lightboxImgs[lightboxIdx] : null
+  const openLightbox = (imgs, idx) => { setLightboxImgs(imgs); setLightboxIdx(idx) }
+  const closeLightbox = () => { setLightboxIdx(null); setLightboxImgs([]) }
+  const lightboxPrev = e => { e.stopPropagation(); setLightboxIdx(i => (i - 1 + lightboxImgs.length) % lightboxImgs.length) }
+  const lightboxNext = e => { e.stopPropagation(); setLightboxIdx(i => (i + 1) % lightboxImgs.length) }
 
   const statusCfg = s => STATUS_CONFIG[s] || STATUS_CONFIG.draft
   const canEdit = s => s === 'draft' || s === 'rejected' || s === 'pending_review'
@@ -309,13 +316,27 @@ export default function SupplierDashboard() {
     </aside>
   )
 
-  const lightboxEl = lightboxUrl && (
+  const lightboxEl = lightboxIdx !== null && (
     <div
-      onClick={() => setLightboxUrl(null)}
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, cursor: 'zoom-out' }}
+      onClick={closeLightbox}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, cursor: 'zoom-out' }}
     >
-      <img src={lightboxUrl} alt="" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 10 }} />
-      <button onClick={() => setLightboxUrl(null)} style={{ position: 'absolute', top: 18, right: 22, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: '50%', width: 38, height: 38, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+      <img src={lightboxUrl} alt="" style={{ maxWidth: '82vw', maxHeight: '88vh', objectFit: 'contain', borderRadius: 10, userSelect: 'none' }} />
+
+      {lightboxImgs.length > 1 && (
+        <button onClick={lightboxPrev} style={{ position: 'absolute', left: 18, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: '50%', width: 44, height: 44, fontSize: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
+      )}
+      {lightboxImgs.length > 1 && (
+        <button onClick={lightboxNext} style={{ position: 'absolute', right: 18, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: '50%', width: 44, height: 44, fontSize: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
+      )}
+
+      <button onClick={closeLightbox} style={{ position: 'absolute', top: 18, right: 22, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: '50%', width: 38, height: 38, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+
+      {lightboxImgs.length > 1 && (
+        <div style={{ position: 'absolute', bottom: 18, left: '50%', transform: 'translateX(-50%)', color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>
+          {lightboxIdx + 1} / {lightboxImgs.length}
+        </div>
+      )}
     </div>
   )
 
@@ -465,7 +486,7 @@ export default function SupplierDashboard() {
                         key={i}
                         src={img.url}
                         alt=""
-                        onClick={() => setLightboxUrl(img.url)}
+                        onClick={() => openLightbox(imgs.map(x => x.url), i)}
                         style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 10, border: '1px solid #e5e7eb', cursor: 'zoom-in', flexShrink: 0, transition: 'opacity 0.15s' }}
                         onMouseEnter={e => e.currentTarget.style.opacity = '0.75'}
                         onMouseLeave={e => e.currentTarget.style.opacity = '1'}

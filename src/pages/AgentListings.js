@@ -476,7 +476,6 @@ export default function AgentListings() {
 
   async function rejectSupplierListing(listing) {
     const rd = supReviewData[listing.id] || {}
-    if (!rd.reason) { alert('Add a rejection reason before rejecting.'); return }
     if (!window.confirm('Reject this listing?')) return
     await supabase.from('supplier_listings').update({
       status: 'rejected',
