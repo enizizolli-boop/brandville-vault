@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import Topbar from '../components/Topbar'
+import { useExchangeRate } from '../hooks/useExchangeRate'
 
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL
 const ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY
@@ -14,11 +15,7 @@ const BRANDS = [
   'TAG Heuer', 'Tudor', 'Ulysse Nardin', 'Vacheron Constantin', 'Zenith',
 ]
 
-const CONDITIONS = [
-  'Pre-owned',
-  'pre-owned conditions with MINOR signs of usage',
-  'pre-owned conditions with MAJOR signs of usage',
-]
+const CONDITIONS = ['Pre-owned']
 
 const SCOPES = ['Watch Only', 'With Card', 'With Box', 'Card & Box']
 
@@ -259,6 +256,19 @@ export default function SupplierDashboard() {
   function getCover(listing) {
     const imgs = (listing.supplier_listing_images || []).sort((a, b) => a.position - b.position)
     return imgs[0]?.url || null
+  }
+
+  const { rate: eurToUsd } = useExchangeRate('EUR', 'USD')
+  const { rate: cnyToEur } = useExchangeRate('CNY', 'EUR')
+  const { rate: hkdToEur } = useExchangeRate('HKD', 'EUR')
+
+  const PRICE_SYM = { CNY: '¥', HKD: 'HK$', EUR: '€', USD: '$' }
+  const toEur = (amount, cur) => {
+    if (cur === 'EUR') return null
+    if (cur === 'CNY' && cnyToEur) return Math.round(amount * cnyToEur)
+    if (cur === 'HKD' && hkdToEur) return Math.round(amount * hkdToEur)
+    if (cur === 'USD' && eurToUsd) return Math.round(amount / eurToUsd)
+    return null
   }
 
   const [filterStatus, setFilterStatus] = useState('all')
@@ -549,7 +559,13 @@ export default function SupplierDashboard() {
                   selected.reference && ['Reference', selected.reference],
                   selected.condition && ['Condition', selected.condition],
                   selected.scope_of_delivery && ['Scope', selected.scope_of_delivery],
-                  selected.asking_price && ['Asking price', `${PRICE_CURRENCIES.find(c => c.value === (selected.asking_price_currency || 'CNY'))?.label?.split(' ')[0] || ''}${Number(selected.asking_price).toLocaleString()}`],
+                  selected.asking_price && (() => {
+                    const cur = selected.asking_price_currency || 'CNY'
+                    const sym = PRICE_SYM[cur] || ''
+                    const eurEq = toEur(selected.asking_price, cur)
+                    const display = `${sym}${Number(selected.asking_price).toLocaleString()}${eurEq ? ` (≈ €${eurEq.toLocaleString()})` : ''}`
+                    return ['Asking price', display]
+                  })(),
                   selected.created_at && ['Submitted on', fmtDate(selected.created_at)],
                 ].filter(Boolean).map(([label, value], i, arr) => (
                   <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 16px', borderBottom: i < arr.length - 1 ? '1px solid #f3f4f6' : 'none', fontSize: 14 }}>
@@ -694,7 +710,17 @@ export default function SupplierDashboard() {
                           </div>
                           {listing.reference && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 1 }}>Ref. {listing.reference}</div>}
                           <div style={{ display: 'flex', gap: 10, marginTop: 4, alignItems: 'center' }}>
-                            {listing.asking_price && <span style={{ fontSize: 13, fontWeight: 600 }}>€{Number(listing.asking_price).toLocaleString()}</span>}
+                            {listing.asking_price && (() => {
+                              const cur = listing.asking_price_currency || 'CNY'
+                              const sym = PRICE_SYM[cur] || ''
+                              const eurEq = toEur(listing.asking_price, cur)
+                              return (
+                                <span style={{ fontSize: 13, fontWeight: 600 }}>
+                                  {sym}{Number(listing.asking_price).toLocaleString()}
+                                  {eurEq && <span style={{ fontSize: 11, fontWeight: 400, color: '#9ca3af', marginLeft: 4 }}>(≈ €{eurEq.toLocaleString()})</span>}
+                                </span>
+                              )
+                            })()}
                             <span style={{ fontSize: 11, color: '#9ca3af' }}>{fmtDate(listing.created_at)}</span>
                           </div>
                         </div>
