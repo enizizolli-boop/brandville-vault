@@ -442,7 +442,7 @@ export default function AgentListings() {
   useEffect(() => { if (profile && tab === 'clients') fetchClients() }, [profile, tab, fetchClients])
   useEffect(() => { if (profile && tab === 'supplier') fetchSupplierListings() }, [profile, tab, fetchSupplierListings])
 
-  const CURRENCY_SYMBOLS = { EUR: '€', USD: '$', GBP: '£', CHF: 'CHF ' }
+  const CURRENCY_SYMBOLS = { EUR: '€', USD: '$', GBP: '£', CHF: 'CHF ', CNY: '¥' }
 
   async function approveSupplierListing(listing) {
     const rd = supReviewData[listing.id] || {}
@@ -456,6 +456,9 @@ export default function AgentListings() {
     if (cur === 'USD') {
       priceUsd = num
       priceEur = rate ? Math.round(num / rate) : num
+    } else if (cur === 'CNY') {
+      priceEur = cnyToEurRate ? Math.round(num * cnyToEurRate) : num
+      priceUsd = priceEur && rate ? Math.round(priceEur * rate) : null
     } else {
       priceEur = num
       priceUsd = rate ? Math.round(num * rate) : null
@@ -1794,6 +1797,7 @@ export default function AgentListings() {
                       <option value="USD">USD</option>
                       <option value="GBP">GBP</option>
                       <option value="CHF">CHF</option>
+                      <option value="CNY">CNY</option>
                     </select>
                     <input
                       className="input"
