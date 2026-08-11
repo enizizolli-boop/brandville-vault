@@ -86,6 +86,7 @@ function MegaMenu({ category, data, onNavigate, onClose, onKeepOpen }) {
 
 function MobileMenu({ profile, currency, setCurrency, onNavigate, onSignOut, onClose }) {
   const [expanded, setExpanded] = useState(null)
+  const isSupplier = profile?.role === 'supplier'
 
   function go(route, value, type) {
     onClose()
@@ -98,14 +99,16 @@ function MobileMenu({ profile, currency, setCurrency, onNavigate, onSignOut, onC
     <div className="mobile-menu-overlay" onClick={onClose}>
       <div className="mobile-menu" onClick={e => e.stopPropagation()}>
         <div className="mobile-menu-header">
-          <div className="currency-toggle">
-            <button className={`currency-btn ${currency === 'USD' ? 'active' : ''}`} onClick={() => setCurrency('USD')}>USD</button>
-            <button className={`currency-btn ${currency === 'EUR' ? 'active' : ''}`} onClick={() => setCurrency('EUR')}>EUR</button>
-          </div>
+          {!isSupplier && (
+            <div className="currency-toggle">
+              <button className={`currency-btn ${currency === 'USD' ? 'active' : ''}`} onClick={() => setCurrency('USD')}>USD</button>
+              <button className={`currency-btn ${currency === 'EUR' ? 'active' : ''}`} onClick={() => setCurrency('EUR')}>EUR</button>
+            </div>
+          )}
           <button className="mobile-menu-close" onClick={onClose}>✕</button>
         </div>
 
-        {Object.entries(MEGA).map(([cat, data]) => (
+        {!isSupplier && Object.entries(MEGA).map(([cat, data]) => (
           <div key={cat} className="mobile-nav-group">
             <div className="mobile-nav-cat" onClick={() => setExpanded(expanded === cat ? null : cat)}>
               <span>{cat}</span>
@@ -146,6 +149,7 @@ export default function Topbar() {
   const [openMenu, setOpenMenu] = useState(null)
   const [mobileOpen, setMobileOpen] = useState(false)
   const closeTimer = useRef(null)
+  const isSupplier = profile?.role === 'supplier'
 
   function handleSignOut() {
     signOut().then(() => navigate('/login'))
@@ -175,66 +179,70 @@ export default function Topbar() {
   return (
     <>
       <div className="topbar">
-        <a href="/home" className="topbar-logo" onClick={e => { e.preventDefault(); navigate('/home') }}>
+        <a href="/home" className="topbar-logo" onClick={e => { e.preventDefault(); navigate(isSupplier ? '/supplier' : '/home') }}>
           Brandville <span>Vault</span>
         </a>
 
-        <nav className="topbar-nav">
-          {NAV.map(item => (
-            <div key={item.label} className="nav-item"
-              onMouseEnter={() => item.mega ? openNav(item.mega) : clearTimeout(closeTimer.current)}
-              onMouseLeave={item.mega ? closeNav : undefined}>
-              <a
-                href={item.route}
-                className={`nav-link ${isActive(item.route) ? 'active' : ''}`}
-                onClick={e => { e.preventDefault(); setOpenMenu(null); navigate(item.route) }}
-              >
-                {item.label}
-              </a>
-              {item.mega && openMenu === item.mega && (
-                <MegaMenu
-                  category={item.mega}
-                  data={MEGA[item.mega]}
-                  onNavigate={handleMegaNavigate}
-                  onClose={() => setOpenMenu(null)}
-                  onKeepOpen={() => openNav(item.mega)}
-                />
-              )}
-            </div>
-          ))}
-        </nav>
+        {!isSupplier && (
+          <nav className="topbar-nav">
+            {NAV.map(item => (
+              <div key={item.label} className="nav-item"
+                onMouseEnter={() => item.mega ? openNav(item.mega) : clearTimeout(closeTimer.current)}
+                onMouseLeave={item.mega ? closeNav : undefined}>
+                <a
+                  href={item.route}
+                  className={`nav-link ${isActive(item.route) ? 'active' : ''}`}
+                  onClick={e => { e.preventDefault(); setOpenMenu(null); navigate(item.route) }}
+                >
+                  {item.label}
+                </a>
+                {item.mega && openMenu === item.mega && (
+                  <MegaMenu
+                    category={item.mega}
+                    data={MEGA[item.mega]}
+                    onNavigate={handleMegaNavigate}
+                    onClose={() => setOpenMenu(null)}
+                    onKeepOpen={() => openNav(item.mega)}
+                  />
+                )}
+              </div>
+            ))}
+          </nav>
+        )}
 
         <div className="topbar-right">
-          {/* Globe / region */}
-          <button className="topbar-icon-btn" title="Region">
-            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-            </svg>
-            <svg width="8" height="8" fill="currentColor" viewBox="0 0 8 8"><path d="M1 2l3 4 3-4z"/></svg>
-          </button>
+          {!isSupplier && (
+            <button className="topbar-icon-btn" title="Region">
+              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+              </svg>
+              <svg width="8" height="8" fill="currentColor" viewBox="0 0 8 8"><path d="M1 2l3 4 3-4z"/></svg>
+            </button>
+          )}
 
-          {/* Currency dropdown */}
-          <div className="topbar-currency-select topbar-btn-desktop">
-            <select value={currency} onChange={e => setCurrency(e.target.value)} className="topbar-curr-sel">
-              <option value="EUR">EUR</option>
-              <option value="USD">USD</option>
-            </select>
-            <svg width="8" height="8" fill="currentColor" viewBox="0 0 8 8" className="curr-chevron"><path d="M1 2l3 4 3-4z"/></svg>
-          </div>
+          {!isSupplier && (
+            <div className="topbar-currency-select topbar-btn-desktop">
+              <select value={currency} onChange={e => setCurrency(e.target.value)} className="topbar-curr-sel">
+                <option value="EUR">EUR</option>
+                <option value="USD">USD</option>
+              </select>
+              <svg width="8" height="8" fill="currentColor" viewBox="0 0 8 8" className="curr-chevron"><path d="M1 2l3 4 3-4z"/></svg>
+            </div>
+          )}
 
-          {/* Notification bell */}
-          <button className="topbar-icon-btn topbar-btn-desktop" title="Notifications" onClick={() => navigate('/offers')}>
-            <svg width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-            </svg>
-            {profile?.role === 'dealer' && (
-              <span className="topbar-bell-dot" />
-            )}
-          </button>
+          {!isSupplier && (
+            <button className="topbar-icon-btn topbar-btn-desktop" title="Notifications" onClick={() => navigate('/offers')}>
+              <svg width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+              {profile?.role === 'dealer' && (
+                <span className="topbar-bell-dot" />
+              )}
+            </button>
+          )}
 
-          {/* Account widget */}
           <div className="topbar-account-widget topbar-btn-desktop" onClick={() => navigate('/account')} title="My Account">
             <div className={`avatar ${avatarColor(profile?.full_name)}`}>
               {initials(profile?.full_name)}
@@ -244,7 +252,11 @@ export default function Topbar() {
             </div>
           </div>
 
-          {/* Admin shortcut */}
+          {isSupplier && (
+            <button className="btn btn-sm topbar-btn-desktop" onClick={handleSignOut}
+              style={{ fontSize: 11, padding: '5px 10px' }}>Sign out</button>
+          )}
+
           {(profile?.role === 'agent' || profile?.role === 'admin') && (
             <button className="btn btn-sm topbar-btn-desktop" onClick={() => navigate('/agent')}
               style={{ fontSize: 11, padding: '5px 10px' }}>Agent Panel</button>
@@ -254,9 +266,11 @@ export default function Topbar() {
               style={{ fontSize: 11, padding: '5px 10px' }}>Admin</button>
           )}
 
-          <button className="hamburger" onClick={() => setMobileOpen(true)} aria-label="Menu">
-            <span /><span /><span />
-          </button>
+          {!isSupplier && (
+            <button className="hamburger" onClick={() => setMobileOpen(true)} aria-label="Menu">
+              <span /><span /><span />
+            </button>
+          )}
         </div>
       </div>
 
