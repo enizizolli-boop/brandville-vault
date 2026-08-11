@@ -358,6 +358,10 @@ export default function AgentListings() {
   const [supReviewData, setSupReviewData] = useState({}) // { [id]: { price, reason } }
   const [supEditId, setSupEditId] = useState(null)
   const [supEditForm, setSupEditForm] = useState({})
+  const [supEditExistingImgs, setSupEditExistingImgs] = useState([])
+  const [supEditRemovedIds, setSupEditRemovedIds] = useState([])
+  const [supEditNewFiles, setSupEditNewFiles] = useState([])
+  const [supEditNewPreviews, setSupEditNewPreviews] = useState([])
   const [listingsOpen, setListingsOpen] = useState(true)
   const [activityOpen, setActivityOpen] = useState(true)
   const [inStockBrand, setInStockBrand] = useState('all')
@@ -516,6 +520,10 @@ export default function AgentListings() {
       asking_price: listing.asking_price || '',
       notes: listing.notes || '',
     })
+    setSupEditExistingImgs((listing.supplier_listing_images || []).sort((a, b) => a.position - b.position))
+    setSupEditRemovedIds([])
+    setSupEditNewFiles([])
+    setSupEditNewPreviews([])
   }
 
   async function saveSupplierListingEdit(listingId) {
@@ -532,6 +540,22 @@ export default function AgentListings() {
       })
       .eq('id', listingId)
     if (error) { alert('Failed to save: ' + error.message); return }
+
+    for (const id of supEditRemovedIds) {
+      await supabase.from('supplier_listing_images').delete().eq('id', id)
+    }
+
+    const startPos = supEditExistingImgs.filter(img => !supEditRemovedIds.includes(img.id)).length
+    for (let i = 0; i < supEditNewFiles.length; i++) {
+      const file = supEditNewFiles[i]
+      const ext = file.name.split('.').pop()
+      const path = `supplier_listings/${listingId}/${Date.now()}_${i}.${ext}`
+      const { error: upErr } = await supabase.storage.from('watch-images').upload(path, file)
+      if (upErr) continue
+      const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path)
+      await supabase.from('supplier_listing_images').insert({ listing_id: listingId, url: publicUrl, position: startPos + i })
+    }
+
     setSupEditId(null)
     fetchSupplierListings()
   }
@@ -1762,6 +1786,34 @@ export default function AgentListings() {
                       </select>
                     </div>
                     <textarea className="input" placeholder="Notes" rows={2} value={supEditForm.notes} onChange={e => setSupEditForm(f => ({ ...f, notes: e.target.value }))} style={{ marginBottom: 0, resize: 'vertical' }} />
+
+                    {/* Image management */}
+                    <div>
+                      <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 6 }}>Photos</div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                        {supEditExistingImgs.filter(img => !supEditRemovedIds.includes(img.id)).map(img => (
+                          <div key={img.id} style={{ position: 'relative' }}>
+                            <img src={img.url} alt="" style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border-light)' }} />
+                            <button onClick={() => setSupEditRemovedIds(ids => [...ids, img.id])} style={{ position: 'absolute', top: 3, right: 3, background: 'rgba(0,0,0,0.65)', color: '#fff', border: 'none', borderRadius: '50%', width: 18, height: 18, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                          </div>
+                        ))}
+                        {supEditNewPreviews.map((src, i) => (
+                          <div key={i} style={{ position: 'relative' }}>
+                            <img src={src} alt="" style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, border: '2px dashed var(--border-light)', opacity: 0.9 }} />
+                            <button onClick={() => { setSupEditNewFiles(f => f.filter((_, j) => j !== i)); setSupEditNewPreviews(p => p.filter((_, j) => j !== i)) }} style={{ position: 'absolute', top: 3, right: 3, background: 'rgba(0,0,0,0.65)', color: '#fff', border: 'none', borderRadius: '50%', width: 18, height: 18, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                          </div>
+                        ))}
+                        <label style={{ width: 72, height: 72, borderRadius: 8, border: '2px dashed var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--faint)', fontSize: 22 }}>
+                          +
+                          <input type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => {
+                            const files = Array.from(e.target.files)
+                            setSupEditNewFiles(f => [...f, ...files])
+                            setSupEditNewPreviews(p => [...p, ...files.map(f => URL.createObjectURL(f))])
+                          }} />
+                        </label>
+                      </div>
+                    </div>
+
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button className="btn btn-dark btn-sm" onClick={() => saveSupplierListingEdit(listing.id)}>Save changes</button>
                       <button className="btn btn-sm" onClick={() => setSupEditId(null)}>Cancel</button>
@@ -1785,39 +1837,53 @@ export default function AgentListings() {
                   </div>
                 )}
 
-                <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <select
-                      className="input"
-                      value={rd.currency || 'EUR'}
-                      onChange={e => setRd({ currency: e.target.value })}
-                      style={{ width: 80, marginBottom: 0 }}
-                    >
-                      <option value="EUR">EUR</option>
-                      <option value="USD">USD</option>
-                      <option value="GBP">GBP</option>
-                      <option value="CHF">CHF</option>
-                      <option value="CNY">CNY</option>
-                    </select>
-                    <input
-                      className="input"
-                      type="number"
-                      placeholder="Selling price"
-                      value={rd.price || ''}
-                      onChange={e => setRd({ price: e.target.value })}
-                      style={{ width: 140, marginBottom: 0 }}
-                    />
-                    <button className="btn btn-dark btn-sm" onClick={() => approveSupplierListing(listing)}>Approve & Publish</button>
+                <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: 14, display: 'flex', gap: 12, alignItems: 'stretch', flexWrap: 'wrap' }}>
+                  {/* Selling price + Approve */}
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexShrink: 0 }}>
+                    <div>
+                      <div style={{ fontSize: 11, color: 'var(--faint)', marginBottom: 5, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        Selling price
+                        <select
+                          value={rd.currency || 'EUR'}
+                          onChange={e => setRd({ currency: e.target.value })}
+                          style={{ fontSize: 11, border: 'none', background: 'transparent', color: 'var(--faint)', cursor: 'pointer', padding: 0, outline: 'none' }}
+                        >
+                          <option value="EUR">(€)</option>
+                          <option value="USD">($)</option>
+                          <option value="GBP">(£)</option>
+                          <option value="CHF">(CHF)</option>
+                          <option value="CNY">(¥)</option>
+                        </select>
+                      </div>
+                      <input
+                        className="input"
+                        type="number"
+                        placeholder="0"
+                        value={rd.price || ''}
+                        onChange={e => setRd({ price: e.target.value })}
+                        style={{ width: 130, marginBottom: 0, fontWeight: 600, fontSize: 15 }}
+                      />
+                    </div>
+                    <button className="btn btn-dark btn-sm" onClick={() => approveSupplierListing(listing)} style={{ height: 38, whiteSpace: 'nowrap' }}>
+                      ✓ Approve & Publish
+                    </button>
                   </div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <input
-                      className="input"
-                      placeholder="Rejection reason"
-                      value={rd.reason || ''}
-                      onChange={e => setRd({ reason: e.target.value })}
-                      style={{ flex: 1, minWidth: 160, marginBottom: 0 }}
-                    />
-                    <button className="btn btn-danger btn-sm" onClick={() => rejectSupplierListing(listing)}>Reject</button>
+
+                  {/* Rejection reason + Reject */}
+                  <div style={{ flex: 1, minWidth: 220, display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 11, color: 'var(--faint)', marginBottom: 5 }}>Rejection reason <span style={{ color: '#9ca3af' }}>(optional)</span></div>
+                      <input
+                        className="input"
+                        placeholder="Add a reason for rejection..."
+                        value={rd.reason || ''}
+                        onChange={e => setRd({ reason: e.target.value })}
+                        style={{ width: '100%', marginBottom: 0 }}
+                      />
+                    </div>
+                    <button className="btn btn-danger btn-sm" onClick={() => rejectSupplierListing(listing)} style={{ height: 38, whiteSpace: 'nowrap' }}>
+                      ✕ Reject
+                    </button>
                   </div>
                 </div>
               </div>
