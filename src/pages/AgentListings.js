@@ -358,6 +358,13 @@ export default function AgentListings() {
   const [supReviewData, setSupReviewData] = useState({}) // { [id]: { price, reason } }
   const [supEditId, setSupEditId] = useState(null)
   const [supEditForm, setSupEditForm] = useState({})
+  const [listingsOpen, setListingsOpen] = useState(true)
+  const [activityOpen, setActivityOpen] = useState(true)
+  const [inStockBrand, setInStockBrand] = useState('all')
+  const [inStockCondition, setInStockCondition] = useState('all')
+  const [inStockStatus, setInStockStatus] = useState('all')
+  const [inStockSortBy, setInStockSortBy] = useState('newest')
+  const [viewMode, setViewMode] = useState('list')
 
   const fetchSupplierListings = useCallback(async () => {
     const { data } = await supabase
@@ -833,9 +840,18 @@ export default function AgentListings() {
   }
 
   const q = search.toLowerCase()
-  const filteredWatches = watches.filter(w =>
-    !search || w.brand?.toLowerCase().includes(q) || w.model?.toLowerCase().includes(q) || w.reference?.toLowerCase().includes(q)
-  )
+  const filteredWatches = watches.filter(w => {
+    if (search && !w.brand?.toLowerCase().includes(q) && !w.model?.toLowerCase().includes(q) && !w.reference?.toLowerCase().includes(q)) return false
+    if (inStockBrand !== 'all' && w.brand !== inStockBrand) return false
+    if (inStockCondition !== 'all' && w.condition !== inStockCondition) return false
+    if (inStockStatus !== 'all' && w.status !== inStockStatus) return false
+    return true
+  }).sort((a, b) => {
+    if (inStockSortBy === 'oldest') return new Date(a.created_at) - new Date(b.created_at)
+    if (inStockSortBy === 'price_asc') return Number(a.price_eur || 0) - Number(b.price_eur || 0)
+    if (inStockSortBy === 'price_desc') return Number(b.price_eur || 0) - Number(a.price_eur || 0)
+    return new Date(b.created_at) - new Date(a.created_at)
+  })
   // Bags always count as archived for this agent-side grouping (the Preorders Bags
   // tab below still shows all of them unaffected — this only changes which bucket
   // they fall into for the Archived tab). Watches archive normally after 7 days.
@@ -872,39 +888,56 @@ export default function AgentListings() {
 
   const pendingOffers = offers.filter(o => o.status === 'pending').length
 
-  const sidebarBtn = (id, label, count, accent) => (
-    <button onClick={() => setTab(id)} style={{
-      display: 'flex', alignItems: 'center', gap: 10,
-      width: '100%', padding: '8px 10px', borderRadius: 8,
-      border: 'none', cursor: 'pointer', textAlign: 'left',
-      background: tab === id ? 'var(--surface2)' : 'transparent',
-      color: tab === id ? 'var(--text)' : 'var(--faint)',
-      fontWeight: tab === id ? 600 : 400, fontSize: 13,
-      transition: 'background 0.12s, color 0.12s',
-    }}>
-      <span style={{ flex: 1 }}>{label}</span>
-      {count > 0 && (
-        <span style={{ background: accent ? '#f59e0b' : (tab === id ? 'var(--border)' : 'var(--border-light)'), color: accent ? '#fff' : 'var(--faint)', borderRadius: 10, fontSize: 10, fontWeight: 700, padding: '1px 6px' }}>
-          {count}
-        </span>
-      )}
-    </button>
-  )
+  const navItem = (id, label, icon, count, accent) => {
+    const isActive = tab === id
+    return (
+      <button onClick={() => setTab(id)} style={{
+        display: 'flex', alignItems: 'center', gap: 9,
+        width: '100%', padding: '7px 10px', borderRadius: 8,
+        border: 'none', cursor: 'pointer', textAlign: 'left',
+        background: isActive ? 'rgba(184,150,90,0.1)' : 'transparent',
+        color: isActive ? '#b8965a' : 'var(--faint)',
+        fontWeight: isActive ? 600 : 400, fontSize: 13,
+        transition: 'background 0.12s, color 0.12s',
+      }}>
+        <span style={{ opacity: isActive ? 1 : 0.6, display: 'flex' }}>{icon}</span>
+        <span style={{ flex: 1 }}>{label}</span>
+        {count > 0 && (
+          <span style={{ background: accent ? '#f59e0b' : 'var(--border-light)', color: accent ? '#fff' : 'var(--faint)', borderRadius: 10, fontSize: 10, fontWeight: 700, padding: '1px 6px' }}>
+            {count}
+          </span>
+        )}
+      </button>
+    )
+  }
 
-  const subBtn = (lType, label, count) => (
-    <button onClick={() => { setTab('listings'); setListingType(lType) }} style={{
-      display: 'flex', alignItems: 'center', gap: 8,
-      width: '100%', padding: '6px 10px 6px 22px', borderRadius: 8,
-      border: 'none', cursor: 'pointer', textAlign: 'left',
-      background: tab === 'listings' && listingType === lType ? 'var(--surface2)' : 'transparent',
-      color: tab === 'listings' && listingType === lType ? 'var(--text)' : 'var(--faint)',
-      fontWeight: tab === 'listings' && listingType === lType ? 600 : 400, fontSize: 12,
-      transition: 'background 0.12s, color 0.12s',
-    }}>
-      <span style={{ flex: 1 }}>{label}</span>
-      {count > 0 && <span style={{ fontSize: 10, color: 'var(--faint)' }}>{count}</span>}
-    </button>
-  )
+  const subItem = (lType, label, count) => {
+    const isActive = tab === 'listings' && listingType === lType
+    return (
+      <button onClick={() => { setTab('listings'); setListingType(lType) }} style={{
+        display: 'flex', alignItems: 'center',
+        width: '100%', padding: '5px 10px 5px 30px', borderRadius: 8,
+        border: 'none', cursor: 'pointer', textAlign: 'left',
+        background: isActive ? 'rgba(184,150,90,0.08)' : 'transparent',
+        color: isActive ? '#b8965a' : 'var(--faint)',
+        fontWeight: isActive ? 600 : 400, fontSize: 12,
+        transition: 'background 0.12s, color 0.12s',
+      }}>
+        <span style={{ flex: 1 }}>{label}</span>
+        <span style={{ fontSize: 11, color: isActive ? '#b8965a' : 'var(--faint)', opacity: 0.7 }}>{count}</span>
+      </button>
+    )
+  }
+
+  const IconHome = () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+  const IconBag = () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+  const IconPlus = () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  const IconTag = () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+  const IconPerson = () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+  const IconBox = () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+  const IconChevron = ({ open }) => <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d={open ? 'M18 15l-6-6-6 6' : 'M6 9l6 6 6-6'}/></svg>
+
+  const selStyle = { fontSize: 13, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border-light)', background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }
 
   return (
     <div className="page" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -913,70 +946,174 @@ export default function AgentListings() {
 
         {/* Sidebar */}
         <aside style={{
-          width: 210, flexShrink: 0,
+          width: 220, flexShrink: 0,
           borderRight: '1px solid var(--border-light)',
           background: 'var(--surface)',
           display: 'flex', flexDirection: 'column',
-          padding: '20px 10px',
+          padding: '16px 10px 12px',
           overflowY: 'auto',
         }}>
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--faint)', padding: '0 10px', marginBottom: 6 }}>Listings</div>
-          {sidebarBtn('listings', 'My Listings', 0)}
-          {(tab === 'listings' || true) && (
-            <div style={{ marginBottom: 4 }}>
-              {subBtn('instock', 'In stock', watches.length)}
-              {subBtn('preorders-watches', 'Preorders Watches', watchPreorders.length)}
-              {subBtn('preorders-bags', 'Preorders Bags', bagPreorders.length)}
-              {subBtn('preorders-archived', 'Archived', archivedPreorders.length)}
-            </div>
-          )}
-          {sidebarBtn('post', 'Post a Watch', 0)}
-          {sidebarBtn('bagpreorder', 'Post a Bag', 0)}
+          {navItem('overview', 'Overview', <IconHome />, 0)}
 
-          <div style={{ height: 1, background: 'var(--border-light)', margin: '10px 8px' }} />
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--faint)', padding: '0 10px', marginBottom: 6 }}>Activity</div>
-          {sidebarBtn('offers', 'Offers', pendingOffers, false)}
-          {sidebarBtn('clients', 'Clients', 0)}
-          {sidebarBtn('supplier', 'Supplier Queue', supplierListings.length, supplierListings.length > 0)}
+          <div style={{ height: 1, background: 'var(--border-light)', margin: '10px 4px 8px' }} />
+
+          {/* Listings section */}
+          <button onClick={() => setListingsOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '4px 10px', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--faint)', fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+            <span style={{ flex: 1 }}>Listings</span>
+            <IconChevron open={listingsOpen} />
+          </button>
+          {listingsOpen && (
+            <>
+              {navItem('listings', 'My Listings', <IconBag />, 0)}
+              <div style={{ marginBottom: 2 }}>
+                {subItem('instock', 'In stock', watches.length)}
+                {subItem('preorders-watches', 'Preorders Watches', watchPreorders.length)}
+                {subItem('preorders-bags', 'Preorders Bags', bagPreorders.length)}
+                {subItem('preorders-archived', 'Archived', archivedPreorders.length)}
+              </div>
+              {navItem('post', 'Post a Watch', <IconPlus />, 0)}
+              {navItem('bagpreorder', 'Post a Bag', <IconPlus />, 0)}
+            </>
+          )}
+
+          <div style={{ height: 1, background: 'var(--border-light)', margin: '10px 4px 8px' }} />
+
+          {/* Activity section */}
+          <button onClick={() => setActivityOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '4px 10px', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--faint)', fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+            <span style={{ flex: 1 }}>Activity</span>
+            <IconChevron open={activityOpen} />
+          </button>
+          {activityOpen && (
+            <>
+              {navItem('offers', 'Offers', <IconTag />, pendingOffers, false)}
+              {navItem('clients', 'Clients', <IconPerson />, 0)}
+              {navItem('supplier', 'Supplier Queue', <IconBox />, supplierListings.length, supplierListings.length > 0)}
+            </>
+          )}
+
+          <div style={{ flex: 1 }} />
+
+          {/* Need help? */}
+          <div style={{ margin: '12px 4px 0', background: 'var(--surface2)', border: '1px solid var(--border-light)', borderRadius: 12, padding: '14px 12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(184,150,90,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="13" height="13" fill="none" stroke="#b8965a" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>Need help?</span>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--faint)', marginBottom: 10, lineHeight: 1.5 }}>Our team is here to help you.</div>
+            <button className="btn btn-full" style={{ fontSize: 11, padding: '6px 0' }}>Contact Support</button>
+          </div>
         </aside>
 
         <div style={{ flex: 1, overflowY: 'auto' }}>
 
-      {tab === 'listings' && (
-        <div style={{ padding: 16 }}>
-          {msg && <div className="success-msg" style={{ marginBottom: 12 }}>{msg}</div>}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-            <button
-              className={`btn btn-sm${listingType === 'instock' ? ' btn-dark' : ''}`}
-              onClick={() => setListingType('instock')}
-            >
-              In stock {watches.length > 0 && `(${watches.length})`}
-            </button>
-            <button
-              className={`btn btn-sm${listingType === 'preorders-watches' ? ' btn-dark' : ''}`}
-              onClick={() => setListingType('preorders-watches')}
-            >
-              Preorders Watches {watchPreorders.length > 0 && `(${watchPreorders.length})`}
-            </button>
-            <button
-              className={`btn btn-sm${listingType === 'preorders-bags' ? ' btn-dark' : ''}`}
-              onClick={() => setListingType('preorders-bags')}
-            >
-              Preorders Bags {bagPreorders.length > 0 && `(${bagPreorders.length})`}
-            </button>
-            <button
-              className={`btn btn-sm${listingType === 'preorders-archived' ? ' btn-dark' : ''}`}
-              onClick={() => setListingType('preorders-archived')}
-            >
-              Archived {archivedPreorders.length > 0 && `(${archivedPreorders.length})`}
-            </button>
+      {tab === 'overview' && (
+        <div style={{ padding: '28px 28px 40px' }}>
+          <h2 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 4px' }}>Overview</h2>
+          <p style={{ fontSize: 13, color: 'var(--faint)', margin: '0 0 24px' }}>Quick snapshot of your activity</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 14, marginBottom: 28 }}>
+            {[
+              { label: 'In Stock', value: watches.length, color: '#22c55e', tab: 'listings' },
+              { label: 'Preorders', value: watchPreorders.length + bagPreorders.length, color: '#b8965a', tab: 'listings' },
+              { label: 'Pending Offers', value: pendingOffers, color: '#f59e0b', tab: 'offers' },
+              { label: 'Supplier Queue', value: supplierListings.length, color: '#6366f1', tab: 'supplier' },
+            ].map(s => (
+              <button key={s.label} onClick={() => setTab(s.tab)} style={{ textAlign: 'left', border: '1px solid var(--border-light)', borderRadius: 12, padding: '16px', background: 'var(--surface)', cursor: 'pointer', transition: 'border-color 0.12s' }}>
+                <div style={{ fontSize: 24, fontWeight: 700, color: s.color, marginBottom: 4 }}>{s.value}</div>
+                <div style={{ fontSize: 12, color: 'var(--faint)' }}>{s.label}</div>
+              </button>
+            ))}
           </div>
-          <input
-            placeholder="Search brand, model or reference..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{ width: '100%', marginBottom: 12, boxSizing: 'border-box' }}
-          />
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button className="btn" onClick={() => setTab('post')} style={{ fontSize: 13 }}>Post a Watch</button>
+            <button className="btn" onClick={() => { setTab('listings'); setListingType('instock') }} style={{ fontSize: 13 }}>View All Listings</button>
+          </div>
+        </div>
+      )}
+
+      {tab === 'listings' && (
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+          {/* Page header */}
+          <div style={{ padding: '24px 28px 0', borderBottom: '1px solid var(--border-light)' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div>
+                <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>My Listings</h2>
+                <p style={{ fontSize: 13, color: 'var(--faint)', margin: '3px 0 0' }}>Manage your watch and bag inventory</p>
+              </div>
+              <button className="btn" onClick={() => setTab('post')} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '8px 16px', whiteSpace: 'nowrap' }}>
+                <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                New Listing
+              </button>
+            </div>
+
+            {/* Underline tabs */}
+            <div style={{ display: 'flex', gap: 0 }}>
+              {[
+                { id: 'instock', label: 'In stock', count: watches.length },
+                { id: 'preorders-watches', label: 'Preorders Watches', count: watchPreorders.length },
+                { id: 'preorders-bags', label: 'Preorders Bags', count: bagPreorders.length },
+                { id: 'preorders-archived', label: 'Archived', count: archivedPreorders.length },
+              ].map(({ id, label, count }) => (
+                <button key={id} onClick={() => setListingType(id)} style={{
+                  padding: '8px 16px', border: 'none', background: 'none', cursor: 'pointer',
+                  fontSize: 13, fontWeight: listingType === id ? 600 : 400,
+                  color: listingType === id ? 'var(--text)' : 'var(--faint)',
+                  borderBottom: listingType === id ? '2px solid #b8965a' : '2px solid transparent',
+                  marginBottom: -1, transition: 'color 0.12s, border-color 0.12s',
+                  display: 'flex', alignItems: 'center', gap: 5,
+                }}>
+                  {label}
+                  {count > 0 && <span style={{ fontSize: 11, background: listingType === id ? 'rgba(184,150,90,0.12)' : 'var(--surface2)', color: listingType === id ? '#b8965a' : 'var(--faint)', borderRadius: 8, padding: '0 5px', fontWeight: 600 }}>{count}</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ padding: '16px 28px', flex: 1, overflowY: 'auto' }}>
+          {msg && <div className="success-msg" style={{ marginBottom: 12 }}>{msg}</div>}
+
+          {/* Search + filters row */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+            <input
+              placeholder="Search brand, model or reference..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={{ flex: 1, minWidth: 180, boxSizing: 'border-box' }}
+            />
+            {listingType === 'instock' && (
+              <>
+                <select value={inStockBrand} onChange={e => setInStockBrand(e.target.value)} style={selStyle}>
+                  <option value="all">All brands</option>
+                  {BRANDS.map(b => <option key={b} value={b}>{b}</option>)}
+                </select>
+                <select value={inStockCondition} onChange={e => setInStockCondition(e.target.value)} style={selStyle}>
+                  <option value="all">All conditions</option>
+                  {CONDITIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <select value={inStockStatus} onChange={e => setInStockStatus(e.target.value)} style={selStyle}>
+                  <option value="all">All statuses</option>
+                  <option value="available">Available</option>
+                  <option value="sold">Sold</option>
+                </select>
+                <select value={inStockSortBy} onChange={e => setInStockSortBy(e.target.value)} style={selStyle}>
+                  <option value="newest">Newest first</option>
+                  <option value="oldest">Oldest first</option>
+                  <option value="price_asc">Price: Low to High</option>
+                  <option value="price_desc">Price: High to Low</option>
+                </select>
+                {/* Grid / List toggle */}
+                <div style={{ display: 'flex', border: '1px solid var(--border-light)', borderRadius: 8, overflow: 'hidden' }}>
+                  <button onClick={() => setViewMode('list')} title="List view" style={{ padding: '7px 10px', border: 'none', cursor: 'pointer', background: viewMode === 'list' ? 'var(--surface2)' : 'transparent', color: viewMode === 'list' ? 'var(--text)' : 'var(--faint)', display: 'flex', alignItems: 'center' }}>
+                    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                  </button>
+                  <button onClick={() => setViewMode('grid')} title="Grid view" style={{ padding: '7px 10px', border: 'none', cursor: 'pointer', background: viewMode === 'grid' ? 'var(--surface2)' : 'transparent', color: viewMode === 'grid' ? 'var(--text)' : 'var(--faint)', display: 'flex', alignItems: 'center' }}>
+                    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
 
           {(listingType === 'preorders-watches' || listingType === 'preorders-bags' || listingType === 'preorders-archived') && (
             <>
@@ -996,13 +1133,13 @@ export default function AgentListings() {
               </div>
 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-                <select value={preorderStatusFilter} onChange={e => setPreorderStatusFilter(e.target.value)} style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)' }}>
+                <select value={preorderStatusFilter} onChange={e => setPreorderStatusFilter(e.target.value)} style={selStyle}>
                   <option value="all">All statuses</option>
                   <option value="available">Available</option>
                   <option value="sold">Sold</option>
                   <option value="expiring">Expiring soon</option>
                 </select>
-                <select value={preorderBrandFilter} onChange={e => setPreorderBrandFilter(e.target.value)} style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)' }}>
+                <select value={preorderBrandFilter} onChange={e => setPreorderBrandFilter(e.target.value)} style={selStyle}>
                   <option value="all">All brands</option>
                   {preorderBrandOptions.map(b => <option key={b} value={b}>{b}</option>)}
                 </select>
@@ -1014,7 +1151,7 @@ export default function AgentListings() {
                   type="number" placeholder="Max €" value={preorderPriceMax} onChange={e => setPreorderPriceMax(e.target.value)}
                   style={{ width: 90, fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)' }}
                 />
-                <select value={preorderSort} onChange={e => setPreorderSort(e.target.value)} style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)' }}>
+                <select value={preorderSort} onChange={e => setPreorderSort(e.target.value)} style={selStyle}>
                   <option value="newest">Newest</option>
                   <option value="price_asc">Price ↑</option>
                   <option value="price_desc">Price ↓</option>
@@ -1028,7 +1165,18 @@ export default function AgentListings() {
             loading
               ? <div className="loading-page" style={{ minHeight: 200 }}><div className="spinner" /></div>
               : filteredWatches.length === 0
-                ? <div className="empty-state">{search ? 'No items match your search' : 'No items posted yet'}</div>
+                ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', color: 'var(--faint)' }}>
+                    <svg width="64" height="64" fill="none" stroke="currentColor" strokeWidth="1.2" viewBox="0 0 24 24" style={{ marginBottom: 16, opacity: 0.35 }}>
+                      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                      <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                      <line x1="12" y1="22.08" x2="12" y2="12"/>
+                    </svg>
+                    <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6, color: 'var(--text)' }}>{search ? 'No results found' : 'No listings yet'}</div>
+                    <div style={{ fontSize: 13, marginBottom: 20 }}>{search ? 'Try a different search or filter' : 'Post your first watch or bag to get started'}</div>
+                    {!search && <button className="btn" onClick={() => setTab('post')} style={{ fontSize: 13 }}>Post a Watch</button>}
+                  </div>
+                )
                 : filteredWatches.map(w => (
                 <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid var(--border-light)', borderRadius: 10, marginBottom: 8, background: 'var(--surface)' }}>
                   <a href={`/catalog/${toSlug(w)}`} onClick={e => { e.preventDefault(); navigate(`/catalog/${toSlug(w)}`) }} style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, textDecoration: 'none', color: 'inherit', minWidth: 0 }}>
@@ -1101,6 +1249,7 @@ export default function AgentListings() {
               )
             })
           )}
+          </div>
         </div>
       )}
 
