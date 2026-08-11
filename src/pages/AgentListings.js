@@ -1036,15 +1036,9 @@ export default function AgentListings() {
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
           {/* Page header */}
           <div style={{ padding: '24px 28px 0', borderBottom: '1px solid var(--border-light)' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div>
-                <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>My Listings</h2>
-                <p style={{ fontSize: 13, color: 'var(--faint)', margin: '3px 0 0' }}>Manage your watch and bag inventory</p>
-              </div>
-              <button className="btn" onClick={() => setTab('post')} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '8px 16px', whiteSpace: 'nowrap' }}>
-                <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                New Listing
-              </button>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 16 }}>
+              <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>My Listings</h2>
+              <span style={{ fontSize: 13, color: 'var(--faint)' }}>Manage your inventory and listings.</span>
             </div>
 
             {/* Underline tabs */}
@@ -1061,7 +1055,7 @@ export default function AgentListings() {
                   color: listingType === id ? 'var(--text)' : 'var(--faint)',
                   borderBottom: listingType === id ? '2px solid #b8965a' : '2px solid transparent',
                   marginBottom: -1, transition: 'color 0.12s, border-color 0.12s',
-                  display: 'flex', alignItems: 'center', gap: 5,
+                  display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
                 }}>
                   {label}
                   {count > 0 && <span style={{ fontSize: 11, background: listingType === id ? 'rgba(184,150,90,0.12)' : 'var(--surface2)', color: listingType === id ? '#b8965a' : 'var(--faint)', borderRadius: 8, padding: '0 5px', fontWeight: 600 }}>{count}</span>}
@@ -1073,47 +1067,51 @@ export default function AgentListings() {
           <div style={{ padding: '16px 28px', flex: 1, overflowY: 'auto' }}>
           {msg && <div className="success-msg" style={{ marginBottom: 12 }}>{msg}</div>}
 
-          {/* Search + filters row */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-            <input
-              placeholder="Search brand, model or reference..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              style={{ flex: 1, minWidth: 180, boxSizing: 'border-box' }}
-            />
-            {listingType === 'instock' && (
-              <>
-                <select value={inStockBrand} onChange={e => setInStockBrand(e.target.value)} style={selStyle}>
-                  <option value="all">All brands</option>
-                  {BRANDS.map(b => <option key={b} value={b}>{b}</option>)}
-                </select>
-                <select value={inStockCondition} onChange={e => setInStockCondition(e.target.value)} style={selStyle}>
-                  <option value="all">All conditions</option>
-                  {CONDITIONS.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-                <select value={inStockStatus} onChange={e => setInStockStatus(e.target.value)} style={selStyle}>
-                  <option value="all">All statuses</option>
-                  <option value="available">Available</option>
-                  <option value="sold">Sold</option>
-                </select>
-                <select value={inStockSortBy} onChange={e => setInStockSortBy(e.target.value)} style={selStyle}>
-                  <option value="newest">Newest first</option>
-                  <option value="oldest">Oldest first</option>
-                  <option value="price_asc">Price: Low to High</option>
-                  <option value="price_desc">Price: High to Low</option>
-                </select>
-                {/* Grid / List toggle */}
-                <div style={{ display: 'flex', border: '1px solid var(--border-light)', borderRadius: 8, overflow: 'hidden' }}>
-                  <button onClick={() => setViewMode('list')} title="List view" style={{ padding: '7px 10px', border: 'none', cursor: 'pointer', background: viewMode === 'list' ? 'var(--surface2)' : 'transparent', color: viewMode === 'list' ? 'var(--text)' : 'var(--faint)', display: 'flex', alignItems: 'center' }}>
-                    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-                  </button>
-                  <button onClick={() => setViewMode('grid')} title="Grid view" style={{ padding: '7px 10px', border: 'none', cursor: 'pointer', background: viewMode === 'grid' ? 'var(--surface2)' : 'transparent', color: viewMode === 'grid' ? 'var(--text)' : 'var(--faint)', display: 'flex', alignItems: 'center' }}>
-                    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                  </button>
-                </div>
-              </>
-            )}
+          {/* Search + New Listing */}
+          <div style={{ display: 'flex', gap: 10, marginBottom: 14, alignItems: 'center' }}>
+            <div style={{ flex: 1, position: 'relative' }}>
+              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--faint)', pointerEvents: 'none' }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input
+                placeholder="Search brand, model or reference..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 32 }}
+              />
+            </div>
+            <button className="btn" onClick={() => setTab('post')} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '8px 18px', whiteSpace: 'nowrap', background: '#b8965a', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
+              <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              New Listing
+            </button>
           </div>
+
+          {/* Filter row with labels above each dropdown */}
+          {listingType === 'instock' && (
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', marginBottom: 16, flexWrap: 'wrap' }}>
+              {[
+                { label: 'Brand', value: inStockBrand, set: setInStockBrand, options: [['all', 'All brands'], ...BRANDS.map(b => [b, b])] },
+                { label: 'Listings Type', value: 'all', set: () => {}, options: [['all', 'All listings'], ['instock', 'In stock'], ['preorder', 'Preorder']] },
+                { label: 'Condition', value: inStockCondition, set: setInStockCondition, options: [['all', 'All conditions'], ...CONDITIONS.map(c => [c, c])] },
+                { label: 'Status', value: inStockStatus, set: setInStockStatus, options: [['all', 'All status'], ['available', 'Available'], ['sold', 'Sold']] },
+                { label: 'Sort by', value: inStockSortBy, set: setInStockSortBy, options: [['newest', 'Newest first'], ['oldest', 'Oldest first'], ['price_asc', 'Price: Low–High'], ['price_desc', 'Price: High–Low']] },
+              ].map(f => (
+                <div key={f.label}>
+                  <div style={{ fontSize: 11, color: 'var(--faint)', marginBottom: 4, fontWeight: 500 }}>{f.label}</div>
+                  <select value={f.value} onChange={e => f.set(e.target.value)} style={selStyle}>
+                    {f.options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                </div>
+              ))}
+              {/* Grid / List toggle */}
+              <div style={{ marginLeft: 'auto', display: 'flex', border: '1px solid var(--border-light)', borderRadius: 8, overflow: 'hidden', alignSelf: 'flex-end' }}>
+                <button onClick={() => setViewMode('grid')} title="Grid view" style={{ padding: '7px 10px', border: 'none', cursor: 'pointer', background: viewMode === 'grid' ? 'var(--surface2)' : 'transparent', color: viewMode === 'grid' ? 'var(--text)' : 'var(--faint)', display: 'flex', alignItems: 'center' }}>
+                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                </button>
+                <button onClick={() => setViewMode('list')} title="List view" style={{ padding: '7px 10px', border: 'none', cursor: 'pointer', background: viewMode === 'list' ? 'var(--surface2)' : 'transparent', color: viewMode === 'list' ? 'var(--text)' : 'var(--faint)', display: 'flex', alignItems: 'center' }}>
+                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                </button>
+              </div>
+            </div>
+          )}
 
           {(listingType === 'preorders-watches' || listingType === 'preorders-bags' || listingType === 'preorders-archived') && (
             <>
