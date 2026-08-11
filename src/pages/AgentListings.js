@@ -955,7 +955,7 @@ export default function AgentListings() {
         }}>
           {navItem('overview', 'Overview', <IconHome />, 0)}
 
-          <div style={{ height: 6 }} />
+          <div style={{ height: 1, background: 'var(--border-light)', margin: '8px 4px' }} />
 
           {/* Listings section */}
           <button onClick={() => setListingsOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', width: '100%', padding: '8px 12px', border: 'none', background: 'none', cursor: 'pointer', color: '#374151', fontSize: 14, fontWeight: 500 }}>
@@ -973,8 +973,6 @@ export default function AgentListings() {
               </div>
             </>
           )}
-
-          <div style={{ height: 4 }} />
 
           {/* Activity section */}
           <button onClick={() => setActivityOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', width: '100%', padding: '8px 12px', border: 'none', background: 'none', cursor: 'pointer', color: '#374151', fontSize: 14, fontWeight: 500 }}>
