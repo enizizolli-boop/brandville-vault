@@ -896,11 +896,11 @@ export default function AgentListings() {
         width: '100%', padding: '7px 10px', borderRadius: 8,
         border: 'none', cursor: 'pointer', textAlign: 'left',
         background: isActive ? '#f5ede0' : 'transparent',
-        color: isActive ? 'var(--text)' : '#6b7280',
-        fontWeight: isActive ? 600 : 400, fontSize: 13,
+        color: isActive ? 'var(--text)' : '#374151',
+        fontWeight: isActive ? 600 : 400, fontSize: 14,
         transition: 'background 0.12s, color 0.12s',
       }}>
-        <span style={{ color: isActive ? '#b8965a' : '#9ca3af', display: 'flex' }}>{icon}</span>
+        <span style={{ color: isActive ? '#b8965a' : '#6b7280', display: 'flex' }}>{icon}</span>
         <span style={{ flex: 1 }}>{label}</span>
         {count > 0 && (
           <span style={{ background: accent ? '#f59e0b' : '#f3f4f6', color: accent ? '#fff' : '#6b7280', borderRadius: 10, fontSize: 10, fontWeight: 700, padding: '1px 6px' }}>
@@ -919,21 +919,21 @@ export default function AgentListings() {
         width: '100%', padding: '4px 10px 4px 33px', borderRadius: 8,
         border: 'none', cursor: 'pointer', textAlign: 'left',
         background: 'transparent',
-        color: isActive ? 'var(--text)' : '#9ca3af',
-        fontWeight: isActive ? 500 : 400, fontSize: 12,
+        color: isActive ? 'var(--text)' : '#4b5563',
+        fontWeight: isActive ? 500 : 400, fontSize: 13,
         transition: 'color 0.12s',
       }}>
         <span style={{ flex: 1 }}>{label}</span>
-        <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 400 }}>{count}</span>
+        <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 400 }}>{count}</span>
       </button>
     )
   }
 
-  const IconHome = () => <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-  const IconBag = () => <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-  const IconTag = () => <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-  const IconPerson = () => <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-  const IconBox = () => <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+  const IconHome = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+  const IconBag = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+  const IconTag = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+  const IconPerson = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+  const IconBox = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
   const IconChevronUp = () => <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 15l-6-6-6 6"/></svg>
   const IconChevronDown = () => <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
 
@@ -958,7 +958,7 @@ export default function AgentListings() {
           <div style={{ height: 8 }} />
 
           {/* Listings section */}
-          <button onClick={() => setListingsOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '4px 10px', border: 'none', background: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          <button onClick={() => setListingsOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '4px 10px', border: 'none', background: 'none', cursor: 'pointer', color: '#6b7280', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
             <span style={{ flex: 1 }}>Listings</span>
             {listingsOpen ? <IconChevronUp /> : <IconChevronDown />}
           </button>
@@ -977,7 +977,7 @@ export default function AgentListings() {
           <div style={{ height: 8 }} />
 
           {/* Activity section */}
-          <button onClick={() => setActivityOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '4px 10px', border: 'none', background: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          <button onClick={() => setActivityOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '4px 10px', border: 'none', background: 'none', cursor: 'pointer', color: '#6b7280', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
             <span style={{ flex: 1 }}>Activity</span>
             {activityOpen ? <IconChevronUp /> : <IconChevronDown />}
           </button>
@@ -995,7 +995,7 @@ export default function AgentListings() {
           <div style={{ margin: '12px 4px 0', background: '#fdf8f2', border: '1px solid #e9d8bc', borderRadius: 12, padding: '14px 12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
               <div style={{ width: 30, height: 30, borderRadius: 50, background: '#f5ede0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <svg width="15" height="15" fill="none" stroke="#b8965a" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+                <svg width="16" height="16" fill="none" stroke="#b8965a" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
               </div>
               <span style={{ fontSize: 13, fontWeight: 600 }}>Need help?</span>
             </div>
