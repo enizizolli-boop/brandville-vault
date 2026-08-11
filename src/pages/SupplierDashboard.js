@@ -16,7 +16,6 @@ const BRANDS = [
 ]
 
 const CONDITIONS = ['Pre-owned']
-
 const SCOPES = ['Watch Only', 'With Card', 'With Box', 'Card & Box']
 
 const EMPTY_FORM = {
@@ -33,11 +32,174 @@ const PRICE_CURRENCIES = [
 ]
 
 const STATUS_CONFIG = {
-  draft:          { label: 'Draft',          color: '#94a3b8' },
-  pending_review: { label: 'Pending Review', color: '#f59e0b' },
-  approved:       { label: 'Approved',       color: '#22c55e' },
-  rejected:       { label: 'Rejected',       color: '#ef4444' },
-  sold:           { label: 'Sold',           color: '#6b7280' },
+  draft:          { color: '#94a3b8' },
+  pending_review: { color: '#f59e0b' },
+  approved:       { color: '#22c55e' },
+  rejected:       { color: '#ef4444' },
+  sold:           { color: '#6b7280' },
+}
+
+const TRANSLATIONS = {
+  zh: {
+    // Sidebar
+    sidebarLabel: '列表',
+    myListings: '我的商品',
+    approved: '已批准',
+    rejected: '已拒绝',
+    needHelp: '需要帮助？',
+    helpDesc: '我们的团队随时为您服务。',
+    contactSupport: '联系客服 →',
+    // Form
+    back: '← 返回',
+    newListing: '新增商品',
+    brandLabel: '品牌 *',
+    modelLabel: '型号 *',
+    referenceLabel: '参考编号 *',
+    conditionLabel: '成色',
+    scopeLabel: '配件范围 *',
+    askingPriceLabel: '要求价格 *',
+    notesLabel: '备注',
+    photosLabel: '照片 *',
+    addPhotos: '+ 添加照片',
+    save: '保存',
+    saving: '保存中…',
+    submitForReview: '提交审核',
+    submitting: '提交中…',
+    selectBrand: '选择品牌',
+    select: '选择',
+    modelPlaceholder: '例：Submariner Date',
+    refPlaceholder: '例：126610LN',
+    notesPlaceholder: '关于商品的任何相关信息...',
+    // Validation
+    errBrand: '请选择品牌。',
+    errModel: '请填写型号。',
+    errRef: '请填写参考编号。',
+    errScope: '请选择配件范围。',
+    errPrice: '请填写要求价格。',
+    errPhoto: '请至少上传一张照片。',
+    // Detail view
+    rejectionReason: '拒绝原因：',
+    photoHint: n => n > 1 ? `${n} 张照片 · 点击放大` : '点击放大',
+    referenceDetail: '参考编号',
+    conditionDetail: '成色',
+    scopeDetail: '配件范围',
+    askingPriceDetail: '要求价格',
+    submittedOn: '提交日期',
+    notesDetail: '备注',
+    editListing: '编辑商品',
+    resubmitForReview: '重新提交审核',
+    markAsSold: '标记为已售',
+    // List view
+    myListingsTitle: '我的商品',
+    items: n => `${n} 件商品`,
+    newListingBtn: '+ 新增商品',
+    searchPlaceholder: '搜索商品…',
+    noListings: '暂无商品',
+    noListingsDesc: '提交您的第一件商品以开始。',
+    edit: '编辑',
+    // Tabs / status labels
+    tabAll: '全部',
+    tabPending: '待审核',
+    tabApproved: '已批准',
+    tabRejected: '已拒绝',
+    tabSold: '已售',
+    statusDraft: '草稿',
+    statusPending: '待审核',
+    statusApproved: '已批准',
+    statusRejected: '已拒绝',
+    statusSold: '已售',
+    // Confirm dialogs
+    confirmSubmit: '确认提交此商品供审核？',
+    confirmSold: '将此商品标记为已售？这将阻止其发布到网站。',
+    // Success messages
+    msgSubmitted: '商品已提交审核，代理人将与您联系。',
+    msgDraft: '草稿已保存。',
+    msgEdited: '商品已提交审核。',
+    msgSaved: '更改已保存。',
+    // Scope / condition display labels
+    scopeLabels: { 'Watch Only': '仅腕表', 'With Card': '含保卡', 'With Box': '含表盒', 'Card & Box': '含保卡和表盒' },
+    conditionLabels: { 'Pre-owned': '二手' },
+  },
+  en: {
+    // Sidebar
+    sidebarLabel: 'Listings',
+    myListings: 'My Listings',
+    approved: 'Approved',
+    rejected: 'Rejected',
+    needHelp: 'Need help?',
+    helpDesc: 'Our team is here to help you.',
+    contactSupport: 'Contact Support →',
+    // Form
+    back: '← Back',
+    newListing: 'New Listing',
+    brandLabel: 'Brand *',
+    modelLabel: 'Model *',
+    referenceLabel: 'Reference *',
+    conditionLabel: 'Condition',
+    scopeLabel: 'Scope *',
+    askingPriceLabel: 'Asking price *',
+    notesLabel: 'Notes',
+    photosLabel: 'Photos *',
+    addPhotos: '+ Add Photos',
+    save: 'Save',
+    saving: 'Saving…',
+    submitForReview: 'Submit for Review',
+    submitting: 'Submitting…',
+    selectBrand: 'Select brand',
+    select: 'Select',
+    modelPlaceholder: 'e.g. Submariner Date',
+    refPlaceholder: 'e.g. 126610LN',
+    notesPlaceholder: 'Any relevant details about the item...',
+    // Validation
+    errBrand: 'Brand is required.',
+    errModel: 'Model is required.',
+    errRef: 'Reference is required.',
+    errScope: 'Scope is required.',
+    errPrice: 'Asking price is required.',
+    errPhoto: 'At least one photo is required.',
+    // Detail view
+    rejectionReason: 'Rejection reason:',
+    photoHint: n => n > 1 ? `${n} photos · click to enlarge` : 'Click to enlarge',
+    referenceDetail: 'Reference',
+    conditionDetail: 'Condition',
+    scopeDetail: 'Scope',
+    askingPriceDetail: 'Asking price',
+    submittedOn: 'Submitted on',
+    notesDetail: 'Notes',
+    editListing: 'Edit Listing',
+    resubmitForReview: 'Resubmit for Review',
+    markAsSold: 'Mark as Sold',
+    // List view
+    myListingsTitle: 'My Listings',
+    items: n => `${n} item${n !== 1 ? 's' : ''}`,
+    newListingBtn: '+ New Listing',
+    searchPlaceholder: 'Search listings…',
+    noListings: 'No listings yet',
+    noListingsDesc: 'Submit your first item to get started.',
+    edit: 'Edit',
+    // Tabs / status labels
+    tabAll: 'All',
+    tabPending: 'Pending Review',
+    tabApproved: 'Approved',
+    tabRejected: 'Rejected',
+    tabSold: 'Sold',
+    statusDraft: 'Draft',
+    statusPending: 'Pending Review',
+    statusApproved: 'Approved',
+    statusRejected: 'Rejected',
+    statusSold: 'Sold',
+    // Confirm dialogs
+    confirmSubmit: 'Submit this listing for agent review?',
+    confirmSold: 'Mark this item as sold? This will prevent it from being posted to the website.',
+    // Success messages
+    msgSubmitted: 'Listing submitted for review. An agent will be in touch.',
+    msgDraft: 'Draft saved.',
+    msgEdited: 'Listing submitted for review.',
+    msgSaved: 'Changes saved.',
+    // Scope / condition display labels
+    scopeLabels: { 'Watch Only': 'Watch Only', 'With Card': 'With Card', 'With Box': 'With Box', 'Card & Box': 'Card & Box' },
+    conditionLabels: { 'Pre-owned': 'Pre-owned' },
+  },
 }
 
 async function notifyAgents(listing, supplierName) {
@@ -64,7 +226,7 @@ export default function SupplierDashboard() {
   const { user, profile } = useAuth()
   const [listings, setListings] = useState([])
   const [loading, setLoading] = useState(true)
-  const [view, setView] = useState('list') // 'list' | 'new' | 'edit' | 'detail'
+  const [view, setView] = useState('list')
   const [selected, setSelected] = useState(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [newImages, setNewImages] = useState([])
@@ -75,6 +237,23 @@ export default function SupplierDashboard() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [msg, setMsg] = useState('')
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [lightboxIdx, setLightboxIdx] = useState(null)
+  const [lightboxImgs, setLightboxImgs] = useState([])
+  const [supSearch, setSupSearch] = useState('')
+  const [lang, setLang] = useState(() => localStorage.getItem('supplierLang') || 'zh')
+
+  const t = TRANSLATIONS[lang]
+
+  const switchLang = l => { setLang(l); localStorage.setItem('supplierLang', l) }
+
+  const statusLabel = s => ({
+    draft: t.statusDraft,
+    pending_review: t.statusPending,
+    approved: t.statusApproved,
+    rejected: t.statusRejected,
+    sold: t.statusSold,
+  }[s] || s)
 
   useEffect(() => { fetchListings() }, [])
 
@@ -123,6 +302,7 @@ export default function SupplierDashboard() {
       condition: listing.condition || 'Pre-owned',
       scope_of_delivery: listing.scope_of_delivery || '',
       asking_price: listing.asking_price || '',
+      asking_price_currency: listing.asking_price_currency || 'CNY',
       notes: listing.notes || '',
     })
     const imgs = (listing.supplier_listing_images || []).sort((a, b) => a.position - b.position)
@@ -135,12 +315,12 @@ export default function SupplierDashboard() {
   }
 
   async function handleCreate(submitForReview = false) {
-    if (!form.brand) { setError('Brand is required.'); return }
-    if (!form.model) { setError('Model is required.'); return }
-    if (!form.reference) { setError('Reference is required.'); return }
-    if (!form.scope_of_delivery) { setError('Scope is required.'); return }
-    if (!form.asking_price) { setError('Asking price is required.'); return }
-    if (newImages.length === 0) { setError('At least one photo is required.'); return }
+    if (!form.brand) { setError(t.errBrand); return }
+    if (!form.model) { setError(t.errModel); return }
+    if (!form.reference) { setError(t.errRef); return }
+    if (!form.scope_of_delivery) { setError(t.errScope); return }
+    if (!form.asking_price) { setError(t.errPrice); return }
+    if (newImages.length === 0) { setError(t.errPhoto); return }
 
     submitForReview ? setSubmitting(true) : setSaving(true)
     setError('')
@@ -167,7 +347,7 @@ export default function SupplierDashboard() {
       await uploadImages(listing.id, newImages, 0)
       if (submitForReview) await notifyAgents(listing, profile?.full_name || 'A supplier')
 
-      setMsg(submitForReview ? 'Listing submitted for review. An agent will be in touch.' : 'Draft saved.')
+      setMsg(submitForReview ? t.msgSubmitted : t.msgDraft)
       resetForm()
       setView('list')
       fetchListings()
@@ -180,13 +360,13 @@ export default function SupplierDashboard() {
   }
 
   async function handleEdit(submitForReview = false) {
-    if (!form.brand) { setError('Brand is required.'); return }
-    if (!form.model) { setError('Model is required.'); return }
-    if (!form.reference) { setError('Reference is required.'); return }
-    if (!form.scope_of_delivery) { setError('Scope is required.'); return }
-    if (!form.asking_price) { setError('Asking price is required.'); return }
+    if (!form.brand) { setError(t.errBrand); return }
+    if (!form.model) { setError(t.errModel); return }
+    if (!form.reference) { setError(t.errRef); return }
+    if (!form.scope_of_delivery) { setError(t.errScope); return }
+    if (!form.asking_price) { setError(t.errPrice); return }
     const totalImages = existingImgs.length + newImages.length
-    if (totalImages === 0) { setError('At least one photo is required.'); return }
+    if (totalImages === 0) { setError(t.errPhoto); return }
 
     submitForReview ? setSubmitting(true) : setSaving(true)
     setError('')
@@ -219,7 +399,7 @@ export default function SupplierDashboard() {
         await notifyAgents({ ...selected, ...form }, profile?.full_name || 'A supplier')
       }
 
-      setMsg(submitForReview ? 'Listing submitted for review.' : 'Changes saved.')
+      setMsg(submitForReview ? t.msgEdited : t.msgSaved)
       resetForm()
       setView('list')
       fetchListings()
@@ -244,7 +424,7 @@ export default function SupplierDashboard() {
   }
 
   async function submitDraft(listing) {
-    if (!window.confirm('Submit this listing for agent review?')) return
+    if (!window.confirm(t.confirmSubmit)) return
     const { error } = await supabase
       .from('supplier_listings')
       .update({ status: 'pending_review' })
@@ -273,11 +453,6 @@ export default function SupplierDashboard() {
     return null
   }
 
-  const [filterStatus, setFilterStatus] = useState('all')
-  const [lightboxIdx, setLightboxIdx] = useState(null)
-  const [lightboxImgs, setLightboxImgs] = useState([])
-  const [supSearch, setSupSearch] = useState('')
-
   const lightboxUrl = lightboxIdx !== null ? lightboxImgs[lightboxIdx] : null
   const openLightbox = (imgs, idx) => { setLightboxImgs(imgs); setLightboxIdx(idx) }
   const closeLightbox = () => { setLightboxIdx(null); setLightboxImgs([]) }
@@ -300,10 +475,9 @@ export default function SupplierDashboard() {
 
   async function markAsSold(listing, e) {
     if (e) e.stopPropagation()
-    if (!window.confirm('Mark this item as sold? This will prevent it from being posted to the website.')) return
+    if (!window.confirm(t.confirmSold)) return
     const { error } = await supabase.from('supplier_listings').update({ status: 'sold' }).eq('id', listing.id)
     if (error) { alert('Error: ' + error.message); return }
-    // DB trigger (sync_preorder_on_sold) handles updating the linked preorder automatically
     fetchListings()
     setSelected(prev => prev?.id === listing.id ? { ...prev, status: 'sold' } : prev)
   }
@@ -350,20 +524,32 @@ export default function SupplierDashboard() {
 
   const sidebarEl = (
     <aside style={{ width: 230, flexShrink: 0, borderRight: '1px solid #e5e7eb', background: '#fff', display: 'flex', flexDirection: 'column', padding: '20px 0 16px', overflowY: 'auto' }}>
-      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#9ca3af', padding: '0 16px', marginBottom: 6 }}>Listings</div>
-      {sbNav('all', 'My Listings', <IconBagSB />)}
-      {sbNav('approved', 'Approved', <IconCheck />)}
-      {sbNav('rejected', 'Rejected', <IconX />)}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', marginBottom: 10 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#9ca3af' }}>{t.sidebarLabel}</div>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {['zh', 'en'].map(l => (
+            <button key={l} onClick={() => switchLang(l)} style={{
+              padding: '2px 8px', borderRadius: 5, border: '1px solid #e5e7eb', fontSize: 11,
+              cursor: 'pointer', fontWeight: lang === l ? 700 : 400,
+              background: lang === l ? '#1f2937' : '#fff',
+              color: lang === l ? '#fff' : '#6b7280',
+            }}>{l === 'zh' ? '中文' : 'EN'}</button>
+          ))}
+        </div>
+      </div>
+      {sbNav('all', t.myListings, <IconBagSB />)}
+      {sbNav('approved', t.approved, <IconCheck />)}
+      {sbNav('rejected', t.rejected, <IconX />)}
       <div style={{ flex: 1 }} />
       <div style={{ margin: '16px 12px 0', background: '#fdf8f2', border: '1px solid #e9d8bc', borderRadius: 12, padding: '14px 14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
           <div style={{ width: 32, height: 32, borderRadius: 50, background: '#f5ede0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <svg width="16" height="16" fill="none" stroke="#b8965a" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
           </div>
-          <span style={{ fontSize: 14, fontWeight: 600 }}>Need help?</span>
+          <span style={{ fontSize: 14, fontWeight: 600 }}>{t.needHelp}</span>
         </div>
-        <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 12, lineHeight: 1.5 }}>Our team is here to help you.</div>
-        <button style={{ width: '100%', fontSize: 13, padding: '8px 0', border: '1px solid #c8a76a', borderRadius: 8, background: 'transparent', color: '#b8965a', cursor: 'pointer', fontWeight: 500 }}>Contact Support →</button>
+        <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 12, lineHeight: 1.5 }}>{t.helpDesc}</div>
+        <button style={{ width: '100%', fontSize: 13, padding: '8px 0', border: '1px solid #c8a76a', borderRadius: 8, background: 'transparent', color: '#b8965a', cursor: 'pointer', fontWeight: 500 }}>{t.contactSupport}</button>
       </div>
     </aside>
   )
@@ -374,16 +560,13 @@ export default function SupplierDashboard() {
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, cursor: 'zoom-out' }}
     >
       <img src={lightboxUrl} alt="" style={{ maxWidth: '82vw', maxHeight: '88vh', objectFit: 'contain', borderRadius: 10, userSelect: 'none' }} />
-
       {lightboxImgs.length > 1 && (
         <button onClick={lightboxPrev} style={{ position: 'absolute', left: 18, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: '50%', width: 44, height: 44, fontSize: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
       )}
       {lightboxImgs.length > 1 && (
         <button onClick={lightboxNext} style={{ position: 'absolute', right: 18, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: '50%', width: 44, height: 44, fontSize: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
       )}
-
       <button onClick={closeLightbox} style={{ position: 'absolute', top: 18, right: 22, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: '50%', width: 38, height: 38, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
-
       {lightboxImgs.length > 1 && (
         <div style={{ position: 'absolute', bottom: 18, left: '50%', transform: 'translateX(-50%)', color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>
           {lightboxIdx + 1} / {lightboxImgs.length}
@@ -405,9 +588,9 @@ export default function SupplierDashboard() {
           <main style={{ flex: 1, overflowY: 'auto', padding: '28px 32px' }}>
             <div style={{ maxWidth: 520 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
-                <button className="btn" onClick={() => { resetForm(); setView('list') }} style={{ fontSize: 13 }}>← Back</button>
+                <button className="btn" onClick={() => { resetForm(); setView('list') }} style={{ fontSize: 13 }}>{t.back}</button>
                 <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
-                  {isEdit ? `Edit — ${selected.brand} ${selected.model}` : 'New Listing'}
+                  {isEdit ? `${t.editListing} — ${selected.brand} ${selected.model}` : t.newListing}
                 </h2>
               </div>
 
@@ -415,41 +598,41 @@ export default function SupplierDashboard() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <div style={fieldWrap}>
-                  <div style={fieldLabel}>Brand *</div>
+                  <div style={fieldLabel}>{t.brandLabel}</div>
                   <select className="input" value={form.brand} onChange={e => setForm(f => ({ ...f, brand: e.target.value }))}>
-                    <option value="">Select brand</option>
+                    <option value="">{t.selectBrand}</option>
                     {BRANDS.map(b => <option key={b}>{b}</option>)}
                   </select>
                 </div>
 
                 <div style={fieldWrap}>
-                  <div style={fieldLabel}>Model *</div>
-                  <input className="input" placeholder="e.g. Submariner Date" value={form.model} onChange={e => setForm(f => ({ ...f, model: e.target.value }))} />
+                  <div style={fieldLabel}>{t.modelLabel}</div>
+                  <input className="input" placeholder={t.modelPlaceholder} value={form.model} onChange={e => setForm(f => ({ ...f, model: e.target.value }))} />
                 </div>
 
                 <div style={fieldWrap}>
-                  <div style={fieldLabel}>Reference</div>
-                  <input className="input" placeholder="e.g. 126610LN" value={form.reference} onChange={e => setForm(f => ({ ...f, reference: e.target.value }))} />
+                  <div style={fieldLabel}>{t.referenceLabel}</div>
+                  <input className="input" placeholder={t.refPlaceholder} value={form.reference} onChange={e => setForm(f => ({ ...f, reference: e.target.value }))} />
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div style={fieldWrap}>
-                    <div style={fieldLabel}>Condition</div>
+                    <div style={fieldLabel}>{t.conditionLabel}</div>
                     <select className="input" value={form.condition} onChange={e => setForm(f => ({ ...f, condition: e.target.value }))}>
-                      {CONDITIONS.map(c => <option key={c}>{c}</option>)}
+                      {CONDITIONS.map(c => <option key={c} value={c}>{t.conditionLabels[c] || c}</option>)}
                     </select>
                   </div>
                   <div style={fieldWrap}>
-                    <div style={fieldLabel}>Scope</div>
+                    <div style={fieldLabel}>{t.scopeLabel}</div>
                     <select className="input" value={form.scope_of_delivery} onChange={e => setForm(f => ({ ...f, scope_of_delivery: e.target.value }))}>
-                      <option value="">Select</option>
-                      {SCOPES.map(s => <option key={s}>{s}</option>)}
+                      <option value="">{t.select}</option>
+                      {SCOPES.map(s => <option key={s} value={s}>{t.scopeLabels[s] || s}</option>)}
                     </select>
                   </div>
                 </div>
 
                 <div style={fieldWrap}>
-                  <div style={fieldLabel}>Asking price</div>
+                  <div style={fieldLabel}>{t.askingPriceLabel}</div>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <select className="input" value={form.asking_price_currency} onChange={e => setForm(f => ({ ...f, asking_price_currency: e.target.value }))} style={{ width: 110, flexShrink: 0 }}>
                       {PRICE_CURRENCIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
@@ -459,12 +642,12 @@ export default function SupplierDashboard() {
                 </div>
 
                 <div style={fieldWrap}>
-                  <div style={fieldLabel}>Notes</div>
-                  <textarea className="input" placeholder="Any relevant details about the item..." rows={3} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} style={{ resize: 'vertical' }} />
+                  <div style={fieldLabel}>{t.notesLabel}</div>
+                  <textarea className="input" placeholder={t.notesPlaceholder} rows={3} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} style={{ resize: 'vertical' }} />
                 </div>
 
                 <div style={fieldWrap}>
-                  <div style={fieldLabel}>Photos</div>
+                  <div style={fieldLabel}>{t.photosLabel}</div>
 
                   {existingImgs.length > 0 && (
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
@@ -489,18 +672,18 @@ export default function SupplierDashboard() {
                   )}
 
                   <label className="btn btn-full" style={{ cursor: 'pointer', textAlign: 'center' }}>
-                    + Add Photos
+                    {t.addPhotos}
                     <input type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleNewImages} />
                   </label>
                 </div>
 
                 <div style={{ display: 'flex', gap: 10, marginTop: 4, paddingTop: 16, borderTop: '1px solid var(--border-light)' }}>
                   <button className="btn btn-full" onClick={() => isEdit ? handleEdit(false) : handleCreate(false)} disabled={saving || submitting}>
-                    {saving ? 'Saving…' : 'Save'}
+                    {saving ? t.saving : t.save}
                   </button>
                   {isDraft && (
                     <button className="btn btn-dark btn-full" onClick={() => isEdit ? handleEdit(true) : handleCreate(true)} disabled={saving || submitting}>
-                      {submitting ? 'Submitting…' : 'Submit for Review'}
+                      {submitting ? t.submitting : t.submitForReview}
                     </button>
                   )}
                 </div>
@@ -524,14 +707,14 @@ export default function SupplierDashboard() {
           <main style={{ flex: 1, overflowY: 'auto', padding: '28px 32px' }}>
             <div style={{ maxWidth: 680 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22 }}>
-                <button className="btn" onClick={() => { setView('list'); setSelected(null) }} style={{ fontSize: 13 }}>← Back</button>
+                <button className="btn" onClick={() => { setView('list'); setSelected(null) }} style={{ fontSize: 13 }}>{t.back}</button>
                 <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, flex: 1 }}>{selected.brand} {selected.model}</h2>
-                <div style={{ padding: '4px 12px', borderRadius: 20, background: cfg.color + '20', color: cfg.color, fontSize: 12, fontWeight: 600 }}>{cfg.label}</div>
+                <div style={{ padding: '4px 12px', borderRadius: 20, background: cfg.color + '20', color: cfg.color, fontSize: 12, fontWeight: 600 }}>{statusLabel(selected.status)}</div>
               </div>
 
               {selected.status === 'rejected' && selected.rejection_reason && (
                 <div style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.18)', borderRadius: 10, padding: '12px 14px', marginBottom: 20, fontSize: 13, color: '#ef4444' }}>
-                  <strong>Rejection reason:</strong> {selected.rejection_reason}
+                  <strong>{t.rejectionReason}</strong> {selected.rejection_reason}
                 </div>
               )}
 
@@ -550,36 +733,34 @@ export default function SupplierDashboard() {
                       />
                     ))}
                   </div>
-                  <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
-                    {imgs.length > 1 ? `${imgs.length} photos · click to enlarge` : 'Click to enlarge'}
-                  </div>
+                  <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{t.photoHint(imgs.length)}</div>
                 </div>
               )}
 
               <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden', marginBottom: 20 }}>
                 {[
-                  selected.reference && ['Reference', selected.reference],
-                  selected.condition && ['Condition', selected.condition],
-                  selected.scope_of_delivery && ['Scope', selected.scope_of_delivery],
+                  selected.reference && [t.referenceDetail, selected.reference],
+                  selected.condition && [t.conditionDetail, t.conditionLabels[selected.condition] || selected.condition],
+                  selected.scope_of_delivery && [t.scopeDetail, t.scopeLabels[selected.scope_of_delivery] || selected.scope_of_delivery],
                   selected.asking_price && (() => {
                     const cur = selected.asking_price_currency || 'CNY'
                     const sym = PRICE_SYM[cur] || ''
                     const eurEq = toEur(selected.asking_price, cur)
                     const display = `${sym}${Number(selected.asking_price).toLocaleString()}${eurEq ? ` (≈ €${eurEq.toLocaleString()})` : ''}`
-                    return ['Asking price', display]
+                    return [t.askingPriceDetail, display]
                   })(),
-                  selected.created_at && ['Submitted on', fmtDate(selected.created_at)],
+                  selected.created_at && [t.submittedOn, fmtDate(selected.created_at)],
                 ].filter(Boolean).map(([label, value], i, arr) => (
                   <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 16px', borderBottom: i < arr.length - 1 ? '1px solid #f3f4f6' : 'none', fontSize: 14 }}>
                     <span style={{ color: '#6b7280' }}>{label}</span>
-                    <span style={{ fontWeight: label === 'Asking price' ? 600 : 400 }}>{value}</span>
+                    <span style={{ fontWeight: label === t.askingPriceDetail ? 600 : 400 }}>{value}</span>
                   </div>
                 ))}
               </div>
 
               {selected.notes && (
                 <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Notes</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>{t.notesDetail}</div>
                   <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10, padding: '12px 16px', fontSize: 14, color: '#4b5563', lineHeight: 1.6 }}>
                     {selected.notes}
                   </div>
@@ -588,20 +769,20 @@ export default function SupplierDashboard() {
 
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 {canEdit(selected.status) && (
-                  <button className="btn btn-dark" onClick={() => enterEdit(selected)}>Edit Listing</button>
+                  <button className="btn btn-dark" onClick={() => enterEdit(selected)}>{t.editListing}</button>
                 )}
                 {selected.status === 'draft' && (
-                  <button className="btn" onClick={() => submitDraft(selected)}>Submit for Review</button>
+                  <button className="btn" onClick={() => submitDraft(selected)}>{t.submitForReview}</button>
                 )}
                 {selected.status === 'rejected' && (
-                  <button className="btn" onClick={() => submitDraft(selected)}>Resubmit for Review</button>
+                  <button className="btn" onClick={() => submitDraft(selected)}>{t.resubmitForReview}</button>
                 )}
                 {(selected.status === 'approved' || selected.status === 'pending_review') && (
                   <button
                     onClick={() => markAsSold(selected)}
                     style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', color: '#374151', fontSize: 14, cursor: 'pointer', fontWeight: 500 }}
                   >
-                    Mark as Sold
+                    {t.markAsSold}
                   </button>
                 )}
               </div>
@@ -614,12 +795,12 @@ export default function SupplierDashboard() {
 
   const countByStatus = s => listings.filter(l => l.status === s).length
   const TABS = [
-    { key: 'all', label: 'All', count: listings.length },
-    { key: 'pending_review', label: 'Pending Review', count: countByStatus('pending_review') },
-    { key: 'approved', label: 'Approved', count: countByStatus('approved') },
-    { key: 'rejected', label: 'Rejected', count: countByStatus('rejected') },
-    { key: 'sold', label: 'Sold', count: countByStatus('sold') },
-  ].filter(t => t.key === 'all' || t.count > 0)
+    { key: 'all', label: t.tabAll, count: listings.length },
+    { key: 'pending_review', label: t.tabPending, count: countByStatus('pending_review') },
+    { key: 'approved', label: t.tabApproved, count: countByStatus('approved') },
+    { key: 'rejected', label: t.tabRejected, count: countByStatus('rejected') },
+    { key: 'sold', label: t.tabSold, count: countByStatus('sold') },
+  ].filter(tab => tab.key === 'all' || tab.count > 0)
 
   return (
     <div className="page" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -631,10 +812,10 @@ export default function SupplierDashboard() {
           <div style={{ maxWidth: 700 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
               <div>
-                <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>My Listings</h2>
-                <div style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>{listings.length} item{listings.length !== 1 ? 's' : ''}</div>
+                <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{t.myListingsTitle}</h2>
+                <div style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>{t.items(listings.length)}</div>
               </div>
-              <button className="btn btn-dark" onClick={() => { resetForm(); setView('new') }} style={{ flexShrink: 0 }}>+ New Listing</button>
+              <button className="btn btn-dark" onClick={() => { resetForm(); setView('new') }} style={{ flexShrink: 0 }}>{t.newListingBtn}</button>
             </div>
 
             {msg && (
@@ -645,17 +826,17 @@ export default function SupplierDashboard() {
             )}
 
             <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
-              {TABS.map(t => {
-                const active = filterStatus === t.key
+              {TABS.map(tab => {
+                const active = filterStatus === tab.key
                 return (
-                  <button key={t.key} onClick={() => setFilterStatus(t.key)} style={{
+                  <button key={tab.key} onClick={() => setFilterStatus(tab.key)} style={{
                     padding: '6px 16px', borderRadius: 20, border: '1px solid #e5e7eb',
                     background: active ? '#1f2937' : '#fff',
                     color: active ? '#fff' : '#374151',
                     fontSize: 13, fontWeight: active ? 600 : 400,
                     cursor: 'pointer', transition: 'background 0.12s, color 0.12s',
                   }}>
-                    {t.label} {t.count}
+                    {tab.label} {tab.count}
                   </button>
                 )
               })}
@@ -667,7 +848,7 @@ export default function SupplierDashboard() {
                 <input
                   value={supSearch}
                   onChange={e => setSupSearch(e.target.value)}
-                  placeholder="Search listings…"
+                  placeholder={t.searchPlaceholder}
                   style={{ width: '100%', padding: '8px 12px 8px 36px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
                 />
               </div>
@@ -678,8 +859,8 @@ export default function SupplierDashboard() {
             ) : filteredListings.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '60px 24px', color: '#9ca3af', fontSize: 14 }}>
                 <div style={{ fontSize: 36, marginBottom: 12 }}>📋</div>
-                <div style={{ fontWeight: 600, marginBottom: 6, color: '#374151', fontSize: 15 }}>No listings yet</div>
-                <div>Submit your first item to get started.</div>
+                <div style={{ fontWeight: 600, marginBottom: 6, color: '#374151', fontSize: 15 }}>{t.noListings}</div>
+                <div>{t.noListingsDesc}</div>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -728,14 +909,14 @@ export default function SupplierDashboard() {
                         </div>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
-                        <div style={{ padding: '3px 10px', borderRadius: 20, background: cfg.color + '18', color: cfg.color, fontSize: 11, fontWeight: 600 }}>{cfg.label}</div>
+                        <div style={{ padding: '3px 10px', borderRadius: 20, background: cfg.color + '18', color: cfg.color, fontSize: 11, fontWeight: 600 }}>{statusLabel(listing.status)}</div>
                         {canEdit(listing.status) && (
                           <button
                             className="btn btn-sm"
                             style={{ fontSize: 11, padding: '3px 12px' }}
                             onClick={e => { e.stopPropagation(); enterEdit(listing) }}
                           >
-                            Edit
+                            {t.edit}
                           </button>
                         )}
                         {(listing.status === 'approved' || listing.status === 'pending_review') && (
@@ -744,7 +925,7 @@ export default function SupplierDashboard() {
                             style={{ fontSize: 11, padding: '3px 12px', color: '#6b7280', borderColor: '#d1d5db' }}
                             onClick={e => markAsSold(listing, e)}
                           >
-                            Mark as Sold
+                            {t.markAsSold}
                           </button>
                         )}
                       </div>
