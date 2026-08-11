@@ -555,14 +555,16 @@ export default function SupplierDashboard() {
     </div>
   )
 
-  const sidebarEl = isMobile ? (
+  const mobileNavEl = (
     <nav style={{ borderBottom: '1px solid #e5e7eb', background: '#fff', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 8, overflowX: 'auto', flexShrink: 0, WebkitOverflowScrolling: 'touch' }}>
       {mobilePill('all', t.myListings)}
       {mobilePill('approved', t.approved)}
       {mobilePill('rejected', t.rejected)}
       <div style={{ marginLeft: 'auto', flexShrink: 0 }}>{langToggle}</div>
     </nav>
-  ) : (
+  )
+
+  const sidebarEl = (
     <aside style={{ width: 230, flexShrink: 0, borderRight: '1px solid #e5e7eb', background: '#fff', display: 'flex', flexDirection: 'column', padding: '20px 0 16px', overflowY: 'auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', marginBottom: 10 }}>
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#9ca3af' }}>{t.sidebarLabel}</div>
@@ -614,8 +616,9 @@ export default function SupplierDashboard() {
       <div className="page" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <Topbar />
         {lightboxEl}
-        <div style={{ display: 'flex', flex: 1, overflow: 'hidden', flexDirection: isMobile ? 'column' : 'row' }}>
-          {sidebarEl}
+        {isMobile && mobileNavEl}
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+          {!isMobile && sidebarEl}
           <main style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '16px' : '28px 32px' }}>
             <div style={{ maxWidth: 520 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
@@ -733,8 +736,9 @@ export default function SupplierDashboard() {
       <div className="page" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <Topbar />
         {lightboxEl}
-        <div style={{ display: 'flex', flex: 1, overflow: 'hidden', flexDirection: isMobile ? 'column' : 'row' }}>
-          {sidebarEl}
+        {isMobile && mobileNavEl}
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+          {!isMobile && sidebarEl}
           <main style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '16px' : '28px 32px' }}>
             <div style={{ maxWidth: 680 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22 }}>
