@@ -442,10 +442,25 @@ export default function AgentListings() {
   useEffect(() => { if (profile && tab === 'clients') fetchClients() }, [profile, tab, fetchClients])
   useEffect(() => { if (profile && tab === 'supplier') fetchSupplierListings() }, [profile, tab, fetchSupplierListings])
 
+  const CURRENCY_SYMBOLS = { EUR: '€', USD: '$', GBP: '£', CHF: 'CHF ' }
+
   async function approveSupplierListing(listing) {
     const rd = supReviewData[listing.id] || {}
     if (!rd.price) { alert('Set a selling price before approving.'); return }
-    if (!window.confirm(`Approve and publish as preorder at €${rd.price}?`)) return
+    const cur = rd.currency || 'EUR'
+    const sym = CURRENCY_SYMBOLS[cur] || cur + ' '
+    if (!window.confirm(`Approve and publish as preorder at ${sym}${rd.price}?`)) return
+
+    let priceEur, priceUsd
+    const num = Number(rd.price)
+    if (cur === 'USD') {
+      priceUsd = num
+      priceEur = rate ? Math.round(num / rate) : num
+    } else {
+      priceEur = num
+      priceUsd = rate ? Math.round(num * rate) : null
+    }
+
     const { data: preorder, error: pErr } = await supabase.from('preorders').insert({
       brand: listing.brand,
       model: listing.model,
@@ -453,7 +468,8 @@ export default function AgentListings() {
       condition: listing.condition || 'Pre-owned',
       scope_of_delivery: listing.scope_of_delivery || null,
       notes: listing.notes || null,
-      price_eur: Number(rd.price),
+      price_eur: priceEur,
+      price_usd: priceUsd,
       category: 'Watches',
       posted_by: profile.id,
       status: 'available',
@@ -1768,13 +1784,24 @@ export default function AgentListings() {
 
                 <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <select
+                      className="input"
+                      value={rd.currency || 'EUR'}
+                      onChange={e => setRd({ currency: e.target.value })}
+                      style={{ width: 80, marginBottom: 0 }}
+                    >
+                      <option value="EUR">EUR</option>
+                      <option value="USD">USD</option>
+                      <option value="GBP">GBP</option>
+                      <option value="CHF">CHF</option>
+                    </select>
                     <input
                       className="input"
                       type="number"
-                      placeholder="Selling price (€)"
+                      placeholder="Selling price"
                       value={rd.price || ''}
                       onChange={e => setRd({ price: e.target.value })}
-                      style={{ width: 160, marginBottom: 0 }}
+                      style={{ width: 140, marginBottom: 0 }}
                     />
                     <button className="btn btn-dark btn-sm" onClick={() => approveSupplierListing(listing)}>Approve & Publish</button>
                   </div>
