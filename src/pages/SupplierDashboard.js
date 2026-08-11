@@ -242,114 +242,193 @@ export default function SupplierDashboard() {
     return imgs[0]?.url || null
   }
 
-  const statusCfg = s => STATUS_CONFIG[s] || STATUS_CONFIG.draft
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [lightboxUrl, setLightboxUrl] = useState(null)
+  const [supSearch, setSupSearch] = useState('')
 
+  const statusCfg = s => STATUS_CONFIG[s] || STATUS_CONFIG.draft
   const canEdit = s => s === 'draft' || s === 'rejected' || s === 'pending_review'
+
+  const fmtDate = d => {
+    const dt = new Date(d)
+    return `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}/${dt.getFullYear()}`
+  }
+
+  const filteredListings = listings.filter(l => {
+    if (filterStatus !== 'all' && l.status !== filterStatus) return false
+    if (supSearch) {
+      const q = supSearch.toLowerCase()
+      if (!`${l.brand} ${l.model} ${l.reference || ''}`.toLowerCase().includes(q)) return false
+    }
+    return true
+  })
+
+  const IconBagSB = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+  const IconCheck = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+  const IconX = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+
+  const sbNav = (filter, label, icon) => {
+    const isActive = filter === 'all'
+      ? (view === 'list' && filterStatus === 'all') || view === 'detail' || view === 'new' || view === 'edit'
+      : view === 'list' && filterStatus === filter
+    return (
+      <button onClick={() => { setFilterStatus(filter); setView('list'); setSelected(null) }} style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        width: '100%', padding: '8px 16px',
+        borderTop: 'none', borderRight: 'none', borderBottom: 'none',
+        borderLeft: isActive ? '2px solid #b8965a' : '2px solid transparent',
+        cursor: 'pointer', textAlign: 'left',
+        background: isActive ? '#faf6f0' : 'transparent',
+        color: isActive ? '#b8965a' : '#374151',
+        fontWeight: isActive ? 600 : 400, fontSize: 14,
+        transition: 'background 0.12s, color 0.12s',
+      }}>
+        <span style={{ color: isActive ? '#b8965a' : '#6b7280', display: 'flex', flexShrink: 0 }}>{icon}</span>
+        <span style={{ flex: 1 }}>{label}</span>
+      </button>
+    )
+  }
+
+  const sidebarEl = (
+    <aside style={{ width: 230, flexShrink: 0, borderRight: '1px solid #e5e7eb', background: '#fff', display: 'flex', flexDirection: 'column', padding: '20px 0 16px', overflowY: 'auto' }}>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#9ca3af', padding: '0 16px', marginBottom: 6 }}>Listings</div>
+      {sbNav('all', 'My Listings', <IconBagSB />)}
+      {sbNav('approved', 'Approved', <IconCheck />)}
+      {sbNav('rejected', 'Rejected', <IconX />)}
+      <div style={{ flex: 1 }} />
+      <div style={{ margin: '16px 12px 0', background: '#fdf8f2', border: '1px solid #e9d8bc', borderRadius: 12, padding: '14px 14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 50, background: '#f5ede0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg width="16" height="16" fill="none" stroke="#b8965a" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+          </div>
+          <span style={{ fontSize: 14, fontWeight: 600 }}>Need help?</span>
+        </div>
+        <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 12, lineHeight: 1.5 }}>Our team is here to help you.</div>
+        <button style={{ width: '100%', fontSize: 13, padding: '8px 0', border: '1px solid #c8a76a', borderRadius: 8, background: 'transparent', color: '#b8965a', cursor: 'pointer', fontWeight: 500 }}>Contact Support →</button>
+      </div>
+    </aside>
+  )
+
+  const lightboxEl = lightboxUrl && (
+    <div
+      onClick={() => setLightboxUrl(null)}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, cursor: 'zoom-out' }}
+    >
+      <img src={lightboxUrl} alt="" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 10 }} />
+      <button onClick={() => setLightboxUrl(null)} style={{ position: 'absolute', top: 18, right: 22, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: '50%', width: 38, height: 38, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+    </div>
+  )
 
   if (view === 'new' || view === 'edit') {
     const isEdit = view === 'edit'
     const isDraft = !isEdit || selected?.status === 'draft' || selected?.status === 'rejected'
 
     return (
-      <div className="page">
+      <div className="page" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <Topbar />
-        <div style={{ maxWidth: 560, margin: '0 auto', padding: '24px 16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
-            <button className="btn" onClick={() => { resetForm(); setView('list') }} style={{ fontSize: 13 }}>← Back</button>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
-              {isEdit ? `Edit — ${selected.brand} ${selected.model}` : 'New Listing'}
-            </h2>
-          </div>
-
-          {error && <div className="error-msg" style={{ marginBottom: 16 }}>{error}</div>}
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={fieldWrap}>
-              <div style={fieldLabel}>Brand *</div>
-              <select className="input" value={form.brand} onChange={e => setForm(f => ({ ...f, brand: e.target.value }))}>
-                <option value="">Select brand</option>
-                {BRANDS.map(b => <option key={b}>{b}</option>)}
-              </select>
-            </div>
-
-            <div style={fieldWrap}>
-              <div style={fieldLabel}>Model *</div>
-              <input className="input" placeholder="e.g. Submariner Date" value={form.model} onChange={e => setForm(f => ({ ...f, model: e.target.value }))} />
-            </div>
-
-            <div style={fieldWrap}>
-              <div style={fieldLabel}>Reference</div>
-              <input className="input" placeholder="e.g. 126610LN" value={form.reference} onChange={e => setForm(f => ({ ...f, reference: e.target.value }))} />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div style={fieldWrap}>
-                <div style={fieldLabel}>Condition</div>
-                <select className="input" value={form.condition} onChange={e => setForm(f => ({ ...f, condition: e.target.value }))}>
-                  {CONDITIONS.map(c => <option key={c}>{c}</option>)}
-                </select>
+        {lightboxEl}
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+          {sidebarEl}
+          <main style={{ flex: 1, overflowY: 'auto', padding: '28px 32px' }}>
+            <div style={{ maxWidth: 520 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
+                <button className="btn" onClick={() => { resetForm(); setView('list') }} style={{ fontSize: 13 }}>← Back</button>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
+                  {isEdit ? `Edit — ${selected.brand} ${selected.model}` : 'New Listing'}
+                </h2>
               </div>
-              <div style={fieldWrap}>
-                <div style={fieldLabel}>Scope</div>
-                <select className="input" value={form.scope_of_delivery} onChange={e => setForm(f => ({ ...f, scope_of_delivery: e.target.value }))}>
-                  <option value="">Select</option>
-                  {SCOPES.map(s => <option key={s}>{s}</option>)}
-                </select>
+
+              {error && <div className="error-msg" style={{ marginBottom: 16 }}>{error}</div>}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={fieldWrap}>
+                  <div style={fieldLabel}>Brand *</div>
+                  <select className="input" value={form.brand} onChange={e => setForm(f => ({ ...f, brand: e.target.value }))}>
+                    <option value="">Select brand</option>
+                    {BRANDS.map(b => <option key={b}>{b}</option>)}
+                  </select>
+                </div>
+
+                <div style={fieldWrap}>
+                  <div style={fieldLabel}>Model *</div>
+                  <input className="input" placeholder="e.g. Submariner Date" value={form.model} onChange={e => setForm(f => ({ ...f, model: e.target.value }))} />
+                </div>
+
+                <div style={fieldWrap}>
+                  <div style={fieldLabel}>Reference</div>
+                  <input className="input" placeholder="e.g. 126610LN" value={form.reference} onChange={e => setForm(f => ({ ...f, reference: e.target.value }))} />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div style={fieldWrap}>
+                    <div style={fieldLabel}>Condition</div>
+                    <select className="input" value={form.condition} onChange={e => setForm(f => ({ ...f, condition: e.target.value }))}>
+                      {CONDITIONS.map(c => <option key={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div style={fieldWrap}>
+                    <div style={fieldLabel}>Scope</div>
+                    <select className="input" value={form.scope_of_delivery} onChange={e => setForm(f => ({ ...f, scope_of_delivery: e.target.value }))}>
+                      <option value="">Select</option>
+                      {SCOPES.map(s => <option key={s}>{s}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={fieldWrap}>
+                  <div style={fieldLabel}>Asking price (€)</div>
+                  <input className="input" placeholder="Optional" type="number" value={form.asking_price} onChange={e => setForm(f => ({ ...f, asking_price: e.target.value }))} />
+                </div>
+
+                <div style={fieldWrap}>
+                  <div style={fieldLabel}>Notes</div>
+                  <textarea className="input" placeholder="Any relevant details about the item..." rows={3} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} style={{ resize: 'vertical' }} />
+                </div>
+
+                <div style={fieldWrap}>
+                  <div style={fieldLabel}>Photos</div>
+
+                  {existingImgs.length > 0 && (
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                      {existingImgs.map(img => (
+                        <div key={img.id} style={{ position: 'relative' }}>
+                          <img src={img.url} alt="" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border-light)' }} />
+                          <button onClick={() => removeExistingImage(img.id)} style={{ position: 'absolute', top: 3, right: 3, background: 'rgba(0,0,0,0.65)', color: '#fff', border: 'none', borderRadius: '50%', width: 20, height: 20, fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {newPreviews.length > 0 && (
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                      {newPreviews.map((src, i) => (
+                        <div key={i} style={{ position: 'relative' }}>
+                          <img src={src} alt="" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '2px dashed var(--border-light)', opacity: 0.9 }} />
+                          <button onClick={() => removeNewImage(i)} style={{ position: 'absolute', top: 3, right: 3, background: 'rgba(0,0,0,0.65)', color: '#fff', border: 'none', borderRadius: '50%', width: 20, height: 20, fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <label className="btn btn-full" style={{ cursor: 'pointer', textAlign: 'center' }}>
+                    + Add Photos
+                    <input type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleNewImages} />
+                  </label>
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, marginTop: 4, paddingTop: 16, borderTop: '1px solid var(--border-light)' }}>
+                  <button className="btn btn-full" onClick={() => isEdit ? handleEdit(false) : handleCreate(false)} disabled={saving || submitting}>
+                    {saving ? 'Saving…' : 'Save'}
+                  </button>
+                  {isDraft && (
+                    <button className="btn btn-dark btn-full" onClick={() => isEdit ? handleEdit(true) : handleCreate(true)} disabled={saving || submitting}>
+                      {submitting ? 'Submitting…' : 'Submit for Review'}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
-
-            <div style={fieldWrap}>
-              <div style={fieldLabel}>Asking price (€)</div>
-              <input className="input" placeholder="Optional" type="number" value={form.asking_price} onChange={e => setForm(f => ({ ...f, asking_price: e.target.value }))} />
-            </div>
-
-            <div style={fieldWrap}>
-              <div style={fieldLabel}>Notes</div>
-              <textarea className="input" placeholder="Any relevant details about the item..." rows={3} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} style={{ resize: 'vertical' }} />
-            </div>
-
-            <div style={fieldWrap}>
-              <div style={fieldLabel}>Photos</div>
-
-              {existingImgs.length > 0 && (
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
-                  {existingImgs.map(img => (
-                    <div key={img.id} style={{ position: 'relative' }}>
-                      <img src={img.url} alt="" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border-light)' }} />
-                      <button onClick={() => removeExistingImage(img.id)} style={{ position: 'absolute', top: 3, right: 3, background: 'rgba(0,0,0,0.65)', color: '#fff', border: 'none', borderRadius: '50%', width: 20, height: 20, fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {newPreviews.length > 0 && (
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
-                  {newPreviews.map((src, i) => (
-                    <div key={i} style={{ position: 'relative' }}>
-                      <img src={src} alt="" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '2px dashed var(--border-light)', opacity: 0.9 }} />
-                      <button onClick={() => removeNewImage(i)} style={{ position: 'absolute', top: 3, right: 3, background: 'rgba(0,0,0,0.65)', color: '#fff', border: 'none', borderRadius: '50%', width: 20, height: 20, fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <label className="btn btn-full" style={{ cursor: 'pointer', textAlign: 'center' }}>
-                + Add Photos
-                <input type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleNewImages} />
-              </label>
-            </div>
-
-            <div style={{ display: 'flex', gap: 10, marginTop: 4, paddingTop: 16, borderTop: '1px solid var(--border-light)' }}>
-              <button className="btn btn-full" onClick={() => isEdit ? handleEdit(false) : handleCreate(false)} disabled={saving || submitting}>
-                {saving ? 'Saving…' : 'Save'}
-              </button>
-              {isDraft && (
-                <button className="btn btn-dark btn-full" onClick={() => isEdit ? handleEdit(true) : handleCreate(true)} disabled={saving || submitting}>
-                  {submitting ? 'Submitting…' : 'Submit for Review'}
-                </button>
-              )}
-            </div>
-          </div>
+          </main>
         </div>
       </div>
     )
@@ -359,135 +438,214 @@ export default function SupplierDashboard() {
     const imgs = (selected.supplier_listing_images || []).sort((a, b) => a.position - b.position)
     const cfg = statusCfg(selected.status)
     return (
-      <div className="page">
+      <div className="page" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <Topbar />
-        <div style={{ maxWidth: 560, margin: '0 auto', padding: '24px 16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-            <button className="btn" onClick={() => { setView('list'); setSelected(null) }} style={{ fontSize: 13 }}>← Back</button>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{selected.brand} {selected.model}</h2>
-          </div>
+        {lightboxEl}
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+          {sidebarEl}
+          <main style={{ flex: 1, overflowY: 'auto', padding: '28px 32px' }}>
+            <div style={{ maxWidth: 680 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22 }}>
+                <button className="btn" onClick={() => { setView('list'); setSelected(null) }} style={{ fontSize: 13 }}>← Back</button>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, flex: 1 }}>{selected.brand} {selected.model}</h2>
+                <div style={{ padding: '4px 12px', borderRadius: 20, background: cfg.color + '20', color: cfg.color, fontSize: 12, fontWeight: 600 }}>{cfg.label}</div>
+              </div>
 
-          <div style={{ display: 'inline-block', padding: '4px 12px', borderRadius: 20, background: cfg.color + '20', color: cfg.color, fontSize: 12, fontWeight: 600, marginBottom: 20 }}>
-            {cfg.label}
-          </div>
+              {selected.status === 'rejected' && selected.rejection_reason && (
+                <div style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.18)', borderRadius: 10, padding: '12px 14px', marginBottom: 20, fontSize: 13, color: '#ef4444' }}>
+                  <strong>Rejection reason:</strong> {selected.rejection_reason}
+                </div>
+              )}
 
-          {selected.status === 'rejected' && selected.rejection_reason && (
-            <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 10, padding: '12px 14px', marginBottom: 16, fontSize: 13, color: '#ef4444' }}>
-              <strong>Rejection reason:</strong> {selected.rejection_reason}
+              <div style={{ display: 'flex', gap: 24, marginBottom: 24, flexWrap: 'wrap' }}>
+                {imgs.length > 0 && (
+                  <div style={{ flex: '0 0 auto' }}>
+                    <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 6 }}>
+                      {imgs.map((img, i) => (
+                        <img
+                          key={i}
+                          src={img.url}
+                          alt=""
+                          onClick={() => setLightboxUrl(img.url)}
+                          style={{ width: 130, height: 130, objectFit: 'cover', borderRadius: 10, border: '1px solid #e5e7eb', cursor: 'zoom-in', flexShrink: 0, transition: 'opacity 0.15s' }}
+                          onMouseEnter={e => e.currentTarget.style.opacity = '0.82'}
+                          onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                        />
+                      ))}
+                    </div>
+                    {imgs.length > 1 && <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>{imgs.length} photos · click to enlarge</div>}
+                    {imgs.length === 1 && <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>Click to enlarge</div>}
+                  </div>
+                )}
+
+                <div style={{ flex: 1, minWidth: 220 }}>
+                  <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+                    {[
+                      selected.reference && ['Reference', selected.reference],
+                      selected.condition && ['Condition', selected.condition],
+                      selected.scope_of_delivery && ['Scope', selected.scope_of_delivery],
+                      selected.asking_price && ['Asking price', `€${Number(selected.asking_price).toLocaleString()}`],
+                      selected.created_at && ['Submitted on', fmtDate(selected.created_at)],
+                    ].filter(Boolean).map(([label, value], i, arr) => (
+                      <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 16px', borderBottom: i < arr.length - 1 ? '1px solid #f3f4f6' : 'none', fontSize: 14 }}>
+                        <span style={{ color: '#6b7280' }}>{label}</span>
+                        <span style={{ fontWeight: label === 'Asking price' ? 600 : 400 }}>{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {selected.notes && (
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Notes</div>
+                  <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10, padding: '12px 16px', fontSize: 14, color: '#4b5563', lineHeight: 1.6 }}>
+                    {selected.notes}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: 10 }}>
+                {canEdit(selected.status) && (
+                  <button className="btn btn-dark" onClick={() => enterEdit(selected)}>Edit Listing</button>
+                )}
+                {selected.status === 'draft' && (
+                  <button className="btn" onClick={() => submitDraft(selected)}>Submit for Review</button>
+                )}
+                {selected.status === 'rejected' && (
+                  <button className="btn" onClick={() => submitDraft(selected)}>Resubmit for Review</button>
+                )}
+              </div>
             </div>
-          )}
-
-          {imgs.length > 0 && (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
-              {imgs.map((img, i) => (
-                <img key={i} src={img.url} alt="" style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 10, border: '1px solid var(--border-light)' }} />
-              ))}
-            </div>
-          )}
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14, background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 12, padding: '16px 18px' }}>
-            {selected.reference && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--faint)' }}>Reference</span><span>{selected.reference}</span></div>}
-            {selected.condition && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--faint)' }}>Condition</span><span>{selected.condition}</span></div>}
-            {selected.scope_of_delivery && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--faint)' }}>Scope</span><span>{selected.scope_of_delivery}</span></div>}
-            {selected.asking_price && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--faint)' }}>Asking price</span><span style={{ fontWeight: 600 }}>€{Number(selected.asking_price).toLocaleString()}</span></div>}
-            {selected.notes && <div style={{ paddingTop: 8, borderTop: '1px solid var(--border-light)', color: 'var(--faint)', fontSize: 13, lineHeight: 1.5 }}>{selected.notes}</div>}
-          </div>
-
-          <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-            {canEdit(selected.status) && (
-              <button className="btn btn-full" onClick={() => enterEdit(selected)}>Edit</button>
-            )}
-            {selected.status === 'draft' && (
-              <button className="btn btn-dark btn-full" onClick={() => submitDraft(selected)}>Submit for Review</button>
-            )}
-            {selected.status === 'rejected' && (
-              <button className="btn btn-dark btn-full" onClick={() => submitDraft(selected)}>Resubmit for Review</button>
-            )}
-          </div>
+          </main>
         </div>
       </div>
     )
   }
 
+  const countByStatus = s => listings.filter(l => l.status === s).length
+  const TABS = [
+    { key: 'all', label: 'All', count: listings.length },
+    { key: 'pending_review', label: 'Pending Review', count: countByStatus('pending_review') },
+    { key: 'approved', label: 'Approved', count: countByStatus('approved') },
+    { key: 'rejected', label: 'Rejected', count: countByStatus('rejected') },
+  ].filter(t => t.key === 'all' || t.count > 0)
+
   return (
-    <div className="page">
+    <div className="page" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Topbar />
-      <div style={{ maxWidth: 640, margin: '0 auto', padding: '24px 16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>My Listings</h2>
-            {listings.length > 0 && <div style={{ fontSize: 13, color: 'var(--faint)', marginTop: 2 }}>{listings.length} item{listings.length !== 1 ? 's' : ''}</div>}
-          </div>
-          <button className="btn btn-dark" onClick={() => { resetForm(); setView('new') }}>+ New Listing</button>
-        </div>
+      {lightboxEl}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        {sidebarEl}
+        <main style={{ flex: 1, overflowY: 'auto', padding: '28px 32px' }}>
+          <div style={{ maxWidth: 700 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>My Listings</h2>
+                <div style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>{listings.length} item{listings.length !== 1 ? 's' : ''}</div>
+              </div>
+              <button className="btn btn-dark" onClick={() => { resetForm(); setView('new') }} style={{ flexShrink: 0 }}>+ New Listing</button>
+            </div>
 
-        {msg && <div className="success-msg" style={{ marginBottom: 16 }}>{msg}</div>}
+            {msg && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '11px 16px', marginBottom: 20, fontSize: 14, color: '#15803d' }}>
+                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                {msg}
+              </div>
+            )}
 
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: 60 }}><div className="spinner" /></div>
-        ) : listings.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 24px', color: 'var(--faint)', fontSize: 14 }}>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>📋</div>
-            <div style={{ fontWeight: 600, marginBottom: 6, color: 'var(--text)' }}>No listings yet</div>
-            <div>Submit your first item to get started.</div>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {listings.map(listing => {
-              const cover = getCover(listing)
-              const cfg = statusCfg(listing.status)
-              return (
-                <div
-                  key={listing.id}
-                  onClick={() => { setSelected(listing); setView('detail') }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 14,
-                    padding: '14px 16px',
-                    background: 'var(--surface)',
-                    border: '1px solid var(--border-light)',
-                    borderLeft: `3px solid ${cfg.color}`,
-                    borderRadius: 12,
-                    cursor: 'pointer',
-                    transition: 'opacity 0.15s',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
-                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
-                >
-                  {cover
-                    ? <img src={cover} alt="" style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} />
-                    : <div style={{ width: 60, height: 60, borderRadius: 8, background: 'var(--border-light)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>📷</div>
-                  }
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {listing.brand} {listing.model}
-                    </div>
-                    {listing.reference && <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 1 }}>Ref. {listing.reference}</div>}
-                    <div style={{ display: 'flex', gap: 10, marginTop: 4, alignItems: 'center' }}>
-                      {listing.asking_price && (
-                        <span style={{ fontSize: 13, fontWeight: 600 }}>€{Number(listing.asking_price).toLocaleString()}</span>
-                      )}
-                      <span style={{ fontSize: 11, color: 'var(--faint)' }}>{new Date(listing.created_at).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
-                    <div style={{ padding: '3px 10px', borderRadius: 20, background: cfg.color + '20', color: cfg.color, fontSize: 11, fontWeight: 600 }}>
-                      {cfg.label}
-                    </div>
-                    {canEdit(listing.status) && (
-                      <button
-                        className="btn btn-sm"
-                        style={{ fontSize: 11, padding: '3px 10px' }}
-                        onClick={e => { e.stopPropagation(); enterEdit(listing) }}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
+              {TABS.map(t => {
+                const active = filterStatus === t.key
+                return (
+                  <button key={t.key} onClick={() => setFilterStatus(t.key)} style={{
+                    padding: '6px 16px', borderRadius: 20, border: '1px solid #e5e7eb',
+                    background: active ? '#1f2937' : '#fff',
+                    color: active ? '#fff' : '#374151',
+                    fontSize: 13, fontWeight: active ? 600 : 400,
+                    cursor: 'pointer', transition: 'background 0.12s, color 0.12s',
+                  }}>
+                    {t.label} {t.count}
+                  </button>
+                )
+              })}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <svg style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }} width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input
+                  value={supSearch}
+                  onChange={e => setSupSearch(e.target.value)}
+                  placeholder="Search listings…"
+                  style={{ width: '100%', padding: '8px 12px 8px 36px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
+            </div>
+
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: 60 }}><div className="spinner" /></div>
+            ) : filteredListings.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '60px 24px', color: '#9ca3af', fontSize: 14 }}>
+                <div style={{ fontSize: 36, marginBottom: 12 }}>📋</div>
+                <div style={{ fontWeight: 600, marginBottom: 6, color: '#374151', fontSize: 15 }}>No listings yet</div>
+                <div>Submit your first item to get started.</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {filteredListings.map(listing => {
+                  const cover = getCover(listing)
+                  const cfg = statusCfg(listing.status)
+                  return (
+                    <div
+                      key={listing.id}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 14,
+                        padding: '14px 16px',
+                        background: '#fff',
+                        border: '1px solid #e5e7eb',
+                        borderLeft: `3px solid ${cfg.color}`,
+                        borderRadius: 12,
+                      }}
+                    >
+                      <div
+                        onClick={() => { setSelected(listing); setView('detail') }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, cursor: 'pointer', minWidth: 0 }}
                       >
-                        Edit
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
+                        {cover
+                          ? <img src={cover} alt="" style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} />
+                          : <div style={{ width: 60, height: 60, borderRadius: 8, background: '#f3f4f6', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: 22 }}>📷</div>
+                        }
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {listing.brand} {listing.model}
+                          </div>
+                          {listing.reference && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 1 }}>Ref. {listing.reference}</div>}
+                          <div style={{ display: 'flex', gap: 10, marginTop: 4, alignItems: 'center' }}>
+                            {listing.asking_price && <span style={{ fontSize: 13, fontWeight: 600 }}>€{Number(listing.asking_price).toLocaleString()}</span>}
+                            <span style={{ fontSize: 11, color: '#9ca3af' }}>{fmtDate(listing.created_at)}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
+                        <div style={{ padding: '3px 10px', borderRadius: 20, background: cfg.color + '18', color: cfg.color, fontSize: 11, fontWeight: 600 }}>{cfg.label}</div>
+                        {canEdit(listing.status) && (
+                          <button
+                            className="btn btn-sm"
+                            style={{ fontSize: 11, padding: '3px 12px' }}
+                            onClick={e => { e.stopPropagation(); enterEdit(listing) }}
+                          >
+                            Edit
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
-        )}
+        </main>
       </div>
     </div>
   )

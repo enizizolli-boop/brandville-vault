@@ -56,3 +56,10 @@ using (
     and profiles.role in ('admin', 'agent')
   )
 );
+
+-- Fix: the ADD COLUMN DEFAULT above populated every row with the same
+-- migration-time value (now() is volatile, evaluated once at ALTER time),
+-- so the WHERE expires_at IS NULL backfill above never matched anything.
+-- Recompute properly from each row's actual created_at.
+update preorders
+set expires_at = coalesce(created_at, now()) + interval '7 days';
