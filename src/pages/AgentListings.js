@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useNav } from '../hooks/useNav'
 import { supabase } from '../lib/supabase'
 import { toSlug } from '../lib/slug'
@@ -297,12 +298,19 @@ async function notifyDealers(watch) {
 export default function AgentListings() {
   const { profile } = useAuth()
   const navigate = useNav()
+  const location = useLocation()
   const { rate } = useExchangeRate()
   const { rate: cnyToEurRate } = useExchangeRate('CNY', 'EUR')
   const [tab, setTab] = useState(() => {
     const params = new URLSearchParams(window.location.search)
     return params.get('tab') || 'listings'
   })
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const t = params.get('tab')
+    if (t) setTab(t)
+  }, [location.search])
   const [bagName, setBagName] = useState('')
   const [bagCostPrice, setBagCostPrice] = useState('')
   const [bagCostCurrency, setBagCostCurrency] = useState('EUR')
@@ -862,29 +870,77 @@ export default function AgentListings() {
     return new Date(b.created_at || 0) - new Date(a.created_at || 0)
   })
 
+  const pendingOffers = offers.filter(o => o.status === 'pending').length
+
+  const sidebarBtn = (id, label, count, accent) => (
+    <button onClick={() => setTab(id)} style={{
+      display: 'flex', alignItems: 'center', gap: 10,
+      width: '100%', padding: '8px 10px', borderRadius: 8,
+      border: 'none', cursor: 'pointer', textAlign: 'left',
+      background: tab === id ? 'var(--surface2)' : 'transparent',
+      color: tab === id ? 'var(--text)' : 'var(--faint)',
+      fontWeight: tab === id ? 600 : 400, fontSize: 13,
+      transition: 'background 0.12s, color 0.12s',
+    }}>
+      <span style={{ flex: 1 }}>{label}</span>
+      {count > 0 && (
+        <span style={{ background: accent ? '#f59e0b' : (tab === id ? 'var(--border)' : 'var(--border-light)'), color: accent ? '#fff' : 'var(--faint)', borderRadius: 10, fontSize: 10, fontWeight: 700, padding: '1px 6px' }}>
+          {count}
+        </span>
+      )}
+    </button>
+  )
+
+  const subBtn = (lType, label, count) => (
+    <button onClick={() => { setTab('listings'); setListingType(lType) }} style={{
+      display: 'flex', alignItems: 'center', gap: 8,
+      width: '100%', padding: '6px 10px 6px 22px', borderRadius: 8,
+      border: 'none', cursor: 'pointer', textAlign: 'left',
+      background: tab === 'listings' && listingType === lType ? 'var(--surface2)' : 'transparent',
+      color: tab === 'listings' && listingType === lType ? 'var(--text)' : 'var(--faint)',
+      fontWeight: tab === 'listings' && listingType === lType ? 600 : 400, fontSize: 12,
+      transition: 'background 0.12s, color 0.12s',
+    }}>
+      <span style={{ flex: 1 }}>{label}</span>
+      {count > 0 && <span style={{ fontSize: 10, color: 'var(--faint)' }}>{count}</span>}
+    </button>
+  )
+
   return (
-    <div className="page">
+    <div className="page" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Topbar />
-      <div className="tabs">
-        <div className={`tab ${tab === 'listings' ? 'active' : ''}`} onClick={() => setTab('listings')}>My listings</div>
-        <div className={`tab ${tab === 'post' ? 'active' : ''}`} onClick={() => setTab('post')}>Listings Watches</div>
-        <div className={`tab ${tab === 'bagpreorder' ? 'active' : ''}`} onClick={() => setTab('bagpreorder')}>Listings Bags</div>
-        <div className={`tab ${tab === 'offers' ? 'active' : ''}`} onClick={() => setTab('offers')}>
-          Offers{offers.filter(o => o.status === 'pending').length > 0 && (
-            <span style={{ marginLeft: 6, background: '#b8965a', color: '#fff', borderRadius: 10, fontSize: 10, padding: '1px 6px', fontWeight: 700 }}>
-              {offers.filter(o => o.status === 'pending').length}
-            </span>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+
+        {/* Sidebar */}
+        <aside style={{
+          width: 210, flexShrink: 0,
+          borderRight: '1px solid var(--border-light)',
+          background: 'var(--surface)',
+          display: 'flex', flexDirection: 'column',
+          padding: '20px 10px',
+          overflowY: 'auto',
+        }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--faint)', padding: '0 10px', marginBottom: 6 }}>Listings</div>
+          {sidebarBtn('listings', 'My Listings', 0)}
+          {(tab === 'listings' || true) && (
+            <div style={{ marginBottom: 4 }}>
+              {subBtn('instock', 'In stock', watches.length)}
+              {subBtn('preorders-watches', 'Preorders Watches', watchPreorders.length)}
+              {subBtn('preorders-bags', 'Preorders Bags', bagPreorders.length)}
+              {subBtn('preorders-archived', 'Archived', archivedPreorders.length)}
+            </div>
           )}
-        </div>
-        <div className={`tab ${tab === 'clients' ? 'active' : ''}`} onClick={() => setTab('clients')}>Clients</div>
-        <div className={`tab ${tab === 'supplier' ? 'active' : ''}`} onClick={() => setTab('supplier')}>
-          Supplier Queue{supplierListings.length > 0 && (
-            <span style={{ marginLeft: 6, background: '#f59e0b', color: '#fff', borderRadius: 10, fontSize: 10, padding: '1px 6px', fontWeight: 700 }}>
-              {supplierListings.length}
-            </span>
-          )}
-        </div>
-      </div>
+          {sidebarBtn('post', 'Post a Watch', 0)}
+          {sidebarBtn('bagpreorder', 'Post a Bag', 0)}
+
+          <div style={{ height: 1, background: 'var(--border-light)', margin: '10px 8px' }} />
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--faint)', padding: '0 10px', marginBottom: 6 }}>Activity</div>
+          {sidebarBtn('offers', 'Offers', pendingOffers, false)}
+          {sidebarBtn('clients', 'Clients', 0)}
+          {sidebarBtn('supplier', 'Supplier Queue', supplierListings.length, supplierListings.length > 0)}
+        </aside>
+
+        <div style={{ flex: 1, overflowY: 'auto' }}>
 
       {tab === 'listings' && (
         <div style={{ padding: 16 }}>
@@ -1627,7 +1683,9 @@ export default function AgentListings() {
         </div>
       )}
 
-      <Footer />
+        <Footer />
+        </div> {/* end main scroll area */}
+      </div> {/* end flex row */}
     </div>
   )
 }
