@@ -40,6 +40,7 @@ const STATUS_CONFIG = {
   pending_review: { label: 'Pending Review', color: '#f59e0b' },
   approved:       { label: 'Approved',       color: '#22c55e' },
   rejected:       { label: 'Rejected',       color: '#ef4444' },
+  sold:           { label: 'Sold',           color: '#6b7280' },
 }
 
 async function notifyAgents(listing, supplierName) {
@@ -84,7 +85,7 @@ export default function SupplierDashboard() {
     setLoading(true)
     const { data } = await supabase
       .from('supplier_listings')
-      .select('*, supplier_listing_images(id, url, position)')
+      .select('*, supplier_listing_images(id, url, position), preorder_id')
       .eq('supplier_id', user.id)
       .order('created_at', { ascending: false })
     setListings(data || [])
@@ -284,6 +285,16 @@ export default function SupplierDashboard() {
 
   const statusCfg = s => STATUS_CONFIG[s] || STATUS_CONFIG.draft
   const canEdit = s => s === 'draft' || s === 'rejected' || s === 'pending_review'
+
+  async function markAsSold(listing) {
+    if (!window.confirm('Mark this item as sold? This will prevent it from being posted to the website.')) return
+    await supabase.from('supplier_listings').update({ status: 'sold' }).eq('id', listing.id)
+    if (listing.preorder_id) {
+      await supabase.from('preorders').update({ status: 'sold' }).eq('id', listing.preorder_id)
+    }
+    fetchListings()
+    setSelected(prev => prev?.id === listing.id ? { ...prev, status: 'sold' } : prev)
+  }
 
   const fmtDate = d => {
     const dt = new Date(d)
@@ -557,7 +568,7 @@ export default function SupplierDashboard() {
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 {canEdit(selected.status) && (
                   <button className="btn btn-dark" onClick={() => enterEdit(selected)}>Edit Listing</button>
                 )}
@@ -566,6 +577,14 @@ export default function SupplierDashboard() {
                 )}
                 {selected.status === 'rejected' && (
                   <button className="btn" onClick={() => submitDraft(selected)}>Resubmit for Review</button>
+                )}
+                {selected.status === 'approved' && (
+                  <button
+                    onClick={() => markAsSold(selected)}
+                    style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', color: '#374151', fontSize: 14, cursor: 'pointer', fontWeight: 500 }}
+                  >
+                    Mark as Sold
+                  </button>
                 )}
               </div>
             </div>
@@ -581,6 +600,7 @@ export default function SupplierDashboard() {
     { key: 'pending_review', label: 'Pending Review', count: countByStatus('pending_review') },
     { key: 'approved', label: 'Approved', count: countByStatus('approved') },
     { key: 'rejected', label: 'Rejected', count: countByStatus('rejected') },
+    { key: 'sold', label: 'Sold', count: countByStatus('sold') },
   ].filter(t => t.key === 'all' || t.count > 0)
 
   return (
