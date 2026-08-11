@@ -895,15 +895,15 @@ export default function AgentListings() {
         display: 'flex', alignItems: 'center', gap: 9,
         width: '100%', padding: '7px 10px', borderRadius: 8,
         border: 'none', cursor: 'pointer', textAlign: 'left',
-        background: isActive ? 'rgba(184,150,90,0.1)' : 'transparent',
-        color: isActive ? '#b8965a' : 'var(--faint)',
+        background: isActive ? '#f5ede0' : 'transparent',
+        color: isActive ? 'var(--text)' : '#6b7280',
         fontWeight: isActive ? 600 : 400, fontSize: 13,
         transition: 'background 0.12s, color 0.12s',
       }}>
-        <span style={{ opacity: isActive ? 1 : 0.6, display: 'flex' }}>{icon}</span>
+        <span style={{ color: isActive ? '#b8965a' : '#9ca3af', display: 'flex' }}>{icon}</span>
         <span style={{ flex: 1 }}>{label}</span>
         {count > 0 && (
-          <span style={{ background: accent ? '#f59e0b' : 'var(--border-light)', color: accent ? '#fff' : 'var(--faint)', borderRadius: 10, fontSize: 10, fontWeight: 700, padding: '1px 6px' }}>
+          <span style={{ background: accent ? '#f59e0b' : '#f3f4f6', color: accent ? '#fff' : '#6b7280', borderRadius: 10, fontSize: 10, fontWeight: 700, padding: '1px 6px' }}>
             {count}
           </span>
         )}
@@ -916,26 +916,26 @@ export default function AgentListings() {
     return (
       <button onClick={() => { setTab('listings'); setListingType(lType) }} style={{
         display: 'flex', alignItems: 'center',
-        width: '100%', padding: '5px 10px 5px 30px', borderRadius: 8,
+        width: '100%', padding: '4px 10px 4px 33px', borderRadius: 8,
         border: 'none', cursor: 'pointer', textAlign: 'left',
-        background: isActive ? 'rgba(184,150,90,0.08)' : 'transparent',
-        color: isActive ? '#b8965a' : 'var(--faint)',
-        fontWeight: isActive ? 600 : 400, fontSize: 12,
-        transition: 'background 0.12s, color 0.12s',
+        background: 'transparent',
+        color: isActive ? 'var(--text)' : '#9ca3af',
+        fontWeight: isActive ? 500 : 400, fontSize: 12,
+        transition: 'color 0.12s',
       }}>
         <span style={{ flex: 1 }}>{label}</span>
-        <span style={{ fontSize: 11, color: isActive ? '#b8965a' : 'var(--faint)', opacity: 0.7 }}>{count}</span>
+        <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 400 }}>{count}</span>
       </button>
     )
   }
 
-  const IconHome = () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-  const IconBag = () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-  const IconPlus = () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-  const IconTag = () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-  const IconPerson = () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-  const IconBox = () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-  const IconChevron = ({ open }) => <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d={open ? 'M18 15l-6-6-6 6' : 'M6 9l6 6 6-6'}/></svg>
+  const IconHome = () => <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+  const IconBag = () => <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+  const IconTag = () => <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+  const IconPerson = () => <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+  const IconBox = () => <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+  const IconChevronUp = () => <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 15l-6-6-6 6"/></svg>
+  const IconChevronDown = () => <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
 
   const selStyle = { fontSize: 13, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border-light)', background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }
 
@@ -955,33 +955,31 @@ export default function AgentListings() {
         }}>
           {navItem('overview', 'Overview', <IconHome />, 0)}
 
-          <div style={{ height: 1, background: 'var(--border-light)', margin: '10px 4px 8px' }} />
+          <div style={{ height: 8 }} />
 
           {/* Listings section */}
-          <button onClick={() => setListingsOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '4px 10px', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--faint)', fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+          <button onClick={() => setListingsOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '4px 10px', border: 'none', background: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
             <span style={{ flex: 1 }}>Listings</span>
-            <IconChevron open={listingsOpen} />
+            {listingsOpen ? <IconChevronUp /> : <IconChevronDown />}
           </button>
           {listingsOpen && (
             <>
               {navItem('listings', 'My Listings', <IconBag />, 0)}
-              <div style={{ marginBottom: 2 }}>
+              <div style={{ marginBottom: 4 }}>
                 {subItem('instock', 'In stock', watches.length)}
                 {subItem('preorders-watches', 'Preorders Watches', watchPreorders.length)}
                 {subItem('preorders-bags', 'Preorders Bags', bagPreorders.length)}
                 {subItem('preorders-archived', 'Archived', archivedPreorders.length)}
               </div>
-              {navItem('post', 'Post a Watch', <IconPlus />, 0)}
-              {navItem('bagpreorder', 'Post a Bag', <IconPlus />, 0)}
             </>
           )}
 
-          <div style={{ height: 1, background: 'var(--border-light)', margin: '10px 4px 8px' }} />
+          <div style={{ height: 8 }} />
 
           {/* Activity section */}
-          <button onClick={() => setActivityOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '4px 10px', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--faint)', fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+          <button onClick={() => setActivityOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '4px 10px', border: 'none', background: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
             <span style={{ flex: 1 }}>Activity</span>
-            <IconChevron open={activityOpen} />
+            {activityOpen ? <IconChevronUp /> : <IconChevronDown />}
           </button>
           {activityOpen && (
             <>
@@ -994,15 +992,15 @@ export default function AgentListings() {
           <div style={{ flex: 1 }} />
 
           {/* Need help? */}
-          <div style={{ margin: '12px 4px 0', background: 'var(--surface2)', border: '1px solid var(--border-light)', borderRadius: 12, padding: '14px 12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(184,150,90,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <svg width="13" height="13" fill="none" stroke="#b8965a" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <div style={{ margin: '12px 4px 0', background: '#fdf8f2', border: '1px solid #e9d8bc', borderRadius: 12, padding: '14px 12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <div style={{ width: 30, height: 30, borderRadius: 50, background: '#f5ede0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="15" height="15" fill="none" stroke="#b8965a" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
               </div>
               <span style={{ fontSize: 13, fontWeight: 600 }}>Need help?</span>
             </div>
-            <div style={{ fontSize: 11, color: 'var(--faint)', marginBottom: 10, lineHeight: 1.5 }}>Our team is here to help you.</div>
-            <button className="btn btn-full" style={{ fontSize: 11, padding: '6px 0' }}>Contact Support</button>
+            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 10, lineHeight: 1.5 }}>Our team is here to help you.</div>
+            <button style={{ width: '100%', fontSize: 12, padding: '7px 0', border: '1px solid #b8965a', borderRadius: 8, background: 'transparent', color: '#b8965a', cursor: 'pointer', fontWeight: 500 }}>Contact Support</button>
           </div>
         </aside>
 
