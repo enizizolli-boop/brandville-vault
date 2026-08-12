@@ -9,7 +9,15 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Safety timeout: if Supabase auth doesn't respond in 5s (e.g. during an
+    // outage), stop showing a blank loading screen and render the site anyway.
+    const authTimeout = setTimeout(() => {
+      console.warn('Auth timed out — rendering unauthenticated')
+      setLoading(false)
+    }, 5000)
+
     supabase.auth.getSession().then(({ data: { session } }) => {
+      clearTimeout(authTimeout)
       setUser(session?.user ?? null)
       if (session?.user) fetchProfile(session.user.id)
       else setLoading(false)
