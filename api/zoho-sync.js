@@ -511,8 +511,12 @@ export default async function handler(req, res) {
       let watchId = existingMap[mapped.zoho_item_id];
 
       if (watchId) {
-        // Already linked by zoho_item_id — update fields
-        await supabase.from('products').update(mapped).eq('id', watchId);
+        // Already linked by zoho_item_id — update fields.
+        // Don't overwrite a known reference with null: Zoho's list API sometimes
+        // omits the sku field for certain items even though it's set in Zoho.
+        const updatePayload = { ...mapped };
+        if (!updatePayload.reference) delete updatePayload.reference;
+        await supabase.from('products').update(updatePayload).eq('id', watchId);
         updated++;
       } else {
         // Fallback: find a manually-added product with the same SKU/reference

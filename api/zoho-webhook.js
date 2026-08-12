@@ -216,10 +216,20 @@ export default async function handler(req, res) {
     const isCommitted = Number(committedStock ?? 0) > 0;
     const shouldBeLive = stage === 'Per oferte' && Number(availForSale) >= 1 && !isCommitted;
 
-    const { data: products, error: fetchErr } = await supabase
-      .from('products').select('id, status, cost_eur')
-      .eq('source', 'zoho')
-      [sku ? 'eq' : 'eq'](sku ? 'reference' : 'zoho_item_id', sku || itemId);
+    // Always look up by zoho_item_id first (reliable, always present), then fall
+    // back to reference. This prevents misses when reference is null in the DB
+    // because the list API returned sku as empty at initial sync time.
+    let products, fetchErr;
+    if (itemId) {
+      ({ data: products, error: fetchErr } = await supabase
+        .from('products').select('id, status, cost_eur, reference, zoho_item_id')
+        .eq('source', 'zoho').eq('zoho_item_id', itemId));
+    }
+    if (!products?.length && sku) {
+      ({ data: products, error: fetchErr } = await supabase
+        .from('products').select('id, status, cost_eur, reference, zoho_item_id')
+        .eq('source', 'zoho').eq('reference', sku));
+    }
 
     if (fetchErr || !products?.length) {
       // Product not in DB yet — create it if it should be live
@@ -261,6 +271,10 @@ export default async function handler(req, res) {
       if (purchaseRate && Number(purchaseRate) > 0 && !product.cost_eur) {
         updates.cost_eur = Number(purchaseRate);
       }
+      // Backfill missing reference/zoho_item_id — happens when list API returned
+      // sku as empty at creation time but the webhook payload has it correctly.
+      if (sku && !product.reference) updates.reference = sku;
+      if (itemId && !product.zoho_item_id) updates.zoho_item_id = itemId;
 
       if (Object.keys(updates).length > 0) {
         const { error: updateErr } = await supabase.from('products').update(updates).eq('id', product.id);
