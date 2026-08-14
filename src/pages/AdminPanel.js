@@ -41,6 +41,11 @@ function SidebarIcon({ id }) {
       <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
     </svg>
   )
+  if (id === 'supplier_queue') return (
+    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24">
+      <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+    </svg>
+  )
   if (id === 'invite') return (
     <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24">
       <path d="M12 5v14M5 12h14"/>
@@ -291,12 +296,14 @@ export default function AdminPanel() {
 
   const dealers = users.filter(u => u.role === 'dealer')
   const agents = users.filter(u => u.role === 'agent')
+  const suppliers = users.filter(u => u.role === 'supplier')
 
   const NAV = [
     { id: 'overview', label: 'Overview' },
     { id: 'dealers', label: 'Dealers', count: dealers.length },
     { id: 'agents', label: 'Agents', count: agents.length },
-    { id: 'suppliers', label: 'Supplier Queue', count: supplierListings.length, accent: supplierListings.length > 0 },
+    { id: 'suppliers', label: 'Suppliers', count: suppliers.length },
+    { id: 'supplier_queue', label: 'Supplier Queue', count: supplierListings.length, accent: supplierListings.length > 0 },
     { id: 'invite', label: 'Invite User' },
     { id: 'sync', label: 'Sync' },
   ]
@@ -348,6 +355,7 @@ export default function AdminPanel() {
                 <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                   {u.role === 'dealer' && <button className="btn btn-sm" onClick={() => changeRole(u.id, 'agent')} style={{ fontSize: 11 }}>Make agent</button>}
                   {u.role === 'agent' && <button className="btn btn-sm" onClick={() => changeRole(u.id, 'dealer')} style={{ fontSize: 11 }}>Make dealer</button>}
+                  {u.role === 'supplier' && <button className="btn btn-sm" onClick={() => changeRole(u.id, 'dealer')} style={{ fontSize: 11 }}>Make dealer</button>}
                   {u.role !== 'admin' && <button className="btn btn-sm btn-danger" onClick={() => handleRevoke(u.id, u.full_name)} style={{ fontSize: 11 }}>Revoke</button>}
                 </div>
               </div>
@@ -434,7 +442,7 @@ export default function AdminPanel() {
 
           {NAV.map((item, i) => {
             const isActive = tab === item.id
-            const divider = i === 3
+            const divider = i === 5
             return (
               <div key={item.id}>
                 {divider && <div style={{ height: 1, background: '#e5e7eb', margin: '8px 16px' }} />}
@@ -496,7 +504,8 @@ export default function AdminPanel() {
                 {[
                   { id: 'dealers', label: 'Dealers', value: dealers.length, desc: 'Active dealer accounts' },
                   { id: 'agents', label: 'Agents', value: agents.length, desc: 'Active agent accounts' },
-                  { id: 'suppliers', label: 'Supplier Queue', value: supplierListings.length, desc: 'Pending submissions', accent: supplierListings.length > 0 },
+                  { id: 'suppliers', label: 'Suppliers', value: suppliers.length, desc: 'Active supplier accounts' },
+                  { id: 'supplier_queue', label: 'Supplier Queue', value: supplierListings.length, desc: 'Pending submissions', accent: supplierListings.length > 0 },
                 ].map(card => (
                   <div key={card.id}
                     onClick={() => setTab(card.id)}
@@ -534,10 +543,19 @@ export default function AdminPanel() {
             </div>
           )}
 
-          {/* Supplier Queue */}
+          {/* Suppliers */}
           {tab === 'suppliers' && (
             <div>
+              <h2 style={{ margin: '0 0 24px', fontSize: 20, fontWeight: 700 }}>Suppliers</h2>
+              <UserList list={suppliers} />
+            </div>
+          )}
+
+          {/* Supplier Queue */}
+          {tab === 'supplier_queue' && (
+            <div>
               <h2 style={{ margin: '0 0 24px', fontSize: 20, fontWeight: 700 }}>Supplier Queue</h2>
+
               {supplierListings.length === 0 ? (
                 <div className="empty-state">No pending supplier submissions.</div>
               ) : (
