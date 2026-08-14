@@ -6,6 +6,19 @@ const supabase = createClient(
 )
 
 async function fetchAndStorePair(apiKey, from, to) {
+  // If a manual rate was set today AFTER the cron window (7:00–7:10 AM UTC),
+  // respect it and skip the auto-fetch so it doesn't overwrite the human value.
+  const cronWindowEnd = new Date()
+  cronWindowEnd.setUTCHours(7, 10, 0, 0)
+  const { data: recent } = await supabase
+    .from('exchange_rates').select('fetched_at')
+    .eq('from_currency', from).eq('to_currency', to)
+    .order('fetched_at', { ascending: false }).limit(1)
+  if (recent?.[0] && new Date(recent[0].fetched_at) > cronWindowEnd) {
+    console.log(`Skipping ${from}→${to}: manual rate set at ${recent[0].fetched_at}`)
+    return null
+  }
+
   const response = await fetch(`https://v6.exchangerate-api.com/v6/${apiKey}/pair/${from}/${to}`)
   const data = await response.json()
   if (data.result !== 'success') throw new Error(`ExchangeRate-API error for ${from}/${to}: ${JSON.stringify(data)}`)
