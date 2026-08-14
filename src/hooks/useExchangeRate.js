@@ -1,11 +1,14 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 
-const FALLBACK_RATES = { 'EUR-USD': 1.08, 'CNY-EUR': 0.13 }
+const FALLBACK_RATES = { 'EUR-USD': 1.08, 'CNY-EUR': 0.13, 'HKD-EUR': 0.12 }
 
 export function useExchangeRate(from = 'EUR', to = 'USD') {
   const [rate, setRate] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [tick, setTick] = useState(0)
+
+  const refetch = useCallback(() => setTick(t => t + 1), [])
 
   useEffect(() => {
     setLoading(true)
@@ -34,7 +37,7 @@ export function useExchangeRate(from = 'EUR', to = 'USD') {
       setLoading(false)
     }
     fetchRate()
-  }, [from, to])
+  }, [from, to, tick])
 
-  return { rate, loading }
+  return { rate, loading, refetch }
 }

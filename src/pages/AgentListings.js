@@ -299,9 +299,9 @@ export default function AgentListings() {
   const { profile } = useAuth()
   const navigate = useNav()
   const location = useLocation()
-  const { rate } = useExchangeRate()
-  const { rate: cnyToEurRate } = useExchangeRate('CNY', 'EUR')
-  const { rate: hkdToEurRate } = useExchangeRate('HKD', 'EUR')
+  const { rate, refetch: refetchEurUsd } = useExchangeRate()
+  const { rate: cnyToEurRate, refetch: refetchCnyEur } = useExchangeRate('CNY', 'EUR')
+  const { rate: hkdToEurRate, refetch: refetchHkdEur } = useExchangeRate('HKD', 'EUR')
   const [tab, setTab] = useState(() => {
     const params = new URLSearchParams(window.location.search)
     return params.get('tab') || 'listings'
@@ -365,6 +365,10 @@ export default function AgentListings() {
   const [supEditNewPreviews, setSupEditNewPreviews] = useState([])
   const [lbImgs, setLbImgs] = useState([])
   const [lbIdx, setLbIdx] = useState(null)
+  const [currentRatesData, setCurrentRatesData] = useState({})
+  const [rateInputs, setRateInputs] = useState({})
+  const [savingRate, setSavingRate] = useState(null)
+  const [rateMsg, setRateMsg] = useState('')
   const openLb = (urls, idx) => { setLbImgs(urls); setLbIdx(idx) }
   const closeLb = () => { setLbIdx(null); setLbImgs([]) }
   const lbPrev = e => { if (e) e.stopPropagation(); setLbIdx(i => (i - 1 + lbImgs.length) % lbImgs.length) }
@@ -463,6 +467,55 @@ export default function AgentListings() {
   useEffect(() => { if (profile && tab === 'offers') fetchOffers() }, [profile, tab, fetchOffers])
   useEffect(() => { if (profile && tab === 'clients') fetchClients() }, [profile, tab, fetchClients])
   useEffect(() => { if (profile && tab === 'supplier') fetchSupplierListings() }, [profile, tab, fetchSupplierListings])
+  useEffect(() => { if (tab === 'rates') fetchCurrentRatesData() }, [tab])
+
+  const RATE_PAIRS = [
+    { from: 'CNY', to: 'EUR', label: 'CNY → EUR', desc: 'Chinese Yuan to Euro — supplier price conversion' },
+    { from: 'HKD', to: 'EUR', label: 'HKD → EUR', desc: 'Hong Kong Dollar to Euro — supplier price conversion' },
+    { from: 'EUR', to: 'USD', label: 'EUR → USD', desc: 'Euro to US Dollar — display conversion' },
+  ]
+
+  async function fetchCurrentRatesData() {
+    const results = {}
+    for (const { from, to } of RATE_PAIRS) {
+      const { data } = await supabase
+        .from('exchange_rates')
+        .select('rate, fetched_at')
+        .eq('from_currency', from)
+        .eq('to_currency', to)
+        .order('fetched_at', { ascending: false })
+        .limit(1)
+      if (data?.[0]) results[`${from}-${to}`] = data[0]
+    }
+    setCurrentRatesData(results)
+    const inputs = {}
+    for (const { from, to } of RATE_PAIRS) {
+      const key = `${from}-${to}`
+      if (results[key]) inputs[key] = String(results[key].rate)
+    }
+    setRateInputs(prev => ({ ...inputs, ...prev }))
+  }
+
+  async function handleSaveRate(from, to, value) {
+    const num = parseFloat(value)
+    if (!num || num <= 0) return
+    const key = `${from}-${to}`
+    setSavingRate(key)
+    try {
+      const { error } = await supabase.from('exchange_rates').insert({
+        from_currency: from, to_currency: to, rate: num,
+        fetched_at: new Date().toISOString(),
+      })
+      if (error) throw error
+      setRateMsg(`${from} → ${to} set to ${num}`)
+      setTimeout(() => setRateMsg(''), 4000)
+      fetchCurrentRatesData()
+      if (from === 'CNY' && to === 'EUR') refetchCnyEur()
+      if (from === 'HKD' && to === 'EUR') refetchHkdEur()
+      if (from === 'EUR' && to === 'USD') refetchEurUsd()
+    } catch (e) { alert('Failed to save: ' + e.message) }
+    setSavingRate(null)
+  }
 
   const CURRENCY_SYMBOLS = { EUR: '€', USD: '$', CNY: '¥', HKD: 'HK$' }
 
@@ -1012,6 +1065,7 @@ export default function AgentListings() {
   const IconPerson = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
   const IconTruck = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
   const IconPlus = () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  const IconRates = () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
 
   const selStyle = { fontSize: 13, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border-light)', background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }
 
@@ -1068,6 +1122,7 @@ export default function AgentListings() {
           {sbItem('offers', 'Offers', <IconTag />, pendingOffers)}
           {sbItem('clients', 'Clients', <IconPerson />)}
           {sbItem('supplier', 'Supplier Queue', <IconTruck />, supplierListings.length, supplierListings.length > 0)}
+          {sbItem('rates', 'Exchange Rates', <IconRates />)}
 
           <div style={{ flex: 1 }} />
 
@@ -1979,6 +2034,72 @@ export default function AgentListings() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {tab === 'rates' && (
+        <div style={{ padding: '28px 28px 40px', maxWidth: 540 }}>
+          <div style={{ marginBottom: 24 }}>
+            <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700 }}>Exchange Rates</h2>
+            <div style={{ fontSize: 13, color: 'var(--faint)' }}>Set today's rates — used instantly for supplier price conversions</div>
+          </div>
+
+          {rateMsg && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: '#15803d' }}>
+              ✓ {rateMsg}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {RATE_PAIRS.map(({ from, to, label, desc }) => {
+              const key = `${from}-${to}`
+              const current = currentRatesData[key]
+              const isSaving = savingRate === key
+              return (
+                <div key={key} style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 14, padding: '16px 18px' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 16, letterSpacing: '-0.01em' }}>{label}</div>
+                      <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 2 }}>{desc}</div>
+                      {current && (
+                        <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 4 }}>
+                          Last set: {new Date(current.fetched_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      )}
+                    </div>
+                    {current && (
+                      <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 16 }}>
+                        <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{Number(current.rate).toFixed(4)}</div>
+                        <div style={{ fontSize: 11, color: 'var(--faint)' }}>current</div>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      placeholder={from === 'CNY' ? 'e.g. 0.1265' : from === 'HKD' ? 'e.g. 0.1175' : 'e.g. 1.085'}
+                      value={rateInputs[key] || ''}
+                      onChange={e => setRateInputs(r => ({ ...r, [key]: e.target.value }))}
+                      style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-light)', fontSize: 14, background: 'var(--surface2)', color: 'var(--text)' }}
+                    />
+                    <button
+                      className="btn btn-dark"
+                      onClick={() => handleSaveRate(from, to, rateInputs[key])}
+                      disabled={isSaving || !rateInputs[key]}
+                      style={{ flexShrink: 0, padding: '8px 20px' }}
+                    >
+                      {isSaving ? <span className="spinner" style={{ width: 14, height: 14 }} /> : 'Save'}
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          <div style={{ marginTop: 16, padding: '12px 14px', background: 'var(--surface2)', borderRadius: 10, fontSize: 12, color: 'var(--faint)', lineHeight: 1.6 }}>
+            Saved rates take effect immediately in price displays and supplier approval calculations.
+          </div>
         </div>
       )}
 
