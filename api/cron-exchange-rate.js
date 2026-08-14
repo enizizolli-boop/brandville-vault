@@ -37,9 +37,9 @@ export default async function handler(req, res) {
   try {
     const apiKey = process.env.EXCHANGERATE_API_KEY
     const eurUsd = await fetchAndStorePair(apiKey, 'EUR', 'USD')
-    const cnyUsd = await fetchAndStorePair(apiKey, 'CNY', 'USD')
+    const usdCny = await fetchAndStorePair(apiKey, 'USD', 'CNY')
 
-    return res.status(200).json({ ok: true, rates: { 'EUR-USD': eurUsd, 'CNY-USD': cnyUsd } })
+    return res.status(200).json({ ok: true, rates: { 'EUR-USD': eurUsd, 'USD-CNY': usdCny } })
   } catch (err) {
     return res.status(500).json({ error: err.message })
   }
