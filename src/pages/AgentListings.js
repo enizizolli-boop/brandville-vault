@@ -369,6 +369,7 @@ export default function AgentListings() {
   const [rateInputs, setRateInputs] = useState({})
   const [savingRate, setSavingRate] = useState(null)
   const [rateMsg, setRateMsg] = useState('')
+  const [translatingNotes, setTranslatingNotes] = useState(false)
   const openLb = (urls, idx) => { setLbImgs(urls); setLbIdx(idx) }
   const closeLb = () => { setLbIdx(null); setLbImgs([]) }
   const lbPrev = e => { if (e) e.stopPropagation(); setLbIdx(i => (i - 1 + lbImgs.length) % lbImgs.length) }
@@ -595,8 +596,23 @@ export default function AgentListings() {
     fetchSupplierListings()
   }
 
+  async function translateText(text) {
+    if (!text || !/[一-鿿㐀-䶿＀-￯]/.test(text)) return text
+    try {
+      const res = await fetch(
+        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=zh|en`
+      )
+      const data = await res.json()
+      if (data.responseStatus === 200 && data.responseData?.translatedText) {
+        return data.responseData.translatedText
+      }
+    } catch {}
+    return text
+  }
+
   function enterSupEdit(listing) {
     setSupEditId(listing.id)
+    const notes = listing.notes || ''
     setSupEditForm({
       brand: listing.brand || '',
       model: listing.model || '',
@@ -604,26 +620,37 @@ export default function AgentListings() {
       condition: listing.condition || '',
       scope_of_delivery: listing.scope_of_delivery || '',
       asking_price: listing.asking_price || '',
-      notes: listing.notes || '',
+      notes,
     })
     setSupEditExistingImgs((listing.supplier_listing_images || []).sort((a, b) => a.position - b.position))
     setSupEditRemovedIds([])
     setSupEditNewFiles([])
     setSupEditNewPreviews([])
+
+    // Auto-translate notes if they contain Chinese characters
+    if (notes && /[一-鿿㐀-䶿]/.test(notes)) {
+      setTranslatingNotes(true)
+      translateText(notes).then(translated => {
+        setSupEditForm(f => ({ ...f, notes: translated }))
+        setTranslatingNotes(false)
+      })
+    }
   }
 
   async function saveSupplierListingEdit(listingId) {
+    const updatedFields = {
+      brand: supEditForm.brand,
+      model: supEditForm.model,
+      reference: supEditForm.reference || null,
+      condition: supEditForm.condition || null,
+      scope_of_delivery: supEditForm.scope_of_delivery || null,
+      asking_price: supEditForm.asking_price ? Number(supEditForm.asking_price) : null,
+      notes: supEditForm.notes || null,
+    }
+
     const { error } = await supabase
       .from('supplier_listings')
-      .update({
-        brand: supEditForm.brand,
-        model: supEditForm.model,
-        reference: supEditForm.reference || null,
-        condition: supEditForm.condition || null,
-        scope_of_delivery: supEditForm.scope_of_delivery || null,
-        asking_price: supEditForm.asking_price ? Number(supEditForm.asking_price) : null,
-        notes: supEditForm.notes || null,
-      })
+      .update(updatedFields)
       .eq('id', listingId)
     if (error) { alert('Failed to save: ' + error.message); return }
 
@@ -641,6 +668,12 @@ export default function AgentListings() {
       const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path)
       await supabase.from('supplier_listing_images').insert({ listing_id: listingId, url: publicUrl, position: startPos + i })
     }
+
+    // Optimistic update: immediately reflect edits in local state so the approve
+    // button uses the fresh notes/fields without waiting for the DB refetch.
+    setSupplierListings(prev => prev.map(l =>
+      l.id === listingId ? { ...l, ...updatedFields } : l
+    ))
 
     setSupEditId(null)
     fetchSupplierListings()
@@ -1898,7 +1931,31 @@ export default function AgentListings() {
                         <option>Card &amp; Box</option>
                       </select>
                     </div>
-                    <textarea className="input" placeholder="Notes" rows={2} value={supEditForm.notes} onChange={e => setSupEditForm(f => ({ ...f, notes: e.target.value }))} style={{ marginBottom: 0, resize: 'vertical' }} />
+                    <div style={{ position: 'relative' }}>
+                      <textarea
+                        className="input"
+                        placeholder="Notes"
+                        rows={2}
+                        value={translatingNotes ? 'Translating…' : supEditForm.notes}
+                        onChange={e => setSupEditForm(f => ({ ...f, notes: e.target.value }))}
+                        disabled={translatingNotes}
+                        style={{ marginBottom: 0, resize: 'vertical', width: '100%', boxSizing: 'border-box', opacity: translatingNotes ? 0.5 : 1 }}
+                      />
+                      {!translatingNotes && supEditForm.notes && /[一-鿿㐀-䶿]/.test(supEditForm.notes) && (
+                        <button
+                          onClick={() => {
+                            setTranslatingNotes(true)
+                            translateText(supEditForm.notes).then(t => {
+                              setSupEditForm(f => ({ ...f, notes: t }))
+                              setTranslatingNotes(false)
+                            })
+                          }}
+                          style={{ position: 'absolute', top: 6, right: 6, fontSize: 10, padding: '2px 7px', borderRadius: 5, border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer', color: '#6b7280' }}
+                        >
+                          🌐 Translate
+                        </button>
+                      )}
+                    </div>
 
                     {/* Image management */}
                     <div>
