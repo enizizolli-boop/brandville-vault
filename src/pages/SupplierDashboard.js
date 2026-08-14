@@ -449,13 +449,13 @@ export default function SupplierDashboard() {
   }
 
   const { rate: eurToUsd } = useExchangeRate('EUR', 'USD')
-  const { rate: cnyToEur } = useExchangeRate('CNY', 'EUR')
+  const { rate: usdToCny } = useExchangeRate('USD', 'CNY')
   const { rate: hkdToEur } = useExchangeRate('HKD', 'EUR')
 
   const PRICE_SYM = { CNY: '¥', HKD: 'HK$', EUR: '€', USD: '$' }
   const toEur = (amount, cur) => {
     if (cur === 'EUR') return null
-    if (cur === 'CNY' && cnyToEur) return Math.round(amount * cnyToEur)
+    if (cur === 'CNY' && usdToCny && eurToUsd) return Math.round(amount / usdToCny / eurToUsd)
     if (cur === 'HKD' && hkdToEur) return Math.round(amount * hkdToEur)
     if (cur === 'USD' && eurToUsd) return Math.round(amount / eurToUsd)
     return null
