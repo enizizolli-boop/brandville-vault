@@ -304,9 +304,9 @@ export default function AdminPanel() {
   }
 
   const RATE_PAIRS = [
-    { from: 'CNY', to: 'EUR', label: 'CNY → EUR', desc: 'Chinese Yuan to Euro — supplier price conversion' },
+    { from: 'CNY', to: 'USD', label: 'CNY → USD', desc: 'Chinese Yuan to US Dollar — first leg of supplier price conversion (CNY → USD → EUR)' },
     { from: 'HKD', to: 'EUR', label: 'HKD → EUR', desc: 'Hong Kong Dollar to Euro — supplier price conversion' },
-    { from: 'EUR', to: 'USD', label: 'EUR → USD', desc: 'Euro to US Dollar — display conversion' },
+    { from: 'EUR', to: 'USD', label: 'EUR → USD', desc: 'Euro to US Dollar — second leg of CNY conversion + display' },
   ]
 
   async function fetchCurrentRatesData() {
@@ -679,7 +679,7 @@ export default function AdminPanel() {
                         <input
                           type="number"
                           step="0.0001"
-                          placeholder={from === 'CNY' ? 'e.g. 0.1265' : from === 'HKD' ? 'e.g. 0.1175' : 'e.g. 1.085'}
+                          placeholder={from === 'CNY' ? 'e.g. 0.138' : from === 'HKD' ? 'e.g. 0.1175' : 'e.g. 1.085'}
                           value={rateInputs[key] || ''}
                           onChange={e => setRateInputs(r => ({ ...r, [key]: e.target.value }))}
                           style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-light)', fontSize: 14, background: 'var(--surface2)', color: 'var(--text)' }}

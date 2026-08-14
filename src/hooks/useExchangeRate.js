@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 
-const FALLBACK_RATES = { 'EUR-USD': 1.08, 'CNY-EUR': 0.13, 'HKD-EUR': 0.12 }
+const FALLBACK_RATES = { 'EUR-USD': 1.08, 'CNY-USD': 0.138, 'HKD-EUR': 0.12 }
 
 export function useExchangeRate(from = 'EUR', to = 'USD') {
   const [rate, setRate] = useState(null)

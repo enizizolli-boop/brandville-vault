@@ -300,7 +300,7 @@ export default function AgentListings() {
   const navigate = useNav()
   const location = useLocation()
   const { rate, refetch: refetchEurUsd } = useExchangeRate()
-  const { rate: cnyToEurRate, refetch: refetchCnyEur } = useExchangeRate('CNY', 'EUR')
+  const { rate: cnyToUsdRate, refetch: refetchCnyUsd } = useExchangeRate('CNY', 'USD')
   const { rate: hkdToEurRate, refetch: refetchHkdEur } = useExchangeRate('HKD', 'EUR')
   const [tab, setTab] = useState(() => {
     const params = new URLSearchParams(window.location.search)
@@ -471,9 +471,9 @@ export default function AgentListings() {
   useEffect(() => { if (tab === 'rates') fetchCurrentRatesData() }, [tab])
 
   const RATE_PAIRS = [
-    { from: 'CNY', to: 'EUR', label: 'CNY → EUR', desc: 'Chinese Yuan to Euro — supplier price conversion' },
+    { from: 'CNY', to: 'USD', label: 'CNY → USD', desc: 'Chinese Yuan to US Dollar — first leg of supplier price conversion (CNY → USD → EUR)' },
     { from: 'HKD', to: 'EUR', label: 'HKD → EUR', desc: 'Hong Kong Dollar to Euro — supplier price conversion' },
-    { from: 'EUR', to: 'USD', label: 'EUR → USD', desc: 'Euro to US Dollar — display conversion' },
+    { from: 'EUR', to: 'USD', label: 'EUR → USD', desc: 'Euro to US Dollar — second leg of CNY conversion + display' },
   ]
 
   async function fetchCurrentRatesData() {
@@ -511,7 +511,7 @@ export default function AgentListings() {
       setRateMsg(`${from} → ${to} set to ${num}`)
       setTimeout(() => setRateMsg(''), 4000)
       fetchCurrentRatesData()
-      if (from === 'CNY' && to === 'EUR') refetchCnyEur()
+      if (from === 'CNY' && to === 'USD') refetchCnyUsd()
       if (from === 'HKD' && to === 'EUR') refetchHkdEur()
       if (from === 'EUR' && to === 'USD') refetchEurUsd()
     } catch (e) { alert('Failed to save: ' + e.message) }
@@ -533,7 +533,7 @@ export default function AgentListings() {
       priceUsd = num
       priceEur = rate ? Math.round(num / rate) : num
     } else if (cur === 'CNY') {
-      priceEur = cnyToEurRate ? Math.round(num * cnyToEurRate) : num
+      priceEur = (cnyToUsdRate && rate) ? Math.round(num * cnyToUsdRate / rate) : num
       priceUsd = priceEur && rate ? Math.round(priceEur * rate) : null
     } else if (cur === 'HKD') {
       priceEur = hkdToEurRate ? Math.round(num * hkdToEurRate) : num
@@ -548,7 +548,7 @@ export default function AgentListings() {
     let costEur = null
     if (askingAmt) {
       if (askingCur === 'EUR') costEur = askingAmt
-      else if (askingCur === 'CNY' && cnyToEurRate) costEur = Math.round(askingAmt * cnyToEurRate)
+      else if (askingCur === 'CNY' && cnyToUsdRate && rate) costEur = Math.round(askingAmt * cnyToUsdRate / rate)
       else if (askingCur === 'HKD' && hkdToEurRate) costEur = Math.round(askingAmt * hkdToEurRate)
       else if (askingCur === 'USD' && rate) costEur = Math.round(askingAmt / rate)
     }
@@ -812,7 +812,7 @@ export default function AgentListings() {
       const condition = parsed.condition || EMPTY_FORM.condition
 
       const costEur = bagCostCurrency === 'CNY'
-        ? Number(bagCostPrice) * (cnyToEurRate || 0)
+        ? Number(bagCostPrice) * (cnyToUsdRate || 0) / (rate || 1)
         : Number(bagCostPrice)
       const sellingEur = bagSellingPrice ? Number(bagSellingPrice) : costEur * 1.4
       const priceUsd = rate ? Math.round(sellingEur * rate) : null
@@ -1771,7 +1771,7 @@ export default function AgentListings() {
                 </div>
                 {bagCostCurrency === 'CNY' && bagCostPrice && (
                   <div style={{ fontSize: 12, color: '#b0a898', marginTop: 4 }}>
-                    {cnyToEurRate ? `≈ €${Math.round(Number(bagCostPrice) * cnyToEurRate).toLocaleString()}` : 'Loading CNY → EUR rate…'}
+                    {(cnyToUsdRate && rate) ? `≈ €${Math.round(Number(bagCostPrice) * cnyToUsdRate / rate).toLocaleString()}` : 'Loading CNY rate…'}
                   </div>
                 )}
               </div>
@@ -1780,7 +1780,7 @@ export default function AgentListings() {
                 <label>Selling price (€) — optional</label>
                 <input type="number" value={bagSellingPrice} onChange={e => setBagSellingPrice(e.target.value)} placeholder="leave blank to auto-calc as cost + 40%" />
                 {bagCostPrice && (() => {
-                  const costEur = bagCostCurrency === 'CNY' ? Number(bagCostPrice) * (cnyToEurRate || 0) : Number(bagCostPrice)
+                  const costEur = bagCostCurrency === 'CNY' ? Number(bagCostPrice) * (cnyToUsdRate || 0) / (rate || 1) : Number(bagCostPrice)
                   const sellingEur = bagSellingPrice ? Number(bagSellingPrice) : costEur * 1.4
                   const usd = rate ? Math.round(sellingEur * rate) : null
                   return (
@@ -2001,8 +2001,8 @@ export default function AgentListings() {
                     {listing.asking_price && (() => {
                       const cur = listing.asking_price_currency || 'CNY'
                       const sym = { EUR: '€', USD: '$', CNY: '¥', HKD: 'HK$' }[cur] || ''
-                      const eurEq = cur === 'CNY' && cnyToEurRate
-                        ? ` (≈ €${Math.round(listing.asking_price * cnyToEurRate).toLocaleString()})`
+                      const eurEq = cur === 'CNY' && cnyToUsdRate && rate
+                        ? ` (≈ €${Math.round(listing.asking_price * cnyToUsdRate / rate).toLocaleString()})`
                         : cur === 'HKD' && hkdToEurRate
                         ? ` (≈ €${Math.round(listing.asking_price * hkdToEurRate).toLocaleString()})`
                         : cur === 'USD' && rate
@@ -2030,7 +2030,7 @@ export default function AgentListings() {
                       Selling price
                       {(() => {
                         const ac = listing.asking_price_currency
-                        const eurHint = ac === 'CNY' && cnyToEurRate ? Math.round(listing.asking_price * cnyToEurRate)
+                        const eurHint = ac === 'CNY' && cnyToUsdRate && rate ? Math.round(listing.asking_price * cnyToUsdRate / rate)
                           : ac === 'HKD' && hkdToEurRate ? Math.round(listing.asking_price * hkdToEurRate)
                           : null
                         return listing.asking_price && eurHint ? (
@@ -2135,7 +2135,7 @@ export default function AgentListings() {
                     <input
                       type="number"
                       step="0.0001"
-                      placeholder={from === 'CNY' ? 'e.g. 0.1265' : from === 'HKD' ? 'e.g. 0.1175' : 'e.g. 1.085'}
+                      placeholder={from === 'CNY' ? 'e.g. 0.138' : from === 'HKD' ? 'e.g. 0.1175' : 'e.g. 1.085'}
                       value={rateInputs[key] || ''}
                       onChange={e => setRateInputs(r => ({ ...r, [key]: e.target.value }))}
                       style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-light)', fontSize: 14, background: 'var(--surface2)', color: 'var(--text)' }}
