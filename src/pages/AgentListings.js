@@ -295,6 +295,8 @@ async function notifyDealers(watch) {
   }
 }
 
+const PAGE_SIZE = 50
+
 export default function AgentListings() {
   const { profile } = useAuth()
   const navigate = useNav()
@@ -340,6 +342,10 @@ export default function AgentListings() {
   const [counterOpen, setCounterOpen] = useState({})
   const [offerStatusTab, setOfferStatusTab] = useState('pending')
   const [preorders, setPreorders] = useState([])
+  const [preordersPage, setPreordersPage] = useState(0)
+  const [preordersTotal, setPreordersTotal] = useState(null)
+  const [watchesPage, setWatchesPage] = useState(0)
+  const [watchesTotal, setWatchesTotal] = useState(null)
   const [listingType, setListingType] = useState('instock')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -402,20 +408,29 @@ export default function AgentListings() {
     setSupplierListings(data || [])
   }, [])
 
-  const fetchMyWatches = useCallback(async () => {
-    const q = profile?.role === 'admin'
-      ? supabase.from('products').select('*, product_images(url, position)').order('created_at', { ascending: false })
-      : supabase.from('products').select('*, product_images(url, position)').eq('posted_by', profile?.id).order('created_at', { ascending: false })
-    const { data } = await q
-    setWatches(data || [])
+  const fetchMyWatches = useCallback(async (page = 0) => {
+    const base = profile?.role === 'admin'
+      ? supabase.from('products').select('*, product_images(url, position)', { count: 'exact' }).order('created_at', { ascending: false })
+      : supabase.from('products').select('*, product_images(url, position)', { count: 'exact' }).eq('posted_by', profile?.id).order('created_at', { ascending: false })
+    const { data, count } = await base.range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+    if (page === 0) setWatches(data || [])
+    else setWatches(prev => [...prev, ...(data || [])])
+    if (count !== null) setWatchesTotal(count)
+    setWatchesPage(page)
     setLoading(false)
   }, [profile])
 
-  const fetchPreorders = useCallback(async () => {
-    const q = supabase.from('preorders').select('*, preorder_images(url, position)').order('created_at', { ascending: false })
-    const { data } = await q
-    setPreorders(data || [])
-  }, [profile])
+  const fetchPreorders = useCallback(async (page = 0) => {
+    const { data, count } = await supabase
+      .from('preorders')
+      .select('*, preorder_images(url, position)', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+    if (page === 0) setPreorders(data || [])
+    else setPreorders(prev => [...prev, ...(data || [])])
+    if (count !== null) setPreordersTotal(count)
+    setPreordersPage(page)
+  }, [])
 
   const fetchOffers = useCallback(async () => {
     setOffersLoading(true)
@@ -1320,7 +1335,7 @@ export default function AgentListings() {
                 <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid var(--border-light)', borderRadius: 10, marginBottom: 8, background: 'var(--surface)' }}>
                   <a href={`/catalog/${toSlug(w)}`} onClick={e => { e.preventDefault(); navigate(`/catalog/${toSlug(w)}`) }} style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, textDecoration: 'none', color: 'inherit', minWidth: 0 }}>
                     <div style={{ width: 50, height: 50, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      {getThumb(w) ? <img src={getThumb(w)} alt={w.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20 }}>⌚</span>}
+                      {getThumb(w) ? <img src={getThumb(w)} alt={w.model} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20 }}>⌚</span>}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 500 }}>{w.brand} {w.model}</div>
@@ -1339,6 +1354,14 @@ export default function AgentListings() {
               ))
           )}
 
+          {listingType === 'instock' && !loading && watchesTotal !== null && watches.length < watchesTotal && (
+            <div style={{ textAlign: 'center', padding: '16px 0' }}>
+              <button className="btn btn-sm" onClick={() => fetchMyWatches(watchesPage + 1)}>
+                Load more — showing {watches.length} of {watchesTotal}
+              </button>
+            </div>
+          )}
+
           {(listingType === 'preorders-watches' || listingType === 'preorders-bags' || listingType === 'preorders-archived') && (
             filteredPreorders.length === 0
               ? <div className="empty-state">{search ? 'No preorders match your search' : listingType === 'preorders-archived' ? 'No archived preorders' : 'No preorders yet'}</div>
@@ -1349,7 +1372,7 @@ export default function AgentListings() {
               <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid var(--border-light)', borderRadius: 10, marginBottom: 8, background: 'var(--surface)' }}>
                 <a href={`/catalog/${toSlug(p)}`} onClick={e => { e.preventDefault(); navigate(`/catalog/${toSlug(p)}`) }} style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, textDecoration: 'none', color: 'inherit', minWidth: 0 }}>
                   <div style={{ width: 50, height: 50, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    {getPreorderThumb(p) ? <img src={getPreorderThumb(p)} alt={p.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20 }}>🔖</span>}
+                    {getPreorderThumb(p) ? <img src={getPreorderThumb(p)} alt={p.model} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20 }}>🔖</span>}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 500 }}>{p.brand} {p.model}</div>
@@ -1387,6 +1410,14 @@ export default function AgentListings() {
               </div>
               )
             })
+          )}
+
+          {(listingType === 'preorders-watches' || listingType === 'preorders-bags' || listingType === 'preorders-archived') && preordersTotal !== null && preorders.length < preordersTotal && (
+            <div style={{ textAlign: 'center', padding: '16px 0' }}>
+              <button className="btn btn-sm" onClick={() => fetchPreorders(preordersPage + 1)}>
+                Load more — showing {preorders.length} of {preordersTotal}
+              </button>
+            </div>
           )}
           </div>
         </div>
