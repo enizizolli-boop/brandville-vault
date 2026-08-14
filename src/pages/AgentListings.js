@@ -295,7 +295,7 @@ async function notifyDealers(watch) {
   }
 }
 
-const PAGE_SIZE = 50
+const PAGE_SIZE = 100
 
 export default function AgentListings() {
   const { profile } = useAuth()
@@ -1132,7 +1132,7 @@ export default function AgentListings() {
         </div>
       )}
 
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flex: 1, alignItems: 'flex-start' }}>
 
         {/* Sidebar */}
         <aside style={{
@@ -1141,7 +1141,8 @@ export default function AgentListings() {
           background: '#fff',
           display: 'flex', flexDirection: 'column',
           padding: '20px 0 16px',
-          overflowY: 'auto',
+          position: 'sticky', top: 0,
+          height: '100vh', overflowY: 'auto',
         }}>
           {/* LISTINGS label */}
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#9ca3af', padding: '0 16px', marginBottom: 6 }}>Listings</div>
@@ -1153,9 +1154,16 @@ export default function AgentListings() {
             <span style={{ display: 'inline-block', padding: '4px 14px', borderRadius: 20, fontSize: 13, fontWeight: tab === 'listings' && listingType === 'instock' ? 500 : 400, background: tab === 'listings' && listingType === 'instock' ? '#f5ede0' : 'transparent', color: tab === 'listings' && listingType === 'instock' ? '#374151' : '#6b7280' }}>In stock</span>
           </button>
 
-          {sbSubItem('preorders-watches', 'Preorders Watches', <IconWatch />, watchPreorders.length)}
-          {sbSubItem('preorders-bags', 'Preorders Bags', <IconHandbag />, bagPreorders.length)}
-          {sbSubItem('preorders-archived', 'Archived', <IconArchive />, archivedPreorders.length)}
+          {(() => {
+            // Only show sub-counts once all preorders are loaded;
+            // while paginating, show — to avoid misleading partial numbers
+            const allLoaded = preordersTotal === null || preorders.length >= preordersTotal
+            return (<>
+              {sbSubItem('preorders-watches', 'Preorders Watches', <IconWatch />, allLoaded ? watchPreorders.length : null)}
+              {sbSubItem('preorders-bags', 'Preorders Bags', <IconHandbag />, allLoaded ? bagPreorders.length : null)}
+              {sbSubItem('preorders-archived', 'Archived', <IconArchive />, allLoaded ? archivedPreorders.length : null)}
+            </>)
+          })()}
 
           <div style={{ height: 1, background: '#e5e7eb', margin: '10px 16px' }} />
 
@@ -1187,7 +1195,7 @@ export default function AgentListings() {
           </div>
         </aside>
 
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
 
       {tab === 'overview' && (
         <div style={{ padding: '28px 28px 40px' }}>
