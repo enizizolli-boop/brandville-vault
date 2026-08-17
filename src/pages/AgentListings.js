@@ -402,7 +402,7 @@ export default function AgentListings() {
   const fetchSupplierListings = useCallback(async () => {
     const { data } = await supabase
       .from('supplier_listings')
-      .select('*, supplier_listing_images(url, position), profiles!supplier_id(full_name, phone)')
+      .select('*, supplier_listing_images(id, url, position), profiles!supplier_id(full_name, phone)')
       .eq('status', 'pending_review')
       .order('created_at', { ascending: false })
     setSupplierListings(data || [])
