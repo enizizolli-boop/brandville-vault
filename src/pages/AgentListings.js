@@ -344,6 +344,9 @@ export default function AgentListings() {
   const [preorders, setPreorders] = useState([])
   const [preordersPage, setPreordersPage] = useState(0)
   const [preordersTotal, setPreordersTotal] = useState(null)
+  const [watchPreordersTotal, setWatchPreordersTotal] = useState(null)
+  const [bagPreordersTotal, setBagPreordersTotal] = useState(null)
+  const [archivedPreordersTotal, setArchivedPreordersTotal] = useState(null)
   const [watchesPage, setWatchesPage] = useState(0)
   const [watchesTotal, setWatchesTotal] = useState(null)
   const [listingType, setListingType] = useState('instock')
@@ -420,12 +423,21 @@ export default function AgentListings() {
     setLoading(false)
   }, [profile])
 
-  const fetchPreorders = useCallback(async (page = 0) => {
-    const { data, count } = await supabase
+  const fetchPreorders = useCallback(async (page = 0, type = null) => {
+    const now = new Date().toISOString()
+    let query = supabase
       .from('preorders')
       .select('*, preorder_images(url, position)', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+    if (type === 'preorders-watches') {
+      query = query.neq('category', 'Bags').or('expires_at.is.null,expires_at.gte.' + now)
+    } else if (type === 'preorders-bags') {
+      query = query.eq('category', 'Bags')
+    } else if (type === 'preorders-archived') {
+      query = query.neq('category', 'Bags').not('expires_at', 'is', null).lt('expires_at', now)
+    }
+    const { data, count } = await query
     if (page === 0) setPreorders(data || [])
     else setPreorders(prev => [...prev, ...(data || [])])
     if (count !== null) setPreordersTotal(count)
@@ -479,7 +491,33 @@ export default function AgentListings() {
     setTimeout(() => setCopied(''), 2000)
   }
 
-  useEffect(() => { if (profile) { fetchMyWatches(); fetchPreorders() } }, [profile, fetchMyWatches, fetchPreorders])
+  useEffect(() => { if (profile) fetchMyWatches() }, [profile, fetchMyWatches])
+
+  // Fetch type-specific preorders when the sub-tab changes
+  useEffect(() => {
+    if (profile && listingType.startsWith('preorders-')) {
+      setPreorders([])
+      setPreordersPage(0)
+      setPreordersTotal(null)
+      fetchPreorders(0, listingType)
+    }
+  }, [profile, listingType, fetchPreorders])
+
+  // Lightweight count-only queries so sidebar + pill badges always show real totals
+  useEffect(() => {
+    if (!profile) return
+    const now = new Date().toISOString()
+    supabase.from('preorders').select('*', { count: 'exact', head: true })
+      .neq('category', 'Bags').or('expires_at.is.null,expires_at.gte.' + now)
+      .then(({ count }) => setWatchPreordersTotal(count ?? 0))
+    supabase.from('preorders').select('*', { count: 'exact', head: true })
+      .eq('category', 'Bags')
+      .then(({ count }) => setBagPreordersTotal(count ?? 0))
+    supabase.from('preorders').select('*', { count: 'exact', head: true })
+      .neq('category', 'Bags').not('expires_at', 'is', null).lt('expires_at', now)
+      .then(({ count }) => setArchivedPreordersTotal(count ?? 0))
+  }, [profile])
+
   useEffect(() => { if (profile && tab === 'offers') fetchOffers() }, [profile, tab, fetchOffers])
   useEffect(() => { if (profile && tab === 'clients') fetchClients() }, [profile, tab, fetchClients])
   useEffect(() => { if (profile && tab === 'supplier') fetchSupplierListings() }, [profile, tab, fetchSupplierListings])
@@ -596,7 +634,7 @@ export default function AgentListings() {
       preorder_id: preorder.id,
     }).eq('id', listing.id)
     fetchSupplierListings()
-    fetchPreorders()
+    fetchPreorders(0, listingType)
   }
 
   async function rejectSupplierListing(listing) {
@@ -784,7 +822,7 @@ export default function AgentListings() {
         }
         setTab('listings')
         setListingType('preorders-watches')
-        fetchPreorders()
+        fetchPreorders(0, listingType)
       } else {
         const { data: watch, error: wErr } = await supabase.from('products').insert({ ...payload, source: 'manual' }).select().single()
         if (wErr) throw wErr
@@ -883,7 +921,7 @@ export default function AgentListings() {
         : bagIsPreorder ? 'Bags preorder posted.' : 'Item posted — now live in the dealer catalog.')
       setTab('listings')
       setListingType(bagIsPreorder ? 'preorders-bags' : 'instock')
-      fetchPreorders()
+      fetchPreorders(0, listingType)
       fetchMyWatches()
     } catch (err) {
       console.error('Bag listing post error:', err)
@@ -951,19 +989,19 @@ export default function AgentListings() {
 
   async function markPreorderSold(id) {
     await supabase.from('preorders').update({ status: 'sold' }).eq('id', id)
-    fetchPreorders()
+    fetchPreorders(0, listingType)
   }
 
   async function markPreorderAvailable(id) {
     await supabase.from('preorders').update({ status: 'available' }).eq('id', id)
-    fetchPreorders()
+    fetchPreorders(0, listingType)
   }
 
   // Extend an active preorder by 7 more days, or bring an archived one back —
   // identical operation, since "reactivating" just means giving it a future expiry again.
   async function extendPreorder(id) {
     await supabase.from('preorders').update({ expires_at: new Date(Date.now() + 7 * 86400000).toISOString() }).eq('id', id)
-    fetchPreorders()
+    fetchPreorders(0, listingType)
   }
 
   function daysUntilExpiry(expiresAt) {
@@ -990,7 +1028,7 @@ export default function AgentListings() {
     await supabase.from('preorder_images').delete().eq('preorder_id', id)
     const { error } = await supabase.from('preorders').delete().eq('id', id)
     if (error) { alert('Delete failed: ' + error.message); return }
-    fetchPreorders()
+    fetchPreorders(0, listingType)
   }
 
   async function deleteWatch(id) {
@@ -1031,15 +1069,8 @@ export default function AgentListings() {
   // Bags always count as archived for this agent-side grouping (the Preorders Bags
   // tab below still shows all of them unaffected — this only changes which bucket
   // they fall into for the Archived tab). Watches archive normally after 7 days.
-  const isArchived = p => p.category === 'Bags' || (daysUntilExpiry(p.expires_at) !== null && daysUntilExpiry(p.expires_at) <= 0)
-  const activePreorders = preorders.filter(p => !isArchived(p))
-  const archivedPreorders = preorders.filter(isArchived)
-  const watchPreorders = activePreorders.filter(p => p.category !== 'Bags')
-  const bagPreorders = preorders.filter(p => p.category === 'Bags')
-  const basePreorders = listingType === 'preorders-bags' ? bagPreorders
-    : listingType === 'preorders-watches' ? watchPreorders
-    : listingType === 'preorders-archived' ? archivedPreorders
-    : preorders
+  // Server already filters by tab type — basePreorders is the fetched set for current tab
+  const basePreorders = preorders
   const preorderBrandOptions = [...new Set(preorders.map(p => p.brand).filter(Boolean))].sort()
   const filteredPreorders = basePreorders.filter(p => {
     if (search && !p.brand?.toLowerCase().includes(q) && !p.model?.toLowerCase().includes(q)) return false
@@ -1154,16 +1185,9 @@ export default function AgentListings() {
             <span style={{ display: 'inline-block', padding: '4px 14px', borderRadius: 20, fontSize: 13, fontWeight: tab === 'listings' && listingType === 'instock' ? 500 : 400, background: tab === 'listings' && listingType === 'instock' ? '#f5ede0' : 'transparent', color: tab === 'listings' && listingType === 'instock' ? '#374151' : '#6b7280' }}>In stock</span>
           </button>
 
-          {(() => {
-            // Only show sub-counts once all preorders are loaded;
-            // while paginating, show — to avoid misleading partial numbers
-            const allLoaded = preordersTotal === null || preorders.length >= preordersTotal
-            return (<>
-              {sbSubItem('preorders-watches', 'Preorders Watches', <IconWatch />, allLoaded ? watchPreorders.length : null)}
-              {sbSubItem('preorders-bags', 'Preorders Bags', <IconHandbag />, allLoaded ? bagPreorders.length : null)}
-              {sbSubItem('preorders-archived', 'Archived', <IconArchive />, allLoaded ? archivedPreorders.length : null)}
-            </>)
-          })()}
+          {sbSubItem('preorders-watches', 'Preorders Watches', <IconWatch />, watchPreordersTotal)}
+          {sbSubItem('preorders-bags', 'Preorders Bags', <IconHandbag />, bagPreordersTotal)}
+          {sbSubItem('preorders-archived', 'Archived', <IconArchive />, archivedPreordersTotal)}
 
           <div style={{ height: 1, background: '#e5e7eb', margin: '10px 16px' }} />
 
@@ -1240,10 +1264,10 @@ export default function AgentListings() {
           {/* Pill tabs */}
           <div style={{ padding: '14px 28px 0', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {[
-              { id: 'instock', label: 'In stock', count: watches.length },
-              { id: 'preorders-watches', label: 'Preorders Watches', count: watchPreorders.length },
-              { id: 'preorders-bags', label: 'Preorders Bags', count: bagPreorders.length },
-              { id: 'preorders-archived', label: 'Archived', count: archivedPreorders.length },
+              { id: 'instock', label: 'In stock', count: watchesTotal ?? watches.length },
+              { id: 'preorders-watches', label: 'Preorders Watches', count: watchPreordersTotal },
+              { id: 'preorders-bags', label: 'Preorders Bags', count: bagPreordersTotal },
+              { id: 'preorders-archived', label: 'Archived', count: archivedPreordersTotal },
             ].map(({ id, label, count }) => (
               <button key={id} onClick={() => setListingType(id)} style={{
                 padding: '6px 16px', borderRadius: 20, cursor: 'pointer', whiteSpace: 'nowrap',
@@ -1422,7 +1446,7 @@ export default function AgentListings() {
 
           {(listingType === 'preorders-watches' || listingType === 'preorders-bags' || listingType === 'preorders-archived') && preordersTotal !== null && preorders.length < preordersTotal && (
             <div style={{ textAlign: 'center', padding: '16px 0' }}>
-              <button className="btn btn-sm" onClick={() => fetchPreorders(preordersPage + 1)}>
+              <button className="btn btn-sm" onClick={() => fetchPreorders(preordersPage + 1, listingType)}>
                 Load more — showing {preorders.length} of {preordersTotal}
               </button>
             </div>
