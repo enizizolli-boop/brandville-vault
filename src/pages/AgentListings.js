@@ -509,7 +509,6 @@ export default function AgentListings() {
       setPreordersTotal(null)
       fetchPreorders(0, listingType, search)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, listingType, fetchPreorders]) // search excluded — its changes handled by debounce effect below
 
   // Debounced server-side search — fires 350ms after the user stops typing
@@ -530,7 +529,6 @@ export default function AgentListings() {
       }
     }, 350)
     return () => clearTimeout(timer)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, profile]) // listingType excluded — tab switches handled by effect above
 
   // Lightweight count-only queries so sidebar + pill badges always show real totals
