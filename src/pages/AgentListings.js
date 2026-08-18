@@ -411,10 +411,14 @@ export default function AgentListings() {
     setSupplierListings(data || [])
   }, [])
 
-  const fetchMyWatches = useCallback(async (page = 0) => {
-    const base = profile?.role === 'admin'
+  const fetchMyWatches = useCallback(async (page = 0, searchTerm = '') => {
+    let base = profile?.role === 'admin'
       ? supabase.from('products').select('*, product_images(url, position)', { count: 'exact' }).order('created_at', { ascending: false })
       : supabase.from('products').select('*, product_images(url, position)', { count: 'exact' }).eq('posted_by', profile?.id).order('created_at', { ascending: false })
+    if (searchTerm.trim()) {
+      const s = searchTerm.trim()
+      base = base.or(`brand.ilike.%${s}%,model.ilike.%${s}%,reference.ilike.%${s}%`)
+    }
     const { data, count } = await base.range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
     if (page === 0) setWatches(data || [])
     else setWatches(prev => [...prev, ...(data || [])])
@@ -423,7 +427,7 @@ export default function AgentListings() {
     setLoading(false)
   }, [profile])
 
-  const fetchPreorders = useCallback(async (page = 0, type = null) => {
+  const fetchPreorders = useCallback(async (page = 0, type = null, searchTerm = '') => {
     const now = new Date().toISOString()
     let query = supabase
       .from('preorders')
@@ -436,6 +440,10 @@ export default function AgentListings() {
       query = query.eq('category', 'Bags')
     } else if (type === 'preorders-archived') {
       query = query.neq('category', 'Bags').not('expires_at', 'is', null).lt('expires_at', now)
+    }
+    if (searchTerm.trim()) {
+      const s = searchTerm.trim()
+      query = query.or(`brand.ilike.%${s}%,model.ilike.%${s}%,reference.ilike.%${s}%`)
     }
     const { data, count } = await query
     if (page === 0) setPreorders(data || [])
@@ -493,15 +501,37 @@ export default function AgentListings() {
 
   useEffect(() => { if (profile) fetchMyWatches() }, [profile, fetchMyWatches])
 
-  // Fetch type-specific preorders when the sub-tab changes
+  // Fetch type-specific preorders when the sub-tab changes (passes current search term)
   useEffect(() => {
     if (profile && listingType.startsWith('preorders-')) {
       setPreorders([])
       setPreordersPage(0)
       setPreordersTotal(null)
-      fetchPreorders(0, listingType)
+      fetchPreorders(0, listingType, search)
     }
-  }, [profile, listingType, fetchPreorders])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, listingType, fetchPreorders]) // search excluded — its changes handled by debounce effect below
+
+  // Debounced server-side search — fires 350ms after the user stops typing
+  useEffect(() => {
+    if (!profile) return
+    const timer = setTimeout(() => {
+      if (listingType.startsWith('preorders-')) {
+        setPreorders([])
+        setPreordersPage(0)
+        setPreordersTotal(null)
+        fetchPreorders(0, listingType, search)
+      } else if (listingType === 'instock') {
+        setWatches([])
+        setWatchesPage(0)
+        setWatchesTotal(null)
+        setLoading(true)
+        fetchMyWatches(0, search)
+      }
+    }, 350)
+    return () => clearTimeout(timer)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, profile]) // listingType excluded — tab switches handled by effect above
 
   // Lightweight count-only queries so sidebar + pill badges always show real totals
   useEffect(() => {
@@ -634,7 +664,7 @@ export default function AgentListings() {
       preorder_id: preorder.id,
     }).eq('id', listing.id)
     fetchSupplierListings()
-    fetchPreorders(0, listingType)
+    fetchPreorders(0, listingType, search)
   }
 
   async function rejectSupplierListing(listing) {
@@ -822,7 +852,7 @@ export default function AgentListings() {
         }
         setTab('listings')
         setListingType('preorders-watches')
-        fetchPreorders(0, listingType)
+        fetchPreorders(0, listingType, search)
       } else {
         const { data: watch, error: wErr } = await supabase.from('products').insert({ ...payload, source: 'manual' }).select().single()
         if (wErr) throw wErr
@@ -921,7 +951,7 @@ export default function AgentListings() {
         : bagIsPreorder ? 'Bags preorder posted.' : 'Item posted — now live in the dealer catalog.')
       setTab('listings')
       setListingType(bagIsPreorder ? 'preorders-bags' : 'instock')
-      fetchPreorders(0, listingType)
+      fetchPreorders(0, listingType, search)
       fetchMyWatches()
     } catch (err) {
       console.error('Bag listing post error:', err)
@@ -989,19 +1019,19 @@ export default function AgentListings() {
 
   async function markPreorderSold(id) {
     await supabase.from('preorders').update({ status: 'sold' }).eq('id', id)
-    fetchPreorders(0, listingType)
+    fetchPreorders(0, listingType, search)
   }
 
   async function markPreorderAvailable(id) {
     await supabase.from('preorders').update({ status: 'available' }).eq('id', id)
-    fetchPreorders(0, listingType)
+    fetchPreorders(0, listingType, search)
   }
 
   // Extend an active preorder by 7 more days, or bring an archived one back —
   // identical operation, since "reactivating" just means giving it a future expiry again.
   async function extendPreorder(id) {
     await supabase.from('preorders').update({ expires_at: new Date(Date.now() + 7 * 86400000).toISOString() }).eq('id', id)
-    fetchPreorders(0, listingType)
+    fetchPreorders(0, listingType, search)
   }
 
   function daysUntilExpiry(expiresAt) {
@@ -1028,7 +1058,7 @@ export default function AgentListings() {
     await supabase.from('preorder_images').delete().eq('preorder_id', id)
     const { error } = await supabase.from('preorders').delete().eq('id', id)
     if (error) { alert('Delete failed: ' + error.message); return }
-    fetchPreorders(0, listingType)
+    fetchPreorders(0, listingType, search)
   }
 
   async function deleteWatch(id) {
@@ -1053,9 +1083,8 @@ export default function AgentListings() {
     return imgs[0]?.url || null
   }
 
-  const q = search.toLowerCase()
   const filteredWatches = watches.filter(w => {
-    if (search && !w.brand?.toLowerCase().includes(q) && !w.model?.toLowerCase().includes(q) && !w.reference?.toLowerCase().includes(q)) return false
+    // search is server-side; only apply local filters here
     if (inStockBrand !== 'all' && w.brand !== inStockBrand) return false
     if (inStockCondition !== 'all' && w.condition !== inStockCondition) return false
     if (inStockStatus !== 'all' && w.status !== inStockStatus) return false
@@ -1073,7 +1102,7 @@ export default function AgentListings() {
   const basePreorders = preorders
   const preorderBrandOptions = [...new Set(preorders.map(p => p.brand).filter(Boolean))].sort()
   const filteredPreorders = basePreorders.filter(p => {
-    if (search && !p.brand?.toLowerCase().includes(q) && !p.model?.toLowerCase().includes(q)) return false
+    // search is server-side; only apply local filters here
     if (dateFrom && new Date(p.created_at) < new Date(dateFrom)) return false
     if (dateTo && new Date(p.created_at) > new Date(dateTo + 'T23:59:59')) return false
     if (preorderStatusFilter === 'available' && p.status !== 'available') return false
@@ -1388,7 +1417,7 @@ export default function AgentListings() {
 
           {listingType === 'instock' && !loading && watchesTotal !== null && watches.length < watchesTotal && (
             <div style={{ textAlign: 'center', padding: '16px 0' }}>
-              <button className="btn btn-sm" onClick={() => fetchMyWatches(watchesPage + 1)}>
+              <button className="btn btn-sm" onClick={() => fetchMyWatches(watchesPage + 1, search)}>
                 Load more — showing {watches.length} of {watchesTotal}
               </button>
             </div>
@@ -1446,7 +1475,7 @@ export default function AgentListings() {
 
           {(listingType === 'preorders-watches' || listingType === 'preorders-bags' || listingType === 'preorders-archived') && preordersTotal !== null && preorders.length < preordersTotal && (
             <div style={{ textAlign: 'center', padding: '16px 0' }}>
-              <button className="btn btn-sm" onClick={() => fetchPreorders(preordersPage + 1, listingType)}>
+              <button className="btn btn-sm" onClick={() => fetchPreorders(preordersPage + 1, listingType, search)}>
                 Load more — showing {preorders.length} of {preordersTotal}
               </button>
             </div>
