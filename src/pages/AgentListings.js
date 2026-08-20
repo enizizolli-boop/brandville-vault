@@ -346,6 +346,7 @@ export default function AgentListings() {
   const [preordersTotal, setPreordersTotal] = useState(null)
   const [watchPreordersTotal, setWatchPreordersTotal] = useState(null)
   const [bagPreordersTotal, setBagPreordersTotal] = useState(null)
+  const [jewelleryPreordersTotal, setJewelleryPreordersTotal] = useState(null)
   const [archivedPreordersTotal, setArchivedPreordersTotal] = useState(null)
   const [watchesPage, setWatchesPage] = useState(0)
   const [watchesTotal, setWatchesTotal] = useState(null)
@@ -443,11 +444,13 @@ export default function AgentListings() {
       .order('created_at', { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
     if (type === 'preorders-watches') {
-      query = query.neq('category', 'Bags').or('expires_at.is.null,expires_at.gte.' + now)
+      query = query.or('category.is.null,category.eq.Watches').or('expires_at.is.null,expires_at.gte.' + now)
+    } else if (type === 'preorders-jewellery') {
+      query = query.eq('category', 'Jewellery')
     } else if (type === 'preorders-bags') {
       query = query.eq('category', 'Bags')
     } else if (type === 'preorders-archived') {
-      query = query.neq('category', 'Bags').not('expires_at', 'is', null).lt('expires_at', now)
+      query = query.or('category.is.null,category.eq.Watches').not('expires_at', 'is', null).lt('expires_at', now)
     }
     if (searchTerm.trim()) {
       const s = searchTerm.trim()
@@ -544,13 +547,16 @@ export default function AgentListings() {
     if (!profile) return
     const now = new Date().toISOString()
     supabase.from('preorders').select('*', { count: 'exact', head: true })
-      .neq('category', 'Bags').or('expires_at.is.null,expires_at.gte.' + now)
+      .or('category.is.null,category.eq.Watches').or('expires_at.is.null,expires_at.gte.' + now)
       .then(({ count }) => setWatchPreordersTotal(count ?? 0))
+    supabase.from('preorders').select('*', { count: 'exact', head: true })
+      .eq('category', 'Jewellery')
+      .then(({ count }) => setJewelleryPreordersTotal(count ?? 0))
     supabase.from('preorders').select('*', { count: 'exact', head: true })
       .eq('category', 'Bags')
       .then(({ count }) => setBagPreordersTotal(count ?? 0))
     supabase.from('preorders').select('*', { count: 'exact', head: true })
-      .neq('category', 'Bags').not('expires_at', 'is', null).lt('expires_at', now)
+      .or('category.is.null,category.eq.Watches').not('expires_at', 'is', null).lt('expires_at', now)
       .then(({ count }) => setArchivedPreordersTotal(count ?? 0))
   }, [profile])
 
@@ -663,6 +669,8 @@ export default function AgentListings() {
       category: isJewellery ? 'Jewellery' : 'Watches',
       subcategory: isJewellery ? (listing.jewellery_type || null) : null,
       metal_type: isJewellery ? (listing.metal || null) : null,
+      // Jewellery listings don't expire; watches use 7-day rolling window
+      expires_at: isJewellery ? null : new Date(Date.now() + 7 * 86400000).toISOString(),
       posted_by: profile.id,
       status: 'available',
     }).select().single()
@@ -1243,6 +1251,7 @@ export default function AgentListings() {
           </button>
 
           {sbSubItem('preorders-watches', 'Preorders Watches', <IconWatch />, watchPreordersTotal)}
+          {sbSubItem('preorders-jewellery', 'Preorders Jewellery', <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="8.5" x2="22" y2="8.5"/></svg>, jewelleryPreordersTotal)}
           {sbSubItem('preorders-bags', 'Preorders Bags', <IconHandbag />, bagPreordersTotal)}
           {sbSubItem('preorders-archived', 'Archived', <IconArchive />, archivedPreordersTotal)}
 
@@ -1323,6 +1332,7 @@ export default function AgentListings() {
             {[
               { id: 'instock', label: 'In stock', count: watchesTotal ?? watches.length },
               { id: 'preorders-watches', label: 'Preorders Watches', count: watchPreordersTotal },
+              { id: 'preorders-jewellery', label: 'Preorders Jewellery', count: jewelleryPreordersTotal },
               { id: 'preorders-bags', label: 'Preorders Bags', count: bagPreordersTotal },
               { id: 'preorders-archived', label: 'Archived', count: archivedPreordersTotal },
             ].map(({ id, label, count }) => (
@@ -1501,7 +1511,7 @@ export default function AgentListings() {
             })
           )}
 
-          {(listingType === 'preorders-watches' || listingType === 'preorders-bags' || listingType === 'preorders-archived') && preordersTotal !== null && preorders.length < preordersTotal && (
+          {(['preorders-watches','preorders-jewellery','preorders-bags','preorders-archived'].includes(listingType)) && preordersTotal !== null && preorders.length < preordersTotal && (
             <div style={{ textAlign: 'center', padding: '16px 0' }}>
               <button className="btn btn-sm" onClick={() => fetchPreorders(preordersPage + 1, listingType, search)}>
                 Load more — showing {preorders.length} of {preordersTotal}
