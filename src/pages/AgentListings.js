@@ -1368,7 +1368,7 @@ export default function AgentListings() {
             </div>
           </div>
 
-          {(listingType === 'preorders-watches' || listingType === 'preorders-bags' || listingType === 'preorders-archived') && (
+          {(['preorders-watches','preorders-jewellery','preorders-bags','preorders-archived'].includes(listingType)) && (
             <>
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 12 }}>
                 <div style={{ flex: 1 }}>
@@ -1461,7 +1461,7 @@ export default function AgentListings() {
             </div>
           )}
 
-          {(listingType === 'preorders-watches' || listingType === 'preorders-bags' || listingType === 'preorders-archived') && (
+          {(['preorders-watches','preorders-jewellery','preorders-bags','preorders-archived'].includes(listingType)) && (
             filteredPreorders.length === 0
               ? <div className="empty-state">{search ? 'No preorders match your search' : listingType === 'preorders-archived' ? 'No archived preorders' : 'No preorders yet'}</div>
               : filteredPreorders.map(p => {
