@@ -145,7 +145,11 @@ export default function JewellerySupplierDashboard() {
 
   async function handleCreate(submitForReview = false) {
     if (!form.jewellery_type) { setError('Jewellery type is required.'); return }
+    if (!form.brand) { setError('Brand / Designer is required.'); return }
+    if (!form.model) { setError('Description is required.'); return }
     if (!form.metal) { setError('Metal is required.'); return }
+    if (!form.stone) { setError('Stone / Gemstone is required.'); return }
+    if (!form.size_info) { setError('Size / Measurements is required.'); return }
     if (!form.asking_price) { setError('Asking price is required.'); return }
     if (newImages.length === 0) { setError('At least one photo is required.'); return }
 
@@ -191,7 +195,11 @@ export default function JewellerySupplierDashboard() {
 
   async function handleEdit(submitForReview = false) {
     if (!form.jewellery_type) { setError('Jewellery type is required.'); return }
+    if (!form.brand) { setError('Brand / Designer is required.'); return }
+    if (!form.model) { setError('Description is required.'); return }
     if (!form.metal) { setError('Metal is required.'); return }
+    if (!form.stone) { setError('Stone / Gemstone is required.'); return }
+    if (!form.size_info) { setError('Size / Measurements is required.'); return }
     if (!form.asking_price) { setError('Asking price is required.'); return }
     const totalImages = existingImgs.length + newImages.length
     if (totalImages === 0) { setError('At least one photo is required.'); return }
@@ -366,11 +374,11 @@ export default function JewellerySupplierDashboard() {
           {/* Brand & Description row */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <div style={fl}>Brand / Designer</div>
+              <div style={fl}>Brand / Designer *</div>
               <input className="input" placeholder="e.g. Cartier, Van Cleef" value={form.brand} onChange={e => setForm(f => ({ ...f, brand: e.target.value }))} />
             </div>
             <div>
-              <div style={fl}>Description</div>
+              <div style={fl}>Description *</div>
               <input className="input" placeholder="e.g. Love Ring, Alhambra" value={form.model} onChange={e => setForm(f => ({ ...f, model: e.target.value }))} />
             </div>
           </div>
@@ -385,7 +393,7 @@ export default function JewellerySupplierDashboard() {
               </select>
             </div>
             <div>
-              <div style={fl}>Stone / Gemstone</div>
+              <div style={fl}>Stone / Gemstone *</div>
               <select className="input" value={form.stone} onChange={e => setForm(f => ({ ...f, stone: e.target.value }))}>
                 <option value="">Select stone</option>
                 {STONES.map(s => <option key={s}>{s}</option>)}
@@ -396,7 +404,7 @@ export default function JewellerySupplierDashboard() {
           {/* Size & Condition row */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <div style={fl}>Size / Measurements</div>
+              <div style={fl}>Size / Measurements *</div>
               <input className="input" placeholder="e.g. Ring size 53, 45cm chain" value={form.size_info} onChange={e => setForm(f => ({ ...f, size_info: e.target.value }))} />
             </div>
             <div>
