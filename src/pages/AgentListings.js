@@ -403,13 +403,21 @@ export default function AgentListings() {
   const [viewMode, setViewMode] = useState('list')
 
   const fetchSupplierListings = useCallback(async () => {
-    const { data } = await supabase
+    let query = supabase
       .from('supplier_listings')
       .select('*, supplier_listing_images(id, url, position), profiles!supplier_id(full_name, phone)')
       .eq('status', 'pending_review')
       .order('created_at', { ascending: false })
+    // jewellery_agent only sees jewellery queue; watch agents see everything else
+    if (profile?.role === 'jewellery_agent') {
+      query = query.eq('category', 'Jewellery')
+    } else if (profile?.role === 'agent') {
+      query = query.or('category.is.null,category.eq.Watches')
+    }
+    // admin sees all pending (both categories)
+    const { data } = await query
     setSupplierListings(data || [])
-  }, [])
+  }, [profile])
 
   const fetchMyWatches = useCallback(async (page = 0, searchTerm = '') => {
     let base = profile?.role === 'admin'
@@ -634,18 +642,27 @@ export default function AgentListings() {
       else if (askingCur === 'USD' && rate) costEur = Math.round(askingAmt / rate)
     }
 
+    const isJewellery = listing.category === 'Jewellery'
+    // For jewellery: encode stone + size into notes if present
+    let notesForPreorder = listing.notes || null
+    if (isJewellery) {
+      const extras = [listing.stone, listing.size_info].filter(Boolean).join(' · ')
+      notesForPreorder = [listing.notes, extras].filter(Boolean).join('\n') || null
+    }
     const { data: preorder, error: pErr } = await supabase.from('preorders').insert({
-      brand: listing.brand,
-      model: listing.model,
-      reference: listing.reference || null,
+      brand: isJewellery ? (listing.brand || listing.jewellery_type || 'Jewellery') : listing.brand,
+      model: isJewellery ? (listing.model || listing.jewellery_type || '') : listing.model,
+      reference: isJewellery ? null : (listing.reference || null),
       condition: listing.condition || 'Pre-owned',
-      scope_of_delivery: listing.scope_of_delivery || null,
-      notes: listing.notes || null,
+      scope_of_delivery: isJewellery ? null : (listing.scope_of_delivery || null),
+      notes: notesForPreorder,
       price_eur: priceEur,
       price_usd: priceUsd,
       cost_eur: costEur,
       vendor: listing.profiles?.full_name || null,
-      category: 'Watches',
+      category: isJewellery ? 'Jewellery' : 'Watches',
+      subcategory: isJewellery ? (listing.jewellery_type || null) : null,
+      metal_type: isJewellery ? (listing.metal || null) : null,
       posted_by: profile.id,
       status: 'available',
     }).select().single()
@@ -702,6 +719,11 @@ export default function AgentListings() {
       scope_of_delivery: listing.scope_of_delivery || '',
       asking_price: listing.asking_price || '',
       notes,
+      // Jewellery-specific fields
+      jewellery_type: listing.jewellery_type || '',
+      metal: listing.metal || '',
+      stone: listing.stone || '',
+      size_info: listing.size_info || '',
     })
     setSupEditExistingImgs((listing.supplier_listing_images || []).sort((a, b) => a.position - b.position))
     setSupEditRemovedIds([])
@@ -719,14 +741,22 @@ export default function AgentListings() {
   }
 
   async function saveSupplierListingEdit(listingId) {
+    const listing = supplierListings.find(l => l.id === listingId)
+    const isJewellery = listing?.category === 'Jewellery'
     const updatedFields = {
       brand: supEditForm.brand,
       model: supEditForm.model,
-      reference: supEditForm.reference || null,
       condition: supEditForm.condition || null,
-      scope_of_delivery: supEditForm.scope_of_delivery || null,
       asking_price: supEditForm.asking_price ? Number(supEditForm.asking_price) : null,
       notes: supEditForm.notes || null,
+      // Watch-specific
+      reference: isJewellery ? (listing?.reference || null) : (supEditForm.reference || null),
+      scope_of_delivery: isJewellery ? null : (supEditForm.scope_of_delivery || null),
+      // Jewellery-specific
+      jewellery_type: isJewellery ? (supEditForm.jewellery_type || null) : null,
+      metal: isJewellery ? (supEditForm.metal || null) : null,
+      stone: isJewellery ? (supEditForm.stone || null) : null,
+      size_info: isJewellery ? (supEditForm.size_info || null) : null,
     }
 
     const { error } = await supabase
@@ -1228,7 +1258,7 @@ export default function AgentListings() {
 
           {sbItem('offers', 'Offers', <IconTag />, pendingOffers)}
           {sbItem('clients', 'Clients', <IconPerson />)}
-          {sbItem('supplier', 'Supplier Queue', <IconTruck />, supplierListings.length, supplierListings.length > 0)}
+          {sbItem('supplier', profile?.role === 'jewellery_agent' ? 'Jewellery Queue' : 'Supplier Queue', <IconTruck />, supplierListings.length, supplierListings.length > 0)}
           {sbItem('rates', 'Exchange Rates', <IconRates />)}
 
           <div style={{ flex: 1 }} />
@@ -1257,7 +1287,7 @@ export default function AgentListings() {
               { label: 'In Stock', value: watches.length, color: '#22c55e', tab: 'listings' },
               { label: 'Preorders', value: watchPreorders.length + bagPreorders.length, color: '#b8965a', tab: 'listings' },
               { label: 'Pending Offers', value: pendingOffers, color: '#f59e0b', tab: 'offers' },
-              { label: 'Supplier Queue', value: supplierListings.length, color: '#6366f1', tab: 'supplier' },
+              { label: profile?.role === 'jewellery_agent' ? 'Jewellery Queue' : 'Supplier Queue', value: supplierListings.length, color: '#6366f1', tab: 'supplier' },
             ].map(s => (
               <button key={s.label} onClick={() => setTab(s.tab)} style={{ textAlign: 'left', border: '1px solid var(--border-light)', borderRadius: 12, padding: '16px', background: 'var(--surface)', cursor: 'pointer', transition: 'border-color 0.12s' }}>
                 <div style={{ fontSize: 24, fontWeight: 700, color: s.color, marginBottom: 4 }}>{s.value}</div>
@@ -2001,25 +2031,47 @@ export default function AgentListings() {
                 {supEditId === listing.id ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                      <input className="input" placeholder="Brand" value={supEditForm.brand} onChange={e => setSupEditForm(f => ({ ...f, brand: e.target.value }))} style={{ marginBottom: 0 }} />
-                      <input className="input" placeholder="Model" value={supEditForm.model} onChange={e => setSupEditForm(f => ({ ...f, model: e.target.value }))} style={{ marginBottom: 0 }} />
+                      <input className="input" placeholder={listing.category === 'Jewellery' ? 'Brand / Designer' : 'Brand'} value={supEditForm.brand} onChange={e => setSupEditForm(f => ({ ...f, brand: e.target.value }))} style={{ marginBottom: 0 }} />
+                      <input className="input" placeholder={listing.category === 'Jewellery' ? 'Description' : 'Model'} value={supEditForm.model} onChange={e => setSupEditForm(f => ({ ...f, model: e.target.value }))} style={{ marginBottom: 0 }} />
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                      <input className="input" placeholder="Reference" value={supEditForm.reference} onChange={e => setSupEditForm(f => ({ ...f, reference: e.target.value }))} style={{ marginBottom: 0 }} />
-                      <input className="input" placeholder="Asking price (€)" type="number" value={supEditForm.asking_price} onChange={e => setSupEditForm(f => ({ ...f, asking_price: e.target.value }))} style={{ marginBottom: 0 }} />
-                    </div>
+                    {listing.category === 'Jewellery' ? (
+                      <>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                          <select className="input" value={supEditForm.jewellery_type} onChange={e => setSupEditForm(f => ({ ...f, jewellery_type: e.target.value }))} style={{ marginBottom: 0 }}>
+                            <option value="">Type</option>
+                            {['Ring','Necklace','Bracelet','Earrings','Pendant','Brooch','Bangle','Set','Other'].map(t => <option key={t}>{t}</option>)}
+                          </select>
+                          <select className="input" value={supEditForm.metal} onChange={e => setSupEditForm(f => ({ ...f, metal: e.target.value }))} style={{ marginBottom: 0 }}>
+                            <option value="">Metal</option>
+                            {['18k Yellow Gold','18k White Gold','18k Rose Gold','Platinum','Sterling Silver','Vermeil','Gold (other)','Other'].map(m => <option key={m}>{m}</option>)}
+                          </select>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                          <select className="input" value={supEditForm.stone} onChange={e => setSupEditForm(f => ({ ...f, stone: e.target.value }))} style={{ marginBottom: 0 }}>
+                            <option value="">Stone</option>
+                            {['Diamond','Ruby','Sapphire','Emerald','Pearl','Amethyst','Moissanite','No Stone','Other'].map(s => <option key={s}>{s}</option>)}
+                          </select>
+                          <input className="input" placeholder="Size / Measurements" value={supEditForm.size_info} onChange={e => setSupEditForm(f => ({ ...f, size_info: e.target.value }))} style={{ marginBottom: 0 }} />
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                        <input className="input" placeholder="Reference" value={supEditForm.reference} onChange={e => setSupEditForm(f => ({ ...f, reference: e.target.value }))} style={{ marginBottom: 0 }} />
+                        <select className="input" value={supEditForm.scope_of_delivery} onChange={e => setSupEditForm(f => ({ ...f, scope_of_delivery: e.target.value }))} style={{ marginBottom: 0 }}>
+                          <option value="">Scope</option>
+                          <option>Watch Only</option>
+                          <option>With Card</option>
+                          <option>With Box</option>
+                          <option>Card &amp; Box</option>
+                        </select>
+                      </div>
+                    )}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                       <select className="input" value={supEditForm.condition} onChange={e => setSupEditForm(f => ({ ...f, condition: e.target.value }))} style={{ marginBottom: 0 }}>
                         <option value="">Condition</option>
                         {CONDITIONS.map(c => <option key={c}>{c}</option>)}
                       </select>
-                      <select className="input" value={supEditForm.scope_of_delivery} onChange={e => setSupEditForm(f => ({ ...f, scope_of_delivery: e.target.value }))} style={{ marginBottom: 0 }}>
-                        <option value="">Scope</option>
-                        <option>Watch Only</option>
-                        <option>With Card</option>
-                        <option>With Box</option>
-                        <option>Card &amp; Box</option>
-                      </select>
+                      <input className="input" placeholder="Asking price" type="number" value={supEditForm.asking_price} onChange={e => setSupEditForm(f => ({ ...f, asking_price: e.target.value }))} style={{ marginBottom: 0 }} />
                     </div>
                     <div style={{ position: 'relative' }}>
                       <textarea
@@ -2082,12 +2134,31 @@ export default function AgentListings() {
                 ) : (
                   <div style={{ marginBottom: 12 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{listing.brand} {listing.model}</div>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>
+                          {listing.category === 'Jewellery'
+                            ? [listing.brand, listing.jewellery_type].filter(Boolean).join(' · ') || 'Jewellery Item'
+                            : `${listing.brand || ''} ${listing.model || ''}`.trim()}
+                        </div>
+                        {listing.category === 'Jewellery' && (
+                          <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 600, background: '#ede9fe', color: '#7c3aed', marginBottom: 4 }}>Jewellery</span>
+                        )}
+                      </div>
                       <button className="btn btn-sm" style={{ fontSize: 11 }} onClick={() => enterSupEdit(listing)}>Edit</button>
                     </div>
-                    {listing.reference && <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>Ref. {listing.reference}</div>}
+                    {listing.category === 'Jewellery' ? (
+                      <>
+                        {listing.metal && <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>{listing.metal}{listing.stone ? ` · ${listing.stone}` : ''}</div>}
+                        {listing.size_info && <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>Size: {listing.size_info}</div>}
+                        {listing.model && <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>{listing.model}</div>}
+                      </>
+                    ) : (
+                      <>
+                        {listing.reference && <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>Ref. {listing.reference}</div>}
+                        {listing.scope_of_delivery && <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>{listing.scope_of_delivery}</div>}
+                      </>
+                    )}
                     <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>{listing.condition}</div>
-                    {listing.scope_of_delivery && <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 2 }}>{listing.scope_of_delivery}</div>}
                     {listing.asking_price && (() => {
                       const cur = listing.asking_price_currency || 'CNY'
                       const sym = { EUR: '€', USD: '$', CNY: '¥', HKD: 'HK$' }[cur] || ''

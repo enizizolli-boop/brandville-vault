@@ -593,6 +593,20 @@ export default function WatchDetail() {
                   }
                   displayNotes = remaining.join(' | ') || null
                 }
+                // Suppress Zoho auto-generated descriptions — they start with an internal
+                // numeric ID and just repeat fields already shown (condition, scope, ref).
+                // Pattern: "12345 - Brand - Reference (...) - condition - scope"
+                if (displayNotes && /^\d+\s*-\s*\S/.test(displayNotes.trim())) {
+                  displayNotes = null
+                }
+                // Also suppress notes that only contain info already visible on the page
+                // (condition and/or scope of delivery repeated verbatim).
+                if (displayNotes) {
+                  const lower = displayNotes.toLowerCase()
+                  const hasCondition = watch.condition && lower.includes(watch.condition.toLowerCase())
+                  const hasScope = watch.scope_of_delivery && lower.includes(watch.scope_of_delivery.toLowerCase())
+                  if (hasCondition && hasScope) displayNotes = null
+                }
                 return (
                   <div className="detail-meta" style={{ marginBottom: 24 }}>
                     <div className="detail-meta-row">

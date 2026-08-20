@@ -406,6 +406,14 @@ export default function SupplierDashboard() {
       if (submitForReview && selected.status !== 'pending_review') {
         await notifyAgents({ ...selected, ...form }, profile?.full_name || 'A supplier')
       }
+      // If editing an approved listing without resubmitting, update the preorder too if one exists
+      if (!submitForReview && selected.status === 'approved' && selected.preorder_id) {
+        await supabase.from('preorders').update({
+          notes: form.notes || null,
+          asking_price: form.asking_price ? Number(form.asking_price) : null,
+          asking_price_currency: form.asking_price_currency || 'CNY',
+        }).eq('id', selected.preorder_id)
+      }
 
       setMsg(submitForReview ? t.msgEdited : t.msgSaved)
       resetForm()
@@ -479,7 +487,7 @@ export default function SupplierDashboard() {
   }, [lightboxIdx, lightboxImgs])
 
   const statusCfg = s => STATUS_CONFIG[s] || STATUS_CONFIG.draft
-  const canEdit = s => s === 'draft' || s === 'rejected' || s === 'pending_review'
+  const canEdit = s => s === 'draft' || s === 'rejected' || s === 'pending_review' || s === 'approved'
 
   async function markAsSold(listing, e) {
     if (e) e.stopPropagation()
@@ -626,7 +634,12 @@ export default function SupplierDashboard() {
 
   if (view === 'new' || view === 'edit') {
     const isEdit = view === 'edit'
-    const isDraft = !isEdit || selected?.status === 'draft' || selected?.status === 'rejected'
+    const isDraft = !isEdit || selected?.status === 'draft' || selected?.status === 'rejected' || selected?.status === 'approved'
+    const submitBtnLabel = !isEdit
+      ? t.submitForReview
+      : (selected?.status === 'rejected' || selected?.status === 'approved')
+        ? t.resubmitForReview
+        : t.submitForReview
 
     return (
       <div className="page" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -728,13 +741,21 @@ export default function SupplierDashboard() {
                   </label>
                 </div>
 
+                {isEdit && selected?.status === 'approved' && (
+                  <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#92400e', lineHeight: 1.5 }}>
+                    {lang === 'zh'
+                      ? '保存将保持此商品的已批准状态。点击"重新提交审核"以通知代理人重要变更。'
+                      : 'Saving keeps this listing approved. Use "Resubmit for Review" to notify the agent of important changes.'}
+                  </div>
+                )}
+
                 <div style={{ display: 'flex', gap: 10, marginTop: 4, paddingTop: 16, borderTop: '1px solid var(--border-light)', flexDirection: isMobile ? 'column' : 'row' }}>
                   <button className="btn btn-full" onClick={() => isEdit ? handleEdit(false) : handleCreate(false)} disabled={saving || submitting}>
                     {saving ? t.saving : t.save}
                   </button>
                   {isDraft && (
                     <button className="btn btn-dark btn-full" onClick={() => isEdit ? handleEdit(true) : handleCreate(true)} disabled={saving || submitting}>
-                      {submitting ? t.submitting : t.submitForReview}
+                      {submitting ? t.submitting : submitBtnLabel}
                     </button>
                   )}
                 </div>

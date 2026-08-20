@@ -348,8 +348,8 @@ export default function AdminPanel() {
   useEffect(() => { if (tab === 'rates') fetchCurrentRatesData() }, [tab])
 
   const dealers = users.filter(u => u.role === 'dealer')
-  const agents = users.filter(u => u.role === 'agent')
-  const suppliers = users.filter(u => u.role === 'supplier')
+  const agents = users.filter(u => u.role === 'agent' || u.role === 'jewellery_agent')
+  const suppliers = users.filter(u => u.role === 'supplier' || u.role === 'jewellery_supplier')
 
   const NAV = [
     { id: 'overview', label: 'Overview' },
@@ -398,7 +398,14 @@ export default function AdminPanel() {
                   {initials(u.full_name)}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{u.full_name || '—'}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{u.full_name || '—'}</div>
+                    {(u.role === 'jewellery_agent' || u.role === 'jewellery_supplier') && (
+                      <span style={{ padding: '1px 6px', borderRadius: 20, fontSize: 10, fontWeight: 600, background: '#ede9fe', color: '#7c3aed', flexShrink: 0 }}>
+                        {u.role === 'jewellery_agent' ? 'Jewellery Agent' : 'Jewellery Supplier'}
+                      </span>
+                    )}
+                  </div>
                   <div style={{ fontSize: 12, color: 'var(--faint)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {u.email}{u.phone ? ` · ${u.phone}` : ''}
                   </div>
@@ -409,7 +416,9 @@ export default function AdminPanel() {
                 <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                   {u.role === 'dealer' && <button className="btn btn-sm" onClick={() => changeRole(u.id, 'agent')} style={{ fontSize: 11 }}>Make agent</button>}
                   {u.role === 'agent' && <button className="btn btn-sm" onClick={() => changeRole(u.id, 'dealer')} style={{ fontSize: 11 }}>Make dealer</button>}
+                  {u.role === 'jewellery_agent' && <button className="btn btn-sm" onClick={() => changeRole(u.id, 'dealer')} style={{ fontSize: 11 }}>Make dealer</button>}
                   {u.role === 'supplier' && <button className="btn btn-sm" onClick={() => changeRole(u.id, 'dealer')} style={{ fontSize: 11 }}>Make dealer</button>}
+                  {u.role === 'jewellery_supplier' && <button className="btn btn-sm" onClick={() => changeRole(u.id, 'dealer')} style={{ fontSize: 11 }}>Make dealer</button>}
                   {u.role !== 'admin' && <button className="btn btn-sm btn-danger" onClick={() => handleRevoke(u.id, u.full_name)} style={{ fontSize: 11 }}>Revoke</button>}
                 </div>
               </div>
@@ -723,8 +732,10 @@ export default function AdminPanel() {
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--faint)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Role</label>
                   <select value={inviteRole} onChange={e => setInviteRole(e.target.value)} style={{ width: '100%' }}>
                     <option value="dealer">Dealer — browse catalog, reserve items</option>
-                    <option value="agent">Agent — post new items</option>
-                    <option value="supplier">Supplier — submit listings for review</option>
+                    <option value="agent">Agent — post watches &amp; bags</option>
+                    <option value="jewellery_agent">Jewellery Agent — review jewellery submissions</option>
+                    <option value="supplier">Watch Supplier — submit watch listings for review</option>
+                    <option value="jewellery_supplier">Jewellery Supplier — submit jewellery listings</option>
                   </select>
                 </div>
                 <button type="submit" className="btn btn-dark btn-full" disabled={inviting} style={{ marginTop: 4 }}>

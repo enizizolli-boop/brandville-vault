@@ -88,6 +88,7 @@ function MegaMenu({ category, data, onNavigate, onClose, onKeepOpen }) {
 function MobileMenu({ profile, currency, setCurrency, onNavigate, onSignOut, onClose }) {
   const [expanded, setExpanded] = useState(null)
   const isSupplier = profile?.role === 'supplier'
+  const isJewSup = profile?.role === 'jewellery_supplier'
 
   function go(route, value, type) {
     onClose()
@@ -134,7 +135,7 @@ function MobileMenu({ profile, currency, setCurrency, onNavigate, onSignOut, onC
         <div className="mobile-nav-actions">
           {profile?.role === 'admin' && <button className="btn btn-sm" onClick={() => { onClose(); onNavigate('/admin') }}>Admin</button>}
           {profile?.role === 'dealer' && <button className="btn btn-sm" onClick={() => { onClose(); onNavigate('/offers') }}>My Offers</button>}
-          {(profile?.role === 'agent' || profile?.role === 'admin') && <button className="btn btn-sm" onClick={() => { onClose(); onNavigate('/agent') }}>Agent Panel</button>}
+          {(profile?.role === 'agent' || profile?.role === 'admin' || profile?.role === 'jewellery_agent') && <button className="btn btn-sm" onClick={() => { onClose(); onNavigate('/agent') }}>Agent Panel</button>}
           <button className="btn btn-sm" onClick={onSignOut}>Sign out</button>
         </div>
       </div>
@@ -153,7 +154,8 @@ export default function Topbar() {
   const [notifs, setNotifs] = useState([]) // [{ label, count, route }]
   const closeTimer = useRef(null)
   const bellRef = useRef(null)
-  const isSupplier = profile?.role === 'supplier'
+  const isSupplier = profile?.role === 'supplier' || profile?.role === 'jewellery_supplier'
+  const isJewelleryAgent = profile?.role === 'jewellery_agent'
 
   useEffect(() => {
     if (!profile) return
@@ -166,11 +168,18 @@ export default function Topbar() {
       } else if (profile.role === 'agent' || profile.role === 'admin') {
         const [{ count: off }, { count: sup }] = await Promise.all([
           supabase.from('offers').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-          supabase.from('supplier_listings').select('id', { count: 'exact', head: true }).eq('status', 'pending_review'),
+          supabase.from('supplier_listings').select('id', { count: 'exact', head: true }).eq('status', 'pending_review').or('category.is.null,category.eq.Watches'),
         ])
         const items = []
         if (off > 0) items.push({ label: 'Pending dealer offers', count: off, route: '/agent?tab=offers' })
         if (sup > 0) items.push({ label: 'Supplier submissions', count: sup, route: '/agent?tab=supplier' })
+        setNotifs(items)
+      } else if (profile.role === 'jewellery_agent') {
+        const { count: jewSup } = await supabase
+          .from('supplier_listings').select('id', { count: 'exact', head: true })
+          .eq('status', 'pending_review').eq('category', 'Jewellery')
+        const items = []
+        if (jewSup > 0) items.push({ label: 'Jewellery submissions pending', count: jewSup, route: '/agent?tab=supplier' })
         setNotifs(items)
       }
     }
@@ -341,7 +350,7 @@ export default function Topbar() {
               style={{ fontSize: 11, padding: '5px 10px' }}>Sign out</button>
           )}
 
-          {(profile?.role === 'agent' || profile?.role === 'admin') && (
+          {(profile?.role === 'agent' || profile?.role === 'admin' || profile?.role === 'jewellery_agent') && (
             <button className="btn btn-sm topbar-btn-desktop" onClick={() => navigate('/agent')}
               style={{ fontSize: 11, padding: '5px 10px' }}>Agent Panel</button>
           )}

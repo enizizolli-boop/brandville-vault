@@ -56,7 +56,8 @@ function mapZohoItem(item) {
   const reference = item.sku || null;
   const scopeRaw = item.cf_scope_of_delivery || item.custom_field_hash?.cf_scope_of_delivery || null;
   const conditionRaw = item.cf_conditions || item.custom_field_hash?.cf_conditions || null;
-  const notes = item.description && item.description.trim() ? item.description.trim() : null;
+  const rawDesc = item.description && item.description.trim() ? item.description.trim() : null;
+  const notes = rawDesc && /^\d+\s*-\s*\S/.test(rawDesc) ? null : rawDesc;
   const condition = conditionRaw && ALLOWED_CONDITIONS.includes(conditionRaw.trim())
     ? conditionRaw.trim() : 'Pre-owned';
 

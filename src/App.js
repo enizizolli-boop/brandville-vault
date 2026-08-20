@@ -13,6 +13,7 @@ import DealerOffers from './pages/DealerOffers'
 import MyAccount from './pages/MyAccount'
 import JoinPage from './pages/JoinPage'
 import SupplierDashboard from './pages/SupplierDashboard'
+import JewellerySupplierDashboard from './pages/JewellerySupplierDashboard'
 
 function PrivateRoute({ children, allowedRoles }) {
   const { user, profile, loading } = useAuth()
@@ -30,6 +31,8 @@ function RoleRedirect() {
   if (profile.role === 'agent') return <Navigate to="/home" replace />
   if (profile.role === 'b2c') return <Navigate to="/home" replace />
   if (profile.role === 'supplier') return <Navigate to="/supplier" replace />
+  if (profile.role === 'jewellery_supplier') return <Navigate to="/jewellery-supplier" replace />
+  if (profile.role === 'jewellery_agent') return <Navigate to="/agent" replace />
   return <Navigate to="/home" replace />
 }
 
@@ -49,12 +52,13 @@ export default function App() {
           <Route path="/jewellery" element={<PrivateRoute allowedRoles={['dealer', 'admin', 'agent', 'b2c']}><DealerCatalog routeCategory="Jewellery" /></PrivateRoute>} />
           <Route path="/bags" element={<PrivateRoute allowedRoles={['dealer', 'admin', 'agent', 'b2c']}><DealerCatalog routeCategory="Bags" /></PrivateRoute>} />
           <Route path="/catalog/:slug" element={<PrivateRoute><WatchDetail /></PrivateRoute>} />
-          <Route path="/agent" element={<PrivateRoute allowedRoles={['agent', 'admin']}><AgentListings /></PrivateRoute>} />
+          <Route path="/agent" element={<PrivateRoute allowedRoles={['agent', 'admin', 'jewellery_agent']}><AgentListings /></PrivateRoute>} />
           <Route path="/agent/:agentId" element={<PrivateRoute allowedRoles={['agent', 'admin']}><AgentProfile /></PrivateRoute>} />
           <Route path="/admin" element={<PrivateRoute allowedRoles={['admin']}><AdminPanel /></PrivateRoute>} />
           <Route path="/offers" element={<PrivateRoute allowedRoles={['dealer']}><DealerOffers /></PrivateRoute>} />
           <Route path="/account" element={<PrivateRoute><MyAccount /></PrivateRoute>} />
           <Route path="/supplier" element={<PrivateRoute allowedRoles={['supplier']}><SupplierDashboard /></PrivateRoute>} />
+          <Route path="/jewellery-supplier" element={<PrivateRoute allowedRoles={['jewellery_supplier']}><JewellerySupplierDashboard /></PrivateRoute>} />
         </Routes>
       </BrowserRouter>
       </CurrencyProvider>

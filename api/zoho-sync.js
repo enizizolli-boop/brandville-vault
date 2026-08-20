@@ -211,18 +211,27 @@ async function fetchAndUploadZohoImages(accessToken, zohoItem, productId) {
           if (imageFiles.length > 0) {
             await supabase.from('product_images').delete().eq('product_id', productId);
             let uploaded = 0;
+            const seenFingerprints = new Set();
+            let pos = 0;
             for (let i = 0; i < imageFiles.length; i++) {
               try {
                 const imgBuffer = Buffer.from(await imageFiles[i].async('arraybuffer'));
-                const path = `${productId}/zoho_${i}.jpg`;
+                const fingerprint = `${imgBuffer.length}:${imgBuffer.slice(0, 512).toString('hex')}`;
+                if (seenFingerprints.has(fingerprint)) {
+                  console.log(`[img] ${itemId}: skipping duplicate image at ZIP index ${i}`);
+                  continue;
+                }
+                seenFingerprints.add(fingerprint);
+                const path = `${productId}/zoho_${pos}.jpg`;
                 const { error: upErr } = await supabase.storage.from('watch-images').upload(path, imgBuffer, { contentType: 'image/jpeg', upsert: true });
-                if (upErr) { console.error(`[img] ${itemId}: upload error pos ${i}:`, upErr.message); continue; }
+                if (upErr) { console.error(`[img] ${itemId}: upload error pos ${pos}:`, upErr.message); continue; }
                 const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
-                await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position: i });
+                await supabase.from('product_images').upsert({ product_id: productId, url: publicUrl, position: pos }, { onConflict: 'product_id,position' });
+                pos++;
                 uploaded++;
               } catch (e) { console.error(`[img] ${itemId}: ZIP image ${i} error:`, e.message); }
             }
-            console.log(`[img] ${itemId}: ZIP uploaded ${uploaded}/${imageFiles.length}`);
+            console.log(`[img] ${itemId}: ZIP uploaded ${uploaded}/${imageFiles.length} (${imageFiles.length - uploaded} duplicates skipped)`);
             return uploaded;
           }
           console.log(`[img] ${itemId}: ZIP has no usable files — trying primary image`);
@@ -365,7 +374,8 @@ function mapZohoItem(item) {
   const model = (item.cf_model || item.name || 'Unknown').trim();
   const reference = item.sku || null;
   const scopeRaw = item.cf_scope_of_delivery || null;
-  const notes = item.description && item.description.trim() ? item.description.trim() : null;
+  const rawDesc = item.description && item.description.trim() ? item.description.trim() : null;
+  const notes = rawDesc && /^\d+\s*-\s*\S/.test(rawDesc) ? null : rawDesc;
 
   const condition = item.cf_conditions && item.cf_conditions.trim() ? item.cf_conditions.trim() : 'Pre-owned';
 

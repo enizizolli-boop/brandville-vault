@@ -150,15 +150,29 @@ async function syncGalleryImages(accessToken, itemId, productId, forceRefresh = 
         if (imageFiles.length > 0) {
           // We have replacement images — safe to clear old records now
           if (forceRefresh) await supabase.from('product_images').delete().eq('product_id', productId);
+          // Deduplicate: Zoho sometimes packs the same photo multiple times in the
+          // ZIP under different filenames. Track uploaded sizes+fingerprints and skip
+          // any file whose first 512 bytes match a file we already uploaded.
+          const seenFingerprints = new Set();
+          let pos = forceRefresh ? 0 : (existingPositions.size > 0 ? Math.max(...existingPositions) + 1 : 0);
           for (let i = 0; i < imageFiles.length; i++) {
-            if (existingPositions.has(i)) continue;
+            if (!forceRefresh && existingPositions.has(i)) continue;
             try {
               const imgBuffer = Buffer.from(await imageFiles[i].async('arraybuffer'));
-              const path = `${productId}/zoho_${i}.jpg`;
+              // Fingerprint = file size + first 512 bytes as hex string
+              const fingerprint = `${imgBuffer.length}:${imgBuffer.slice(0, 512).toString('hex')}`;
+              if (seenFingerprints.has(fingerprint)) {
+                console.log(`[img] ${itemId}: skipping duplicate image at ZIP index ${i}`);
+                continue;
+              }
+              seenFingerprints.add(fingerprint);
+              const path = `${productId}/zoho_${pos}.jpg`;
               const { error: upErr } = await supabase.storage.from('watch-images').upload(path, imgBuffer, { contentType: 'image/jpeg', upsert: true });
               if (upErr) continue;
               const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path);
-              await supabase.from('product_images').insert({ product_id: productId, url: publicUrl, position: i });
+              // Use upsert on position so concurrent syncs can't create double rows
+              await supabase.from('product_images').upsert({ product_id: productId, url: publicUrl, position: pos }, { onConflict: 'product_id,position' });
+              pos++;
               uploaded++;
             } catch (e) { console.error(`ZIP image ${i} error for ${itemId}:`, e); }
           }
@@ -272,7 +286,10 @@ function mapZohoItem(item) {
   const model = (item.cf_model || item.name || 'Unknown').trim();
   const reference = item.sku || null;
   const scopeRaw = item.cf_scope_of_delivery || null;
-  const notes = item.description && item.description.trim() ? item.description.trim() : null;
+  // Zoho auto-generates descriptions in the form "12345 - Brand - Reference (...) - condition - scope".
+  // These just repeat other fields and shouldn't appear as client-facing notes — suppress them.
+  const rawDesc = item.description && item.description.trim() ? item.description.trim() : null;
+  const notes = rawDesc && /^\d+\s*-\s*\S/.test(rawDesc) ? null : rawDesc;
   const condition = item.cf_conditions && item.cf_conditions.trim() ? item.cf_conditions.trim() : 'Pre-owned';
 
   return {
