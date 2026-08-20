@@ -46,11 +46,11 @@ export default function App() {
           <Route path="/join/:token" element={<JoinPage />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/" element={<PrivateRoute><RoleRedirect /></PrivateRoute>} />
-          <Route path="/home" element={<PrivateRoute allowedRoles={['dealer', 'agent', 'admin', 'b2c']}><Home /></PrivateRoute>} />
-          <Route path="/catalog" element={<PrivateRoute allowedRoles={['dealer', 'admin', 'agent', 'b2c']}><DealerCatalog /></PrivateRoute>} />
-          <Route path="/watches" element={<PrivateRoute allowedRoles={['dealer', 'admin', 'agent', 'b2c']}><DealerCatalog routeCategory="Watches" /></PrivateRoute>} />
-          <Route path="/jewellery" element={<PrivateRoute allowedRoles={['dealer', 'admin', 'agent', 'b2c']}><DealerCatalog routeCategory="Jewellery" /></PrivateRoute>} />
-          <Route path="/bags" element={<PrivateRoute allowedRoles={['dealer', 'admin', 'agent', 'b2c']}><DealerCatalog routeCategory="Bags" /></PrivateRoute>} />
+          <Route path="/home" element={<PrivateRoute allowedRoles={['dealer', 'agent', 'admin', 'b2c', 'jewellery_agent']}><Home /></PrivateRoute>} />
+          <Route path="/catalog" element={<PrivateRoute allowedRoles={['dealer', 'admin', 'agent', 'b2c', 'jewellery_agent']}><DealerCatalog /></PrivateRoute>} />
+          <Route path="/watches" element={<PrivateRoute allowedRoles={['dealer', 'admin', 'agent', 'b2c', 'jewellery_agent']}><DealerCatalog routeCategory="Watches" /></PrivateRoute>} />
+          <Route path="/jewellery" element={<PrivateRoute allowedRoles={['dealer', 'admin', 'agent', 'b2c', 'jewellery_agent']}><DealerCatalog routeCategory="Jewellery" /></PrivateRoute>} />
+          <Route path="/bags" element={<PrivateRoute allowedRoles={['dealer', 'admin', 'agent', 'b2c', 'jewellery_agent']}><DealerCatalog routeCategory="Bags" /></PrivateRoute>} />
           <Route path="/catalog/:slug" element={<PrivateRoute><WatchDetail /></PrivateRoute>} />
           <Route path="/agent" element={<PrivateRoute allowedRoles={['agent', 'admin', 'jewellery_agent']}><AgentListings /></PrivateRoute>} />
           <Route path="/agent/:agentId" element={<PrivateRoute allowedRoles={['agent', 'admin']}><AgentProfile /></PrivateRoute>} />
