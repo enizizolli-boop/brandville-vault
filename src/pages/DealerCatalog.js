@@ -326,7 +326,7 @@ export default function DealerCatalog({ routeCategory }) {
     const byDate = (a, b) => new Date(b.created_at) - new Date(a.created_at)
     const merged = [
       ...(products || []).sort(byDate),
-      ...(preorderData || []).map(p => ({ ...p, product_images: p.preorder_images || [] })).sort(byDate),
+      ...(preorderData || []).map(p => ({ ...p, product_images: p.preorder_images || [], _isPreorder: true })).sort(byDate),
     ]
     setWatches(merged)
     setLoading(false)
@@ -883,7 +883,7 @@ export default function DealerCatalog({ routeCategory }) {
                       <a className="card-body" href={`/catalog/${toSlug(w)}`} onClick={e => { e.preventDefault(); navigate(`/catalog/${toSlug(w)}`); }}>
                         <div className="card-brand">{w.brand}</div>
                         <div className="card-model">{w.model}</div>
-                        <div className="card-ref">{cleanRef(w.reference) ? `Ref. ${cleanRef(w.reference)}` : '—'}</div>
+                        {!w._isPreorder && <div className="card-ref">{cleanRef(w.reference) ? `Ref. ${cleanRef(w.reference)}` : '—'}</div>}
                         <div className="card-meta">
                           {w.notes && <span className="card-year">{w.notes}</span>}
                           {w.notes && shortenCond(w.condition) && <div className="card-dot" />}
