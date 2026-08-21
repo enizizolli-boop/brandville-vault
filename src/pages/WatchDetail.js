@@ -255,6 +255,12 @@ export default function WatchDetail() {
     setImages(reordered)
     setActiveImg(toIndex)
     const imgTable = isPreorder ? 'preorder_images' : 'product_images'
+    // Two-pass update to avoid UNIQUE(product_id, position) conflicts during reorder:
+    // Pass 1 — shift to large temp positions so no two rows share a real position
+    await Promise.all(reordered.map((img, i) =>
+      supabase.from(imgTable).update({ position: 10000 + i }).eq('id', img.id)
+    ))
+    // Pass 2 — set the actual positions
     const results = await Promise.all(reordered.map((img, i) =>
       supabase.from(imgTable).update({ position: i }).eq('id', img.id)
     ))
