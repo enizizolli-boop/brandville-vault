@@ -344,6 +344,7 @@ export default function AgentListings() {
   const [preorders, setPreorders] = useState([])
   const [preordersPage, setPreordersPage] = useState(0)
   const [preordersTotal, setPreordersTotal] = useState(null)
+  const [expandedImgPreorder, setExpandedImgPreorder] = useState(null)
   const [watchPreordersTotal, setWatchPreordersTotal] = useState(null)
   const [bagPreordersTotal, setBagPreordersTotal] = useState(null)
   const [jewelleryPreordersTotal, setJewelleryPreordersTotal] = useState(null)
@@ -440,7 +441,7 @@ export default function AgentListings() {
     const now = new Date().toISOString()
     let query = supabase
       .from('preorders')
-      .select('*, preorder_images(url, position)', { count: 'exact' })
+      .select('*, preorder_images(id, url, position)', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
     if (type === 'preorders-watches') {
@@ -1089,6 +1090,29 @@ export default function AgentListings() {
     return imgs[0]?.url || null
   }
 
+  async function setMainImage(preorderId, targetImg, allImgs) {
+    const sorted = [...allImgs].sort((a, b) => a.position - b.position)
+    const currentMain = sorted[0]
+    if (currentMain.id === targetImg.id) return // already main
+    // Swap positions between target image and current main
+    await Promise.all([
+      supabase.from('preorder_images').update({ position: currentMain.position }).eq('id', targetImg.id),
+      supabase.from('preorder_images').update({ position: targetImg.position }).eq('id', currentMain.id),
+    ])
+    // Update local state so UI reflects change immediately
+    setPreorders(prev => prev.map(p => {
+      if (p.id !== preorderId) return p
+      return {
+        ...p,
+        preorder_images: p.preorder_images.map(img => {
+          if (img.id === targetImg.id) return { ...img, position: currentMain.position }
+          if (img.id === currentMain.id) return { ...img, position: targetImg.position }
+          return img
+        })
+      }
+    }))
+  }
+
   async function deletePreorder(id) {
     if (!window.confirm('Delete this preorder?')) return
     await supabase.from('preorder_images').delete().eq('preorder_id', id)
@@ -1468,44 +1492,92 @@ export default function AgentListings() {
               const days = daysUntilExpiry(p.expires_at)
               const archived = listingType === 'preorders-archived'
               return (
-              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid var(--border-light)', borderRadius: 10, marginBottom: 8, background: 'var(--surface)' }}>
-                <a href={`/catalog/${toSlug(p)}`} onClick={e => { e.preventDefault(); navigate(`/catalog/${toSlug(p)}`) }} style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, textDecoration: 'none', color: 'inherit', minWidth: 0 }}>
-                  <div style={{ width: 50, height: 50, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    {getPreorderThumb(p) ? <img src={getPreorderThumb(p)} alt={p.model} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20 }}>🔖</span>}
+              <div key={p.id} style={{ border: '1px solid var(--border-light)', borderRadius: 10, marginBottom: 8, background: 'var(--surface)', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px' }}>
+                  <a href={`/catalog/${toSlug(p)}`} onClick={e => { e.preventDefault(); navigate(`/catalog/${toSlug(p)}`) }} style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, textDecoration: 'none', color: 'inherit', minWidth: 0 }}>
+                    <div style={{ width: 50, height: 50, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {getPreorderThumb(p) ? <img src={getPreorderThumb(p)} alt={p.model} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20 }}>🔖</span>}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500 }}>{p.brand} {p.model}</div>
+                      <div style={{ fontSize: 11, color: '#aaa' }}>{p.price_eur ? `€${Number(p.price_eur).toLocaleString()}` : '—'} · {p.condition}{p.category ? ` · ${p.category}` : ''}</div>
+                    </div>
+                  </a>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                    <span className={`badge badge-${p.status}`}>{p.status}</span>
+                    {!archived && days !== null && (
+                      <span style={{
+                        fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 8,
+                        color: days <= 2 ? '#fff' : '#888',
+                        background: days <= 2 ? '#d9534f' : 'var(--surface2)',
+                      }}>
+                        Expires in {days}d
+                      </span>
+                    )}
+                    {archived && (
+                      <span style={{ fontSize: 10, color: '#bbb' }}>Expired {fmtDate(p.expires_at)}</span>
+                    )}
+                    {p.status === 'posted' && p.posted_at && (
+                      <span style={{ fontSize: 10, color: '#bbb' }}>Posted {fmtDate(p.posted_at)}</span>
+                    )}
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>{p.brand} {p.model}</div>
-                    <div style={{ fontSize: 11, color: '#aaa' }}>{p.price_eur ? `€${Number(p.price_eur).toLocaleString()}` : '—'} · {p.condition}{p.category ? ` · ${p.category}` : ''}</div>
-                  </div>
-                </a>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-                  <span className={`badge badge-${p.status}`}>{p.status}</span>
-                  {!archived && days !== null && (
-                    <span style={{
-                      fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 8,
-                      color: days <= 2 ? '#fff' : '#888',
-                      background: days <= 2 ? '#d9534f' : 'var(--surface2)',
-                    }}>
-                      Expires in {days}d
-                    </span>
+                  {p.preorder_images?.length > 0 && (
+                    <button className="btn btn-sm" onClick={e => { e.stopPropagation(); setExpandedImgPreorder(prev => prev === p.id ? null : p.id) }}
+                      style={{ fontSize: 11, color: expandedImgPreorder === p.id ? '#b8965a' : undefined }}>
+                      🖼 Images ({p.preorder_images.length})
+                    </button>
                   )}
-                  {archived && (
-                    <span style={{ fontSize: 10, color: '#bbb' }}>Expired {fmtDate(p.expires_at)}</span>
-                  )}
-                  {p.status === 'posted' && p.posted_at && (
-                    <span style={{ fontSize: 10, color: '#bbb' }}>Posted {fmtDate(p.posted_at)}</span>
+                  {p.status === 'sold'
+                    ? <button className="btn btn-sm" onClick={e => { e.stopPropagation(); markPreorderAvailable(p.id) }}>Mark available</button>
+                    : <button className="btn btn-sm" onClick={e => { e.stopPropagation(); markPreorderSold(p.id) }}>Mark sold</button>
+                  }
+                  <button className="btn btn-sm" onClick={e => { e.stopPropagation(); extendPreorder(p.id) }}>
+                    {archived ? 'Reactivate' : 'Extend 7 days'}
+                  </button>
+                  {(profile?.role === 'admin' || p.posted_by === profile?.id) && (
+                    <button className="btn btn-sm btn-danger" onClick={e => { e.stopPropagation(); deletePreorder(p.id) }}>Delete</button>
                   )}
                 </div>
-                {p.status === 'sold'
-                  ? <button className="btn btn-sm" onClick={e => { e.stopPropagation(); markPreorderAvailable(p.id) }}>Mark available</button>
-                  : <button className="btn btn-sm" onClick={e => { e.stopPropagation(); markPreorderSold(p.id) }}>Mark sold</button>
-                }
-                <button className="btn btn-sm" onClick={e => { e.stopPropagation(); extendPreorder(p.id) }}>
-                  {archived ? 'Reactivate' : 'Extend 7 days'}
-                </button>
-                {(profile?.role === 'admin' || p.posted_by === profile?.id) && (
-                  <button className="btn btn-sm btn-danger" onClick={e => { e.stopPropagation(); deletePreorder(p.id) }}>Delete</button>
-                )}
+
+                {/* Expandable image manager */}
+                {expandedImgPreorder === p.id && (() => {
+                  const imgs = [...(p.preorder_images || [])].sort((a, b) => a.position - b.position)
+                  return (
+                    <div style={{ padding: '10px 14px 14px', borderTop: '1px solid var(--border-light)', background: 'var(--surface2)' }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 10 }}>Images — click any to set as main</div>
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        {imgs.map((img, i) => {
+                          const isMain = i === 0
+                          return (
+                            <div key={img.id} style={{ position: 'relative', cursor: isMain ? 'default' : 'pointer' }}
+                              onClick={() => !isMain && setMainImage(p.id, img, imgs)}>
+                              <img src={img.url} alt="" style={{
+                                width: 80, height: 80, objectFit: 'cover', borderRadius: 8,
+                                border: isMain ? '2px solid #b8965a' : '2px solid transparent',
+                                opacity: isMain ? 1 : 0.75,
+                                transition: 'opacity 0.15s, border 0.15s',
+                              }}
+                              onMouseEnter={e => { if (!isMain) e.currentTarget.style.opacity = '1' }}
+                              onMouseLeave={e => { if (!isMain) e.currentTarget.style.opacity = '0.75' }}
+                              />
+                              {isMain && (
+                                <div style={{ position: 'absolute', bottom: 4, left: 0, right: 0, textAlign: 'center' }}>
+                                  <span style={{ background: '#b8965a', color: '#fff', fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, letterSpacing: '0.05em' }}>MAIN</span>
+                                </div>
+                              )}
+                              {!isMain && (
+                                <div style={{ position: 'absolute', bottom: 4, left: 0, right: 0, textAlign: 'center', opacity: 0 }}
+                                  className="set-main-hint">
+                                  <span style={{ background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 9, fontWeight: 600, padding: '2px 5px', borderRadius: 4 }}>Set main</span>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
               )
             })
