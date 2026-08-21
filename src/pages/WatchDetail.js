@@ -255,9 +255,11 @@ export default function WatchDetail() {
     setImages(reordered)
     setActiveImg(toIndex)
     const imgTable = isPreorder ? 'preorder_images' : 'product_images'
-    await Promise.all(reordered.map((img, i) =>
+    const results = await Promise.all(reordered.map((img, i) =>
       supabase.from(imgTable).update({ position: i }).eq('id', img.id)
     ))
+    const failed = results.find(r => r.error)
+    if (failed) setMsg('⚠️ Position not saved: ' + failed.error.message)
   }
 
   async function handleDeleteImage(img) {
