@@ -444,11 +444,8 @@ export default function WatchDetail() {
                     src={img.url}
                     alt=""
                     draggable={false}
-                    onClick={() => {
-                      if (editing && canEdit && i !== 0) handleSetMain(i)
-                      else if (!editing) setActiveImg(i)
-                    }}
-                    style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 10, border: i === 0 ? '2px solid #b8965a' : i === activeImg ? '2px solid var(--gold)' : '2px solid transparent', outline: i === activeImg ? 'none' : '1px solid var(--border)', pointerEvents: 'auto', cursor: editing && canEdit && i !== 0 ? 'pointer' : !editing ? 'pointer' : 'default', transition: 'border-color 0.15s' }}
+                    onClick={() => setActiveImg(i)}
+                    style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 10, border: i === 0 ? '2px solid #b8965a' : i === activeImg ? '2px solid var(--gold)' : '2px solid transparent', outline: i === activeImg ? 'none' : '1px solid var(--border)', pointerEvents: 'auto', cursor: 'pointer', transition: 'border-color 0.15s' }}
                   />
                   {i === 0 && (
                     <div style={{ position: 'absolute', bottom: editing ? 28 : 4, left: 0, right: 0, textAlign: 'center', pointerEvents: 'none' }}>
@@ -460,8 +457,12 @@ export default function WatchDetail() {
                   )}
                   {editing && (
                     <div style={{ display: 'flex', justifyContent: 'center', gap: 2, marginTop: 3 }}>
-                      <button onClick={() => i > 0 && handleReorderImages(i, i - 1)} disabled={i === 0} style={{ width: 32, height: 20, fontSize: 12, border: '1px solid var(--border)', borderRadius: 4, background: 'var(--surface)', cursor: i === 0 ? 'default' : 'pointer', opacity: i === 0 ? 0.3 : 1 }}>←</button>
-                      <button onClick={() => i < images.length - 1 && handleReorderImages(i, i + 1)} disabled={i === images.length - 1} style={{ width: 32, height: 20, fontSize: 12, border: '1px solid var(--border)', borderRadius: 4, background: 'var(--surface)', cursor: i === images.length - 1 ? 'default' : 'pointer', opacity: i === images.length - 1 ? 0.3 : 1 }}>→</button>
+                      <button onClick={() => i > 0 && handleReorderImages(i, i - 1)} disabled={i === 0} style={{ width: 24, height: 20, fontSize: 12, border: '1px solid var(--border)', borderRadius: 4, background: 'var(--surface)', cursor: i === 0 ? 'default' : 'pointer', opacity: i === 0 ? 0.3 : 1 }}>←</button>
+                      {canEdit && i !== 0 && (
+                        <button onClick={() => handleSetMain(i)} title="Set as main" style={{ width: 22, height: 20, fontSize: 11, border: '1px solid #b8965a', borderRadius: 4, background: 'var(--surface)', color: '#b8965a', cursor: 'pointer', lineHeight: 1 }}>★</button>
+                      )}
+                      {i === 0 && <div style={{ width: 22 }} />}
+                      <button onClick={() => i < images.length - 1 && handleReorderImages(i, i + 1)} disabled={i === images.length - 1} style={{ width: 24, height: 20, fontSize: 12, border: '1px solid var(--border)', borderRadius: 4, background: 'var(--surface)', cursor: i === images.length - 1 ? 'default' : 'pointer', opacity: i === images.length - 1 ? 0.3 : 1 }}>→</button>
                     </div>
                   )}
                 </div>
