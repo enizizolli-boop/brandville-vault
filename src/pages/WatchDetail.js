@@ -427,22 +427,23 @@ export default function WatchDetail() {
             )}
           </div>
 
-          {/* Thumbnails — always show strip when editing so + button is always available */}
-          {(images.length > 1 || editing) && images.length > 0 && (
+          {/* Thumbnails — show strip whenever there are images, or when editing (for + button) */}
+          {images.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
               {images.map((img, i) => (
                 <div
                   key={img.url}
                   draggable={editing}
-                  onDragStart={() => setDragIndex(i)}
-                  onDragOver={e => e.preventDefault()}
-                  onDrop={() => { handleReorderImages(dragIndex, i); setDragIndex(null) }}
+                  onDragStart={e => { if (!editing) { e.preventDefault(); return; } setDragIndex(i) }}
+                  onDragOver={e => { if (editing) e.preventDefault() }}
+                  onDrop={() => { if (editing) { handleReorderImages(dragIndex, i); setDragIndex(null) } }}
                   onDragEnd={() => setDragIndex(null)}
                   style={{ position: 'relative', opacity: dragIndex === i ? 0.4 : 1, cursor: editing ? 'grab' : 'pointer' }}
                 >
                   <img
                     src={img.url}
                     alt=""
+                    draggable={false}
                     onClick={() => {
                       if (editing && canEdit && i !== 0) handleSetMain(i)
                       else if (!editing) setActiveImg(i)
@@ -452,14 +453,6 @@ export default function WatchDetail() {
                   {i === 0 && (
                     <div style={{ position: 'absolute', bottom: editing ? 28 : 4, left: 0, right: 0, textAlign: 'center', pointerEvents: 'none' }}>
                       <span style={{ background: '#b8965a', color: '#fff', fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, letterSpacing: '0.05em' }}>MAIN</span>
-                    </div>
-                  )}
-                  {canEdit && i !== 0 && editing && (
-                    <div
-                      style={{ position: 'absolute', inset: 0, borderRadius: 10, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 4, opacity: 0, transition: 'opacity 0.15s', pointerEvents: 'none' }}
-                      ref={el => { if (el) { el.parentElement.onmouseenter = () => el.style.opacity = '1'; el.parentElement.onmouseleave = () => el.style.opacity = '0' } }}
-                    >
-                      <span style={{ background: 'rgba(0,0,0,0.65)', color: '#fff', fontSize: 9, fontWeight: 600, padding: '2px 5px', borderRadius: 4 }}>Set main</span>
                     </div>
                   )}
                   {editing && (
