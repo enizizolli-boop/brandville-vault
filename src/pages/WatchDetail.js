@@ -439,8 +439,13 @@ export default function WatchDetail() {
                     src={img.url}
                     alt=""
                     onClick={() => !editing && setActiveImg(i)}
-                    style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 10, border: i === activeImg ? '2px solid var(--gold)' : '2px solid transparent', outline: i === activeImg ? 'none' : '1px solid var(--border)', pointerEvents: editing ? 'none' : 'auto', transition: 'border-color 0.15s' }}
+                    style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 10, border: i === 0 ? '2px solid #b8965a' : i === activeImg ? '2px solid var(--gold)' : '2px solid transparent', outline: i === activeImg ? 'none' : '1px solid var(--border)', pointerEvents: editing ? 'none' : 'auto', transition: 'border-color 0.15s' }}
                   />
+                  {i === 0 && (
+                    <div style={{ position: 'absolute', bottom: editing ? 28 : 4, left: 0, right: 0, textAlign: 'center', pointerEvents: 'none' }}>
+                      <span style={{ background: '#b8965a', color: '#fff', fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, letterSpacing: '0.05em' }}>MAIN</span>
+                    </div>
+                  )}
                   {editing && (
                     <button onClick={() => handleDeleteImage(img)} style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', background: '#e00', color: '#fff', border: 'none', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
                   )}
