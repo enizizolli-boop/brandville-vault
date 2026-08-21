@@ -154,9 +154,12 @@ async function syncGalleryImages(accessToken, itemId, productId, forceRefresh = 
           // ZIP under different filenames. Track uploaded sizes+fingerprints and skip
           // any file whose first 512 bytes match a file we already uploaded.
           const seenFingerprints = new Set();
-          let pos = forceRefresh ? 0 : (existingPositions.size > 0 ? Math.max(...existingPositions) + 1 : 0);
+          // Use count-based skip: ZIP index i maps to DB position i.
+          // If DB already has N images, indices 0..N-1 are already uploaded; start at N.
+          const existingCount = existingPositions.size;
+          let pos = forceRefresh ? 0 : existingCount;
           for (let i = 0; i < imageFiles.length; i++) {
-            if (!forceRefresh && existingPositions.has(i)) continue;
+            if (!forceRefresh && i < existingCount) continue;
             try {
               const imgBuffer = Buffer.from(await imageFiles[i].async('arraybuffer'));
               // Fingerprint = file size + first 512 bytes as hex string
