@@ -1094,7 +1094,11 @@ export default function AgentListings() {
     const sorted = [...allImgs].sort((a, b) => a.position - b.position)
     const currentMain = sorted[0]
     if (currentMain.id === targetImg.id) return // already main
-    // Swap positions between target image and current main
+    // Swap positions — two-pass to avoid UNIQUE(preorder_id, position) conflicts
+    await Promise.all([
+      supabase.from('preorder_images').update({ position: 10000 }).eq('id', targetImg.id),
+      supabase.from('preorder_images').update({ position: 10001 }).eq('id', currentMain.id),
+    ])
     await Promise.all([
       supabase.from('preorder_images').update({ position: currentMain.position }).eq('id', targetImg.id),
       supabase.from('preorder_images').update({ position: targetImg.position }).eq('id', currentMain.id),
