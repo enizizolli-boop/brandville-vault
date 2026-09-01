@@ -1323,7 +1323,7 @@ export default function AgentListings() {
           {sbItem('clients', 'Clients', <IconPerson />)}
           {sbItem('supplier', profile?.role === 'jewellery_agent' ? 'Jewellery Queue' : 'Supplier Queue', <IconTruck />, supplierListings.length, supplierListings.length > 0)}
           {sbItem('rates', 'Exchange Rates', <IconRates />)}
-          {profile?.role === 'agent' && sbItem('invite', 'Invite User', <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg>)}
+          {['agent', 'admin'].includes(profile?.role) && sbItem('invite', 'Invite User', <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg>)}
 
           <div style={{ flex: 1 }} />
 
@@ -2434,8 +2434,8 @@ export default function AgentListings() {
         </div>
       )}
 
-        {/* Invite User — agent only */}
-        {tab === 'invite' && profile?.role === 'agent' && (
+        {/* Invite User — agent + admin */}
+        {tab === 'invite' && ['agent', 'admin'].includes(profile?.role) && (
           <div style={{ maxWidth: 480 }}>
             <h2 style={{ margin: '0 0 24px', fontSize: 20, fontWeight: 700 }}>Invite User</h2>
             {inviteMsg && <div className="success-msg" style={{ marginBottom: 14 }}>{inviteMsg}</div>}
