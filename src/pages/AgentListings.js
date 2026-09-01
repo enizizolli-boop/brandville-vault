@@ -381,6 +381,12 @@ export default function AgentListings() {
   const [savingRate, setSavingRate] = useState(null)
   const [rateMsg, setRateMsg] = useState('')
   const [translatingNotes, setTranslatingNotes] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteName, setInviteName] = useState('')
+  const [inviteRole, setInviteRole] = useState('dealer')
+  const [inviting, setInviting] = useState(false)
+  const [inviteMsg, setInviteMsg] = useState('')
+  const [inviteError, setInviteError] = useState('')
   const openLb = (urls, idx) => { setLbImgs(urls); setLbIdx(idx) }
   const closeLb = () => { setLbIdx(null); setLbImgs([]) }
   const lbPrev = e => { if (e) e.stopPropagation(); setLbIdx(i => (i - 1 + lbImgs.length) % lbImgs.length) }
@@ -571,6 +577,26 @@ export default function AgentListings() {
     { from: 'HKD', to: 'EUR', label: 'HKD → EUR', desc: 'Hong Kong Dollar to Euro — supplier price conversion' },
     { from: 'EUR', to: 'USD', label: 'EUR → USD', desc: 'Euro to US Dollar — second leg of CNY conversion + display' },
   ]
+
+  async function handleInvite(e) {
+    e.preventDefault()
+    setInviting(true); setInviteMsg(''); setInviteError('')
+    try {
+      const res = await fetch('https://tulqgebsvpxgwocptnmy.supabase.co/functions/v1/send-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` },
+        body: JSON.stringify({ email: inviteEmail, role: inviteRole, full_name: inviteName || inviteEmail.split('@')[0] }),
+      })
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error || 'Invite failed')
+      setInviteMsg(`Invite sent to ${inviteEmail}`)
+      setInviteEmail(''); setInviteName('')
+    } catch (err) {
+      setInviteError(err.message)
+    } finally {
+      setInviting(false)
+    }
+  }
 
   async function fetchCurrentRatesData() {
     const results = {}
@@ -1297,6 +1323,7 @@ export default function AgentListings() {
           {sbItem('clients', 'Clients', <IconPerson />)}
           {sbItem('supplier', profile?.role === 'jewellery_agent' ? 'Jewellery Queue' : 'Supplier Queue', <IconTruck />, supplierListings.length, supplierListings.length > 0)}
           {sbItem('rates', 'Exchange Rates', <IconRates />)}
+          {profile?.role === 'agent' && sbItem('invite', 'Invite User', <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg>)}
 
           <div style={{ flex: 1 }} />
 
@@ -2406,6 +2433,39 @@ export default function AgentListings() {
           </div>
         </div>
       )}
+
+        {/* Invite User — agent only */}
+        {tab === 'invite' && profile?.role === 'agent' && (
+          <div style={{ maxWidth: 480 }}>
+            <h2 style={{ margin: '0 0 24px', fontSize: 20, fontWeight: 700 }}>Invite User</h2>
+            {inviteMsg && <div className="success-msg" style={{ marginBottom: 14 }}>{inviteMsg}</div>}
+            {inviteError && <div className="error-msg" style={{ marginBottom: 14 }}>{inviteError}</div>}
+            <form onSubmit={handleInvite} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--faint)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Full name</label>
+                <input type="text" value={inviteName} onChange={e => setInviteName(e.target.value)} placeholder="Jean Michel" style={{ width: '100%', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--faint)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Email address</label>
+                <input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="dealer@company.com" required style={{ width: '100%', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--faint)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Role</label>
+                <select value={inviteRole} onChange={e => setInviteRole(e.target.value)} style={{ width: '100%' }}>
+                  <option value="dealer">Dealer — browse catalog, reserve items</option>
+                  <option value="supplier">Watch Supplier — submit watch listings for review</option>
+                  <option value="jewellery_supplier">Jewellery Supplier — submit jewellery listings</option>
+                </select>
+              </div>
+              <button type="submit" className="btn btn-dark btn-full" disabled={inviting} style={{ marginTop: 4 }}>
+                {inviting ? <span className="spinner" style={{ width: 16, height: 16 }} /> : 'Send invitation'}
+              </button>
+            </form>
+            <div style={{ marginTop: 16, padding: '12px 14px', background: 'var(--surface2)', borderRadius: 10, fontSize: 12, color: 'var(--faint)', lineHeight: 1.6 }}>
+              They'll receive an email with a link to set their password and access Brandville Vault immediately.
+            </div>
+          </div>
+        )}
 
         <Footer />
         </div> {/* end main scroll area */}
