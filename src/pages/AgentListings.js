@@ -1404,7 +1404,7 @@ export default function AgentListings() {
             ))}
           </div>
 
-          <div style={{ padding: '14px 28px', flex: 1, overflowY: 'auto' }}>
+          <div style={{ padding: '14px 28px', flex: 1, overflowY: 'auto', minHeight: 'calc(100vh - 60px)', display: 'flex', flexDirection: 'column' }}>
           {msg && <div className="success-msg" style={{ marginBottom: 12 }}>{msg}</div>}
 
           {/* Search + grid/list toggle */}
@@ -2436,7 +2436,7 @@ export default function AgentListings() {
 
         {/* Invite User — agent + admin */}
         {tab === 'invite' && ['agent', 'admin'].includes(profile?.role) && (
-          <div style={{ maxWidth: 480 }}>
+          <div style={{ maxWidth: 480, paddingTop: 12 }}>
             <h2 style={{ margin: '0 0 24px', fontSize: 20, fontWeight: 700 }}>Invite User</h2>
             {inviteMsg && <div className="success-msg" style={{ marginBottom: 14 }}>{inviteMsg}</div>}
             {inviteError && <div className="error-msg" style={{ marginBottom: 14 }}>{inviteError}</div>}
@@ -2467,6 +2467,7 @@ export default function AgentListings() {
           </div>
         )}
 
+        <div style={{ flex: 1 }} />
         <Footer />
         </div> {/* end main scroll area */}
       </div> {/* end flex row */}
