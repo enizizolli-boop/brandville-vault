@@ -35,9 +35,10 @@ export function AuthProvider({ children }) {
         return
       }
       const newUserId = session?.user?.id ?? null
-      // TOKEN_REFRESHED fires in every tab when any tab refreshes the session
-      // (e.g. opening a new tab). If the user hasn't changed, skip the re-render.
-      if (event === 'TOKEN_REFRESHED' && newUserId === currentUserIdRef.current) return
+      // supabase-js v2 broadcasts SIGNED_IN, TOKEN_REFRESHED, USER_UPDATED, etc.
+      // to every open tab via localStorage. If the user identity hasn't changed,
+      // skip the re-render — otherwise opening any new tab looks like a page refresh.
+      if (newUserId !== null && newUserId === currentUserIdRef.current) return
       currentUserIdRef.current = newUserId
       setUser(session?.user ?? null)
       if (session?.user) fetchProfile(session.user.id)
