@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext({})
@@ -7,6 +7,8 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  // Track current user id so cross-tab token refreshes don't re-render the app
+  const currentUserIdRef = useRef(null)
 
   useEffect(() => {
     // Safety timeout: if Supabase auth doesn't respond in 5s (e.g. during an
@@ -18,6 +20,7 @@ export function AuthProvider({ children }) {
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       clearTimeout(authTimeout)
+      currentUserIdRef.current = session?.user?.id ?? null
       setUser(session?.user ?? null)
       if (session?.user) fetchProfile(session.user.id)
       else setLoading(false)
@@ -31,6 +34,11 @@ export function AuthProvider({ children }) {
         }
         return
       }
+      const newUserId = session?.user?.id ?? null
+      // TOKEN_REFRESHED fires in every tab when any tab refreshes the session
+      // (e.g. opening a new tab). If the user hasn't changed, skip the re-render.
+      if (event === 'TOKEN_REFRESHED' && newUserId === currentUserIdRef.current) return
+      currentUserIdRef.current = newUserId
       setUser(session?.user ?? null)
       if (session?.user) fetchProfile(session.user.id)
       else { setProfile(null); setLoading(false) }
