@@ -1487,7 +1487,7 @@ export default function AgentListings() {
                 )
                 : filteredWatches.map(w => (
                 <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '1px solid var(--border-light)', borderRadius: 10, marginBottom: 8, background: 'var(--surface)' }}>
-                  <a href={`/catalog/${toSlug(w)}`} onClick={e => { e.preventDefault(); navigate(`/catalog/${toSlug(w)}`) }} style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, textDecoration: 'none', color: 'inherit', minWidth: 0 }}>
+                  <a href={`/catalog/${toSlug(w)}`} onClick={e => { if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) return; e.preventDefault(); navigate(`/catalog/${toSlug(w)}`) }} style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, textDecoration: 'none', color: 'inherit', minWidth: 0 }}>
                     <div style={{ width: 50, height: 50, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       {getThumb(w) ? <img src={getThumb(w)} alt={w.model} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20 }}>⌚</span>}
                     </div>
@@ -1525,7 +1525,7 @@ export default function AgentListings() {
               return (
               <div key={p.id} style={{ border: '1px solid var(--border-light)', borderRadius: 10, marginBottom: 8, background: 'var(--surface)', overflow: 'hidden' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px' }}>
-                  <a href={`/catalog/${toSlug(p)}`} onClick={e => { e.preventDefault(); navigate(`/catalog/${toSlug(p)}`) }} style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, textDecoration: 'none', color: 'inherit', minWidth: 0 }}>
+                  <a href={`/catalog/${toSlug(p)}`} onClick={e => { if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) return; e.preventDefault(); navigate(`/catalog/${toSlug(p)}`) }} style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, textDecoration: 'none', color: 'inherit', minWidth: 0 }}>
                     <div style={{ width: 50, height: 50, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       {getPreorderThumb(p) ? <img src={getPreorderThumb(p)} alt={p.model} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20 }}>🔖</span>}
                     </div>
