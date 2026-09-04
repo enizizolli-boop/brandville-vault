@@ -322,7 +322,10 @@ export default function DealerCatalog({ routeCategory }) {
     if (filterSize) pq = pq.eq('item_size', filterSize)
     if (filterAgent) pq = pq.eq('posted_by', filterAgent)
 
-    const [{ data: products }, { data: preorderData }] = await Promise.all([q, pq])
+    const [{ data: products, error: prodErr }, { data: preorderData, error: preorderErr }] = await Promise.all([q, pq])
+    if (prodErr) console.error('[DealerCatalog] products query error:', prodErr)
+    if (preorderErr) console.error('[DealerCatalog] preorders query error:', preorderErr)
+    console.log('[DealerCatalog] fetched', products?.length ?? 0, 'products,', preorderData?.length ?? 0, 'preorders')
     const byDate = (a, b) => new Date(b.created_at) - new Date(a.created_at)
     const merged = [
       ...(products || []).sort(byDate),
