@@ -158,7 +158,7 @@ function CardImages({ watch }) {
         if (dx > 40 && idx > 0) setIdx(i => i - 1)
         touchX.current = null
       }}>
-      <img src={imgs[idx].url} alt={watch.model} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      <img src={imgs[idx].url} alt={watch.model} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
       {imgs.length > 1 && idx > 0 && (
         <button onClick={e => { e.stopPropagation(); setIdx(i => Math.max(i-1,0)) }}
           style={{ position:'absolute',left:4,top:'50%',transform:'translateY(-50%)',background:'rgba(0,0,0,0.35)',border:'none',color:'#fff',width:24,height:24,borderRadius:'50%',fontSize:14,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center' }}>‹</button>
@@ -306,7 +306,7 @@ export default function DealerCatalog({ routeCategory }) {
     if (filterMetal) q = q.eq('metal_type', filterMetal)
     if (filterSize) q = q.eq('item_size', filterSize)
 
-    let pq = supabase.from('preorders').select('*').order('created_at', { ascending: false })
+    let pq = supabase.from('preorders').select('*').order('created_at', { ascending: false }).limit(500)
     if (filterBrand) pq = pq.eq('brand', filterBrand)
     if (filterStatus) pq = pq.eq('status', filterStatus)
     else pq = pq.neq('status', 'sold')
@@ -326,19 +326,28 @@ export default function DealerCatalog({ routeCategory }) {
     if (prodErr) console.error('[DealerCatalog] products query error:', prodErr)
     if (preorderErr) console.error('[DealerCatalog] preorders query error:', preorderErr)
 
-    // Fetch main images for preorders separately (avoids lateral-join timeout)
+    // Fetch main images for preorders separately (avoids lateral-join timeout).
+    // Batch IDs in groups of 100 to stay within URL length limits.
     let preordersWithImages = preorderData || []
     if (preordersWithImages.length > 0) {
       const ids = preordersWithImages.map(p => p.id)
-      const { data: imgData } = await supabase
-        .from('preorder_images')
-        .select('preorder_id, url, position')
-        .in('preorder_id', ids)
-        .order('position', { ascending: true })
+      const BATCH = 100
+      const batches = []
+      for (let i = 0; i < ids.length; i += BATCH) {
+        batches.push(
+          supabase.from('preorder_images')
+            .select('preorder_id, url, position')
+            .in('preorder_id', ids.slice(i, i + BATCH))
+            .order('position', { ascending: true })
+        )
+      }
+      const results = await Promise.all(batches)
       const byPreorder = {}
-      for (const img of (imgData || [])) {
-        if (!byPreorder[img.preorder_id]) byPreorder[img.preorder_id] = []
-        byPreorder[img.preorder_id].push(img)
+      for (const { data } of results) {
+        for (const img of (data || [])) {
+          // Keep only the lowest-position image per preorder (the thumbnail)
+          if (!byPreorder[img.preorder_id]) byPreorder[img.preorder_id] = [img]
+        }
       }
       preordersWithImages = preordersWithImages.map(p => ({ ...p, preorder_images: byPreorder[p.id] || [] }))
     }
@@ -886,7 +895,7 @@ export default function DealerCatalog({ routeCategory }) {
 
                   return (
                     <div className="watch-card" key={w.id}>
-                      <a className="card-img-wrap" href={`/catalog/${toSlug(w)}`} onClick={e => { e.preventDefault(); navigate(`/catalog/${toSlug(w)}`); }}>
+                      <a className="card-img-wrap" href={`/catalog/${toSlug(w)}`} onClick={e => { if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) return; e.preventDefault(); navigate(`/catalog/${toSlug(w)}`); }}>
                         <CardImages watch={w} />
                         {w.ready_to_ship && <span className="card-badge card-badge-ready">Ready to ship</span>}
                         <button
