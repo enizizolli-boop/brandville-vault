@@ -917,7 +917,7 @@ export default function DealerCatalog({ routeCategory }) {
                           {w.notes && <span className="card-year">{w.notes}</span>}
                           {w.notes && shortenCond(w.condition) && <div className="card-dot" />}
                           {shortenCond(w.condition) && <span className="card-cond-pill">{shortenCond(w.condition)}</span>}
-                          {w.scope && <span className="card-cond-pill" style={{ marginLeft: 4, background: 'var(--surface2)', color: 'var(--text-muted)', border: '1px solid var(--border-light)' }}>{w.scope}</span>}
+                          {w.scope_of_delivery && <span className="card-cond-pill" style={{ marginLeft: 4, background: 'var(--surface2)', color: 'var(--text-muted)', border: '1px solid var(--border-light)' }}>{w.scope_of_delivery}</span>}
                         </div>
                       </a>
                       <div className="card-price-row">
