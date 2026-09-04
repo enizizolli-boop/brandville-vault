@@ -306,7 +306,7 @@ export default function DealerCatalog({ routeCategory }) {
     if (filterMetal) q = q.eq('metal_type', filterMetal)
     if (filterSize) q = q.eq('item_size', filterSize)
 
-    let pq = supabase.from('preorders').select('*, preorder_images(url, position)').order('created_at', { ascending: false })
+    let pq = supabase.from('preorders').select('*').order('created_at', { ascending: false })
     if (filterBrand) pq = pq.eq('brand', filterBrand)
     if (filterStatus) pq = pq.eq('status', filterStatus)
     else pq = pq.neq('status', 'sold')
@@ -325,11 +325,28 @@ export default function DealerCatalog({ routeCategory }) {
     const [{ data: products, error: prodErr }, { data: preorderData, error: preorderErr }] = await Promise.all([q, pq])
     if (prodErr) console.error('[DealerCatalog] products query error:', prodErr)
     if (preorderErr) console.error('[DealerCatalog] preorders query error:', preorderErr)
-    console.log('[DealerCatalog] fetched', products?.length ?? 0, 'products,', preorderData?.length ?? 0, 'preorders')
+
+    // Fetch main images for preorders separately (avoids lateral-join timeout)
+    let preordersWithImages = preorderData || []
+    if (preordersWithImages.length > 0) {
+      const ids = preordersWithImages.map(p => p.id)
+      const { data: imgData } = await supabase
+        .from('preorder_images')
+        .select('preorder_id, url, position')
+        .in('preorder_id', ids)
+        .order('position', { ascending: true })
+      const byPreorder = {}
+      for (const img of (imgData || [])) {
+        if (!byPreorder[img.preorder_id]) byPreorder[img.preorder_id] = []
+        byPreorder[img.preorder_id].push(img)
+      }
+      preordersWithImages = preordersWithImages.map(p => ({ ...p, preorder_images: byPreorder[p.id] || [] }))
+    }
+
     const byDate = (a, b) => new Date(b.created_at) - new Date(a.created_at)
     const merged = [
       ...(products || []).sort(byDate),
-      ...(preorderData || []).map(p => ({ ...p, product_images: p.preorder_images || [], _isPreorder: true })).sort(byDate),
+      ...preordersWithImages.map(p => ({ ...p, product_images: p.preorder_images || [], _isPreorder: true })).sort(byDate),
     ]
     setWatches(merged)
     setLoading(false)
