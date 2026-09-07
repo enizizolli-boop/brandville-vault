@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
     // --- Fetch available products ---
     const { data: products, error: productsError } = await supabase
       .from('products')
-      .select('id, brand, model, reference, condition, price_eur, scope_of_delivery, category, notes, year')
+      .select('id, brand, model, reference, condition, price_eur, scope_of_delivery, category, notes')
       .eq('status', 'available')
       .order('brand', { ascending: true })
       .order('model', { ascending: true })
