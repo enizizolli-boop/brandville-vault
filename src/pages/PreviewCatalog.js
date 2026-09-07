@@ -3,19 +3,38 @@ import { useState, useEffect, useMemo } from 'react'
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL
 const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY
 
-function fmtPrice(eur) {
-  if (!eur && eur !== 0) return '—'
-  return new Intl.NumberFormat('en-EU', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(eur)
-}
-
 function fmtDate(iso) {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
+function cleanRef(ref) {
+  if (!ref) return ''
+  if (ref.includes('/')) return ref.split('/').filter(Boolean).pop()
+  const n = ref.match(/(\d+)$/)
+  if (n) return n[1]
+  return ref
+}
+
+function shortenCond(c) {
+  if (!c) return ''
+  if (c === 'New / unworn') return 'New'
+  if (c === 'Like new') return 'Like new'
+  if (c === 'Very good') return 'Very good'
+  if (c === 'Good') return 'Good'
+  return c
+}
+
+function fmtPrice(eur) {
+  if (!eur && eur !== 0) return '—'
+  return '€' + Number(eur).toLocaleString('en-EU', { maximumFractionDigits: 0 })
+}
+
+const CATEGORY_ORDER = ['All', 'Watches', 'Jewellery', 'Bags', 'Accessories', 'Shoes']
+
 export default function PreviewCatalog() {
-  const [state, setState] = useState('loading') // loading | error | ready
+  const [state, setState] = useState('loading')
   const [errorMsg, setErrorMsg] = useState('')
-  const [meta, setMeta] = useState(null) // { label, expires_at }
+  const [meta, setMeta] = useState(null)
   const [products, setProducts] = useState([])
   const [search, setSearch] = useState('')
   const [filterCategory, setFilterCategory] = useState('All')
@@ -53,7 +72,7 @@ export default function PreviewCatalog() {
 
   const categories = useMemo(() => {
     const cats = new Set(products.map(p => p.category || 'Other'))
-    return ['All', ...Array.from(cats).sort()]
+    return ['All', ...CATEGORY_ORDER.slice(1).filter(c => cats.has(c)), ...[...cats].filter(c => !CATEGORY_ORDER.includes(c)).sort()]
   }, [products])
 
   const filtered = useMemo(() => {
@@ -69,306 +88,146 @@ export default function PreviewCatalog() {
 
   if (state === 'loading') {
     return (
-      <div style={styles.fullCenter}>
-        <div style={styles.spinner} />
-        <div style={{ color: '#9ca3af', fontSize: 13, marginTop: 14 }}>Loading catalog…</div>
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg, #f5f5f0)' }}>
+        <div className="spinner" style={{ width: 28, height: 28 }} />
+        <div style={{ color: 'var(--faint)', fontSize: 13, marginTop: 14 }}>Loading catalog…</div>
       </div>
     )
   }
 
   if (state === 'error') {
     return (
-      <div style={styles.fullCenter}>
-        <div style={{ fontSize: 32, marginBottom: 12 }}>🔒</div>
-        <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 8, color: '#111' }}>Link unavailable</div>
-        <div style={{ color: '#6b7280', fontSize: 14, textAlign: 'center', maxWidth: 320 }}>{errorMsg}</div>
-        <div style={{ marginTop: 24, fontSize: 12, color: '#9ca3af' }}>Brandville Vault · Private Catalog</div>
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg, #f5f5f0)', padding: 24 }}>
+        <div style={{ fontSize: 36, marginBottom: 14 }}>🔒</div>
+        <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>Link unavailable</div>
+        <div style={{ color: 'var(--faint)', fontSize: 14, textAlign: 'center', maxWidth: 320 }}>{errorMsg}</div>
+        <div style={{ marginTop: 28, fontSize: 11, color: 'var(--faint)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Brandville Vault</div>
       </div>
     )
   }
 
   return (
-    <>
-      {/* noindex injected via Helmet would be ideal, but a meta tag via document works for static access */}
-      <meta name="robots" content="noindex, nofollow" />
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg, #f5f5f0)' }}>
 
-      <div style={styles.page}>
-        {/* Header */}
-        <header style={styles.header}>
-          <div style={styles.headerInner}>
-            <div>
-              <div style={styles.brand}>BRANDVILLE VAULT</div>
-              <div style={styles.headerSub}>Inventory Preview · Confidential</div>
-            </div>
-            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              {meta?.label && (
-                <div style={{ fontWeight: 600, fontSize: 13, color: '#111', marginBottom: 2 }}>{meta.label}</div>
-              )}
-              <div style={{ fontSize: 12, color: '#9ca3af' }}>
-                Valid until {meta?.expires_at ? fmtDate(meta.expires_at) : '—'}
-              </div>
-              <div style={{ marginTop: 4, fontSize: 11, color: '#f59e0b', fontWeight: 600 }}>
-                {filtered.length !== products.length
-                  ? `${filtered.length} of ${products.length} items shown`
-                  : `${products.length} available item${products.length !== 1 ? 's' : ''}`}
-              </div>
-            </div>
+      {/* Header */}
+      <div style={{
+        background: 'var(--surface, #fff)',
+        borderBottom: '1px solid var(--border-light, #e5e7eb)',
+        position: 'sticky', top: 0, zIndex: 20,
+        padding: '14px 24px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+      }}>
+        <div>
+          <div style={{ fontWeight: 800, fontSize: 16, letterSpacing: '0.12em', color: 'var(--gold, #b8965a)', textTransform: 'uppercase' }}>
+            Brandville Vault
           </div>
-        </header>
-
-        {/* Controls */}
-        <div style={styles.controls}>
-          <div style={styles.controlsInner}>
-            <div style={{ position: 'relative', flex: 1, maxWidth: 380 }}>
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', opacity: 0.35, pointerEvents: 'none' }}>
-                <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5"/>
-                <path d="M11 11l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-              <input
-                type="text"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search brand, model, reference…"
-                style={styles.searchInput}
-              />
-            </div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {categories.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setFilterCategory(cat)}
-                  style={{
-                    ...styles.catBtn,
-                    background: filterCategory === cat ? '#b8965a' : '#f3f4f6',
-                    color: filterCategory === cat ? '#fff' : '#374151',
-                    fontWeight: filterCategory === cat ? 600 : 400,
-                  }}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
+          <div style={{ fontSize: 11, color: 'var(--faint)', letterSpacing: '0.06em', marginTop: 1 }}>
+            Inventory Preview · Confidential
           </div>
         </div>
-
-        {/* Table */}
-        <div style={styles.tableWrap}>
-          <div style={styles.tableInner}>
-            {filtered.length === 0 ? (
-              <div style={{ padding: '48px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
-                {search || filterCategory !== 'All' ? 'No items match your search.' : 'No available items.'}
-              </div>
-            ) : (
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={{ ...styles.th, width: 56 }}></th>
-                    <th style={styles.th}>Brand</th>
-                    <th style={styles.th}>Model</th>
-                    <th style={styles.th}>Reference</th>
-                    <th style={styles.th}>Condition</th>
-                    <th style={styles.th}>Scope</th>
-                    <th style={{ ...styles.th, textAlign: 'right' }}>Price (EUR)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((p, i) => (
-                    <tr key={p.id} style={{ background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
-                      <td style={styles.td}>
-                        {p.image_url ? (
-                          <img
-                            src={p.image_url}
-                            alt=""
-                            loading="lazy"
-                            style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 8, display: 'block', background: '#f3f4f6' }}
-                          />
-                        ) : (
-                          <div style={{ width: 44, height: 44, borderRadius: 8, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <svg width="20" height="20" fill="none" stroke="#d1d5db" strokeWidth="1.5" viewBox="0 0 24 24">
-                              <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/>
-                              <path d="M12 3v2M12 19v2M3 12h2M19 12h2" strokeLinecap="round"/>
-                            </svg>
-                          </div>
-                        )}
-                      </td>
-                      <td style={{ ...styles.td, fontWeight: 600, whiteSpace: 'nowrap' }}>{p.brand || '—'}</td>
-                      <td style={styles.td}>{p.model || '—'}</td>
-                      <td style={{ ...styles.td, color: '#6b7280', fontVariantNumeric: 'tabular-nums' }}>{p.reference || '—'}</td>
-                      <td style={styles.td}>
-                        {p.condition ? (
-                          <span style={styles.condPill}>{p.condition}</span>
-                        ) : '—'}
-                      </td>
-                      <td style={{ ...styles.td, color: '#6b7280', fontSize: 12 }}>{p.scope_of_delivery || '—'}</td>
-                      <td style={{ ...styles.td, textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-                        {fmtPrice(p.price_eur)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+          {meta?.label && <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 1 }}>{meta.label}</div>}
+          <div style={{ fontSize: 11, color: 'var(--faint)' }}>
+            Valid until {meta?.expires_at ? fmtDate(meta.expires_at) : '—'}
           </div>
         </div>
-
-        {/* Footer */}
-        <footer style={styles.footer}>
-          <div>© Brandville Vault — Confidential inventory preview</div>
-          <div>This document is generated for verification purposes only and is not to be distributed.</div>
-        </footer>
       </div>
 
-      <style>{`
-        @keyframes bv-spin { to { transform: rotate(360deg) } }
-        * { box-sizing: border-box; }
-        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f9fafb; color: #111; }
-        table { border-collapse: collapse; }
-        @media (max-width: 600px) {
-          .bv-hide-mobile { display: none !important; }
-        }
-      `}</style>
-    </>
-  )
-}
+      {/* Search + category bar */}
+      <div style={{ background: 'var(--surface, #fff)', borderBottom: '1px solid var(--border-light, #e5e7eb)', padding: '10px 20px', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ position: 'relative', width: 260 }}>
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', opacity: 0.35, pointerEvents: 'none' }}>
+            <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5"/>
+            <path d="M11 11l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search…"
+            style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 30, paddingRight: 10, paddingTop: 7, paddingBottom: 7, border: '1px solid var(--border-light, #e5e7eb)', borderRadius: 8, fontSize: 13, background: 'var(--surface2, #f5f5f0)', color: 'var(--text)', outline: 'none' }}
+          />
+        </div>
 
-const styles = {
-  fullCenter: {
-    minHeight: '100vh',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: '#f9fafb',
-    padding: 24,
-  },
-  spinner: {
-    width: 28,
-    height: 28,
-    border: '2.5px solid #e5e7eb',
-    borderTop: '2.5px solid #b8965a',
-    borderRadius: '50%',
-    animation: 'bv-spin 0.7s linear infinite',
-  },
-  page: {
-    minHeight: '100vh',
-    display: 'flex',
-    flexDirection: 'column',
-    background: '#f9fafb',
-  },
-  header: {
-    background: '#fff',
-    borderBottom: '1px solid #e5e7eb',
-    padding: '18px 0',
-    position: 'sticky',
-    top: 0,
-    zIndex: 10,
-  },
-  headerInner: {
-    maxWidth: 1100,
-    margin: '0 auto',
-    padding: '0 24px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 16,
-  },
-  brand: {
-    fontWeight: 800,
-    fontSize: 18,
-    letterSpacing: '0.12em',
-    color: '#b8965a',
-  },
-  headerSub: {
-    fontSize: 11,
-    color: '#9ca3af',
-    letterSpacing: '0.06em',
-    marginTop: 2,
-  },
-  controls: {
-    background: '#fff',
-    borderBottom: '1px solid #e5e7eb',
-    padding: '12px 0',
-  },
-  controlsInner: {
-    maxWidth: 1100,
-    margin: '0 auto',
-    padding: '0 24px',
-    display: 'flex',
-    gap: 12,
-    alignItems: 'center',
-    flexWrap: 'wrap',
-  },
-  searchInput: {
-    width: '100%',
-    padding: '8px 12px 8px 34px',
-    border: '1px solid #e5e7eb',
-    borderRadius: 8,
-    fontSize: 14,
-    background: '#f9fafb',
-    color: '#111',
-    outline: 'none',
-  },
-  catBtn: {
-    padding: '5px 12px',
-    borderRadius: 20,
-    border: 'none',
-    fontSize: 12,
-    cursor: 'pointer',
-    transition: 'background 0.1s',
-  },
-  tableWrap: {
-    flex: 1,
-    padding: '24px',
-    maxWidth: 1100,
-    margin: '0 auto',
-    width: '100%',
-    overflowX: 'auto',
-  },
-  tableInner: {
-    background: '#fff',
-    borderRadius: 14,
-    border: '1px solid #e5e7eb',
-    overflow: 'hidden',
-  },
-  table: {
-    width: '100%',
-    fontSize: 13,
-  },
-  th: {
-    padding: '11px 14px',
-    background: '#f9fafb',
-    borderBottom: '1px solid #e5e7eb',
-    fontWeight: 600,
-    fontSize: 11,
-    letterSpacing: '0.04em',
-    textTransform: 'uppercase',
-    color: '#6b7280',
-    textAlign: 'left',
-    whiteSpace: 'nowrap',
-  },
-  td: {
-    padding: '10px 14px',
-    borderBottom: '1px solid #f3f4f6',
-    verticalAlign: 'middle',
-    fontSize: 13,
-  },
-  condPill: {
-    display: 'inline-block',
-    padding: '2px 8px',
-    borderRadius: 20,
-    background: '#f3f4f6',
-    fontSize: 11,
-    fontWeight: 600,
-    color: '#374151',
-    whiteSpace: 'nowrap',
-  },
-  footer: {
-    padding: '16px 24px',
-    textAlign: 'center',
-    fontSize: 11,
-    color: '#9ca3af',
-    borderTop: '1px solid #e5e7eb',
-    background: '#fff',
-    lineHeight: 1.8,
-  },
+        {categories.length > 1 && categories.map(cat => (
+          <button
+            key={cat}
+            onClick={() => setFilterCategory(cat)}
+            style={{
+              padding: '5px 13px', borderRadius: 20, border: 'none', fontSize: 12, cursor: 'pointer',
+              background: filterCategory === cat ? 'var(--gold, #b8965a)' : 'var(--surface2, #f3f4f6)',
+              color: filterCategory === cat ? '#fff' : 'var(--text-muted, #374151)',
+              fontWeight: filterCategory === cat ? 600 : 400,
+              transition: 'background 0.1s',
+            }}
+          >
+            {cat}
+            {cat !== 'All' && (
+              <span style={{ marginLeft: 5, opacity: 0.7, fontSize: 10 }}>
+                {products.filter(p => (p.category || 'Other') === cat).length}
+              </span>
+            )}
+          </button>
+        ))}
+
+        <div style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--faint)', whiteSpace: 'nowrap' }}>
+          {filtered.length}{filtered.length !== products.length ? ` of ${products.length}` : ''} item{products.length !== 1 ? 's' : ''}
+        </div>
+      </div>
+
+      {/* Grid */}
+      <div style={{ flex: 1 }}>
+        {filtered.length === 0 ? (
+          <div className="empty-state" style={{ margin: '48px auto' }}>
+            {search || filterCategory !== 'All' ? 'No items match your search.' : 'No available items.'}
+          </div>
+        ) : (
+          <div className="watch-grid">
+            {filtered.map(p => (
+              <div className="watch-card" key={p.id} style={{ cursor: 'default' }}>
+                <div className="card-img-wrap" style={{ cursor: 'default' }}>
+                  {p.image_url ? (
+                    <img src={p.image_url} alt="" loading="lazy" />
+                  ) : (
+                    <div style={{ width: '100%', aspectRatio: '1/1', background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="36" height="36" fill="none" stroke="var(--border-light)" strokeWidth="1.2" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/>
+                        <path d="M12 3v2M12 19v2M3 12h2M19 12h2" strokeLinecap="round"/>
+                      </svg>
+                    </div>
+                  )}
+                </div>
+                <div className="card-body" style={{ cursor: 'default' }}>
+                  <div className="card-brand">{p.brand}</div>
+                  <div className="card-model">{p.model}</div>
+                  <div className="card-ref">{cleanRef(p.reference) ? `Ref. ${cleanRef(p.reference)}` : '—'}</div>
+                  <div className="card-meta">
+                    {shortenCond(p.condition) && (
+                      <span className="card-cond-pill">{shortenCond(p.condition)}</span>
+                    )}
+                    {p.scope_of_delivery && (
+                      <span className="card-cond-pill" style={{ marginLeft: 4, background: 'var(--surface2)', color: 'var(--text-muted)', border: '1px solid var(--border-light)' }}>
+                        {p.scope_of_delivery}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="card-price-row">
+                  <div className="card-price-block">
+                    <div className="card-price">{fmtPrice(p.price_eur)}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div style={{ padding: '16px 24px', textAlign: 'center', fontSize: 11, color: 'var(--faint)', borderTop: '1px solid var(--border-light, #e5e7eb)', background: 'var(--surface, #fff)', lineHeight: 1.8 }}>
+        <div>© Brandville Vault — Confidential inventory preview</div>
+        <div>This document is generated for verification purposes only and is not to be distributed.</div>
+      </div>
+    </div>
+  )
 }
