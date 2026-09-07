@@ -62,7 +62,7 @@ async function odooSearchReadBySku(sku) {
     `<value><array><data><value><string>default_code</string></value><value><string>ilike</string></value><value><string>${sku}</string></value></data></array></value>` +
     `<value><array><data><value><string>name</string></value><value><string>ilike</string></value><value><string>${sku}</string></value></data></array></value>` +
     `</data></array></value>`;
-  const fields = ['id', 'name', 'default_code', 'active', 'website_published', 'dr_free_qty', 'categ_id', 'standard_price'];
+  const fields = ['id', 'name', 'default_code', 'active', 'website_published', 'qty_available', 'categ_id', 'standard_price'];
   const fieldsXml = fields.map(f => `<value><string>${f}</string></value>`).join('');
   const body = `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>` +
     `<param><value><string>${ODOO_DB}</string></value></param>` +
@@ -135,7 +135,7 @@ export default async function handler(req, res) {
         primary_image_present: imgInfo.primary_image_present,
         extra_images_count: extraCount,
         total_images_in_odoo: (imgInfo.primary_image_present ? 1 : 0) + extraCount,
-        sync_eligible: m.active && m.website_published && (m.dr_free_qty || 0) > 0,
+        sync_eligible: m.active && m.website_published && (m.qty_available || 0) > 0,
       });
     }
 
@@ -185,7 +185,7 @@ function diagnose(odooDetails, dbDetails) {
     const reasons = [];
     if (!odoo.active) reasons.push('inactive');
     if (!odoo.website_published) reasons.push('not published on website');
-    if (!(odoo.dr_free_qty > 0)) reasons.push(`dr_free_qty=${odoo.dr_free_qty || 0}`);
+    if (!(odoo.qty_available > 0)) reasons.push(`qty_available=${odoo.qty_available || 0}`);
     return `Odoo item excluded from sync: ${reasons.join(', ')}`;
   }
   if (odoo.total_images_in_odoo === 0) return 'Odoo has no images (primary or extras) — sync removes imageless items';

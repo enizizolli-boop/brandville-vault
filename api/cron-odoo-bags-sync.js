@@ -220,7 +220,7 @@ export default async function handler(req, res) {
     const domain = [
       ['active', '=', true],
       ['website_published', '=', true],
-      ['dr_free_qty', '>', 0],
+      ['qty_available', '>', 0],
       ['categ_id', '!=', 8],
     ];
 
