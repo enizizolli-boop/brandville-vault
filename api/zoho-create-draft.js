@@ -60,12 +60,13 @@ export default async function handler(req, res) {
   try {
     const token = await getAccessToken()
 
-    // Build custom fields matching the Zoho Inventory field names used by the sync
+    // Build custom fields using api_name (more reliable than label)
+    // These match the cf_* field names used by zoho-sync.js
     const customFields = []
-    if (p.brand)              customFields.push({ label: 'Brand',             value: p.brand })
-    if (p.model)              customFields.push({ label: 'Model',             value: p.model })
-    if (p.condition)          customFields.push({ label: 'Conditions',        value: p.condition })
-    if (p.scope_of_delivery)  customFields.push({ label: 'Scope of delivery', value: p.scope_of_delivery })
+    if (p.brand)              customFields.push({ api_name: 'cf_brand',             value: p.brand })
+    if (p.model)              customFields.push({ api_name: 'cf_model',             value: p.model })
+    if (p.condition)          customFields.push({ api_name: 'cf_conditions',        value: p.condition })
+    if (p.scope_of_delivery)  customFields.push({ api_name: 'cf_scope_of_delivery', value: p.scope_of_delivery })
 
     const itemPayload = {
       name: buildItemName(p),
@@ -93,8 +94,9 @@ export default async function handler(req, res) {
     const zohoData = await parseJsonSafe(zohoRes, 'Zoho create item')
 
     if (zohoData.code !== 0) {
-      console.error('Zoho create item error:', JSON.stringify(zohoData))
-      return res.status(502).json({ error: zohoData.message || 'Zoho returned an error', details: zohoData })
+      const errMsg = zohoData.message || JSON.stringify(zohoData)
+      console.error('Zoho create item error:', errMsg, JSON.stringify(itemPayload))
+      return res.status(502).json({ error: errMsg, details: zohoData })
     }
 
     const created = zohoData.item
