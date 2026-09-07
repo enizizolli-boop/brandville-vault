@@ -14,6 +14,7 @@ import MyAccount from './pages/MyAccount'
 import JoinPage from './pages/JoinPage'
 import SupplierDashboard from './pages/SupplierDashboard'
 import JewellerySupplierDashboard from './pages/JewellerySupplierDashboard'
+import PreviewCatalog from './pages/PreviewCatalog'
 
 function PrivateRoute({ children, allowedRoles }) {
   const { user, profile, loading } = useAuth()
@@ -42,6 +43,7 @@ export default function App() {
       <CurrencyProvider>
       <BrowserRouter>
         <Routes>
+          <Route path="/preview" element={<PreviewCatalog />} />
           <Route path="/login" element={<Login />} />
           <Route path="/join/:token" element={<JoinPage />} />
           <Route path="/reset-password" element={<ResetPassword />} />

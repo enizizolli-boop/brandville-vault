@@ -56,6 +56,12 @@ function SidebarIcon({ id }) {
       <path d="M12 5v14M5 12h14"/>
     </svg>
   )
+  if (id === 'preview_tokens') return (
+    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24">
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+    </svg>
+  )
   if (id === 'sync') return (
     <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24">
       <path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15" strokeLinecap="round"/>
@@ -102,6 +108,12 @@ export default function AdminPanel() {
   const [savingRate, setSavingRate] = useState(null)
   const [rateMsg, setRateMsg] = useState('')
   const [supplierListings, setSupplierListings] = useState([])
+  const [previewTokens, setPreviewTokens] = useState([])
+  const [tokenLabel, setTokenLabel] = useState('')
+  const [tokenDays, setTokenDays] = useState(30)
+  const [creatingToken, setCreatingToken] = useState(false)
+  const [tokenMsg, setTokenMsg] = useState('')
+  const [copiedId, setCopiedId] = useState(null)
 
   const fetchUsers = useCallback(async () => {
     const { data } = await supabase.from('profiles').select('*').order('created_at')
@@ -128,6 +140,11 @@ export default function AdminPanel() {
       supabase.from('products').select('*', { count: 'exact', head: true }).eq('status', 'sold'),
     ])
     setStats({ total: total || 0, available: available || 0, reserved: reserved || 0, sold: sold || 0 })
+  }, [])
+
+  const fetchPreviewTokens = useCallback(async () => {
+    const { data } = await supabase.from('preview_tokens').select('*').order('created_at', { ascending: false })
+    setPreviewTokens(data || [])
   }, [])
 
   const fetchSupplierListings = useCallback(async () => {
@@ -346,6 +363,47 @@ export default function AdminPanel() {
   }
 
   useEffect(() => { if (tab === 'rates') fetchCurrentRatesData() }, [tab])
+  useEffect(() => { if (tab === 'preview_tokens') fetchPreviewTokens() }, [tab, fetchPreviewTokens])
+
+  async function handleCreateToken(e) {
+    e.preventDefault()
+    setCreatingToken(true)
+    const expires_at = new Date(Date.now() + tokenDays * 86400000).toISOString()
+    const { error } = await supabase.from('preview_tokens').insert({
+      label: tokenLabel.trim() || null,
+      expires_at,
+    })
+    if (error) { alert('Failed to create link: ' + error.message); setCreatingToken(false); return }
+    setTokenLabel('')
+    setTokenDays(30)
+    setTokenMsg('Link created successfully')
+    setTimeout(() => setTokenMsg(''), 3000)
+    fetchPreviewTokens()
+    setCreatingToken(false)
+  }
+
+  async function handleRevokeToken(id) {
+    if (!window.confirm('Revoke this link? It will stop working immediately and cannot be un-revoked.')) return
+    await supabase.from('preview_tokens').update({ revoked: true }).eq('id', id)
+    fetchPreviewTokens()
+  }
+
+  async function handleExtendToken(id) {
+    const tok = previewTokens.find(t => t.id === id)
+    if (!tok) return
+    const base = new Date(tok.expires_at) > new Date() ? new Date(tok.expires_at) : new Date()
+    const newExpiry = new Date(base.getTime() + 30 * 86400000).toISOString()
+    await supabase.from('preview_tokens').update({ expires_at: newExpiry }).eq('id', id)
+    fetchPreviewTokens()
+  }
+
+  function copyTokenLink(tok) {
+    const url = `${window.location.origin}/preview?token=${tok.token}`
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedId(tok.id)
+      setTimeout(() => setCopiedId(null), 2000)
+    })
+  }
 
   const dealers = users.filter(u => u.role === 'dealer')
   const agents = users.filter(u => u.role === 'agent' || u.role === 'jewellery_agent')
@@ -359,6 +417,7 @@ export default function AdminPanel() {
     { id: 'supplier_queue', label: 'Supplier Queue', count: supplierListings.length, accent: supplierListings.length > 0 },
     { id: 'rates', label: 'Exchange Rates' },
     { id: 'invite', label: 'Invite User' },
+    { id: 'preview_tokens', label: 'Preview Links' },
     { id: 'sync', label: 'Sync' },
   ]
 
@@ -744,6 +803,100 @@ export default function AdminPanel() {
               </form>
               <div style={{ marginTop: 16, padding: '12px 14px', background: 'var(--surface2)', borderRadius: 10, fontSize: 12, color: 'var(--faint)', lineHeight: 1.6 }}>
                 They'll receive an email with a link to set their password and access Brandville Vault immediately.
+              </div>
+            </div>
+          )}
+
+          {/* Preview Links */}
+          {tab === 'preview_tokens' && (
+            <div style={{ maxWidth: 620 }}>
+              <div style={{ marginBottom: 24 }}>
+                <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700 }}>Preview Links</h2>
+                <div style={{ fontSize: 13, color: 'var(--faint)' }}>Generate time-limited links to share your available inventory — no login required. For bank verification and trusted partners.</div>
+              </div>
+
+              {/* Create form */}
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 14, padding: '18px 20px', marginBottom: 20 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 14 }}>New link</div>
+                <form onSubmit={handleCreateToken} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--faint)', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Label (optional)</label>
+                      <input
+                        type="text"
+                        value={tokenLabel}
+                        onChange={e => setTokenLabel(e.target.value)}
+                        placeholder="e.g. BNP Paribas — September"
+                        style={{ width: '100%', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div style={{ width: 130 }}>
+                      <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--faint)', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Valid for</label>
+                      <select value={tokenDays} onChange={e => setTokenDays(Number(e.target.value))} style={{ width: '100%' }}>
+                        <option value={7}>7 days</option>
+                        <option value={14}>14 days</option>
+                        <option value={30}>30 days</option>
+                        <option value={60}>60 days</option>
+                        <option value={90}>90 days</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button type="submit" className="btn btn-dark" disabled={creatingToken} style={{ alignSelf: 'flex-start', paddingLeft: 20, paddingRight: 20 }}>
+                    {creatingToken ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Creating…</> : '+ Generate link'}
+                  </button>
+                </form>
+                {tokenMsg && <div className="success-msg" style={{ marginTop: 10, fontSize: 13 }}>✓ {tokenMsg}</div>}
+              </div>
+
+              {/* Token list */}
+              {previewTokens.length === 0 ? (
+                <div className="empty-state">No preview links yet. Create one above.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {previewTokens.map(tok => {
+                    const expired = new Date(tok.expires_at) < new Date()
+                    const isCopied = copiedId === tok.id
+                    const statusColor = tok.revoked ? '#9ca3af' : expired ? '#f59e0b' : '#22c55e'
+                    const statusLabel = tok.revoked ? 'Revoked' : expired ? 'Expired' : 'Active'
+                    return (
+                      <div key={tok.id} style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 12, padding: '14px 16px', opacity: (tok.revoked || expired) ? 0.7 : 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                              <div style={{ fontWeight: 600, fontSize: 14 }}>{tok.label || <span style={{ color: 'var(--faint)', fontWeight: 400 }}>No label</span>}</div>
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 10, background: tok.revoked ? '#f3f4f6' : expired ? '#fef3c7' : '#dcfce7', color: statusColor }}>{statusLabel}</span>
+                            </div>
+                            <div style={{ fontSize: 11, color: 'var(--faint)' }}>
+                              Created {new Date(tok.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                              {' · '}
+                              {tok.revoked ? 'Revoked' : `Expires ${new Date(tok.expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`}
+                            </div>
+                            <div style={{ marginTop: 8, fontFamily: 'monospace', fontSize: 11, color: 'var(--faint)', background: 'var(--surface2)', padding: '5px 8px', borderRadius: 6, wordBreak: 'break-all' }}>
+                              {window.location.origin}/preview?token={tok.token}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+                            {!tok.revoked && (
+                              <button className="btn btn-sm btn-dark" onClick={() => copyTokenLink(tok)} style={{ fontSize: 11, minWidth: 72 }}>
+                                {isCopied ? '✓ Copied' : 'Copy link'}
+                              </button>
+                            )}
+                            {!tok.revoked && !expired && (
+                              <button className="btn btn-sm" onClick={() => handleExtendToken(tok.id)} style={{ fontSize: 11 }}>+30 days</button>
+                            )}
+                            {!tok.revoked && (
+                              <button className="btn btn-sm btn-danger" onClick={() => handleRevokeToken(tok.id)} style={{ fontSize: 11 }}>Revoke</button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              <div style={{ marginTop: 16, padding: '12px 14px', background: 'var(--surface2)', borderRadius: 10, fontSize: 12, color: 'var(--faint)', lineHeight: 1.6 }}>
+                Links are read-only and show only available items. No login is required to view them. Revoke a link at any time to instantly disable access.
               </div>
             </div>
           )}
