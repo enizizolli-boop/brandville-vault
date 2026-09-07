@@ -692,6 +692,7 @@ export default function AgentListings() {
       price_eur: priceEur,
       price_usd: priceUsd,
       cost_eur: costEur,
+      cost_cny: (askingCur === 'CNY' && askingAmt) ? askingAmt : null,
       vendor: listing.profiles?.full_name || null,
       category: isJewellery ? 'Jewellery' : 'Watches',
       subcategory: isJewellery ? (listing.jewellery_type || null) : null,
