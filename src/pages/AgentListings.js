@@ -1075,9 +1075,15 @@ export default function AgentListings() {
     fetchOffers()
   }
 
-  async function markSold(id) {
-    await supabase.from('products').update({ status: 'sold' }).eq('id', id)
+  async function markSold(product) {
+    await supabase.from('products').update({ status: 'sold' }).eq('id', product.id)
     fetchMyWatches()
+    // Fire-and-forget: create draft item in Zoho Inventory
+    fetch('/api/zoho-create-draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(product),
+    }).catch(e => console.warn('zoho-create-draft failed:', e.message))
   }
 
   async function markPreorderSold(id) {
@@ -1499,7 +1505,7 @@ export default function AgentListings() {
                   <span className={`badge badge-${w.status}`}>{w.status}</span>
                   <button className="btn btn-sm" onClick={() => navigate(`/catalog/${toSlug(w)}`)}>Edit</button>
                   {w.status !== 'sold' && (
-                    <button className="btn btn-sm" onClick={() => markSold(w.id)}>Mark sold</button>
+                    <button className="btn btn-sm" onClick={() => markSold(w)}>Mark sold</button>
                   )}
                   {(profile?.role === 'admin' || w.posted_by === profile?.id) && (
                     <button className="btn btn-sm btn-danger" onClick={() => deleteWatch(w.id)}>Delete</button>
