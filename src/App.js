@@ -15,6 +15,7 @@ import JoinPage from './pages/JoinPage'
 import SupplierDashboard from './pages/SupplierDashboard'
 import JewellerySupplierDashboard from './pages/JewellerySupplierDashboard'
 import PreviewCatalog from './pages/PreviewCatalog'
+import PreviewDetail from './pages/PreviewDetail'
 
 function PrivateRoute({ children, allowedRoles }) {
   const { user, profile, loading } = useAuth()
@@ -44,6 +45,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/preview" element={<PreviewCatalog />} />
+          <Route path="/preview-detail" element={<PreviewDetail />} />
           <Route path="/login" element={<Login />} />
           <Route path="/join/:token" element={<JoinPage />} />
           <Route path="/reset-password" element={<ResetPassword />} />
