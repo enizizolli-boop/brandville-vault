@@ -1,7 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Topbar from '../components/Topbar'
-import { toSlug } from '../lib/slug'
 
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL
 const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY
@@ -23,6 +21,10 @@ function shortenCond(c) {
 function fmtPrice(eur) {
   if (!eur && eur !== 0) return '—'
   return '€' + Number(eur).toLocaleString('en-EU', { maximumFractionDigits: 0 })
+}
+
+function fmtDate(iso) {
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 function SectionHeader({ label, open, onToggle, count }) {
@@ -74,7 +76,6 @@ export default function PreviewCatalog() {
           setMeta({ label: data.label, expires_at: data.expires_at })
           const watches = (data.products || []).filter(p => (p.category || '').toLowerCase() === 'watches')
           setProducts(watches)
-          // Cache for detail page refreshes
           sessionStorage.setItem('bv-preview-token', token)
           sessionStorage.setItem('bv-preview-meta', JSON.stringify({ label: data.label, expires_at: data.expires_at }))
           setState('ready')
@@ -86,6 +87,7 @@ export default function PreviewCatalog() {
       })
   }, [token])
 
+  const heroImg = useMemo(() => products.find(p => p.image_url)?.image_url || null, [products])
   const brandOptions = useMemo(() => [...new Set(products.map(p => p.brand).filter(Boolean))].sort(), [products])
   const condOptions = useMemo(() => [...new Set(products.map(p => p.condition).filter(Boolean))].sort(), [products])
 
@@ -110,33 +112,68 @@ export default function PreviewCatalog() {
 
   if (state === 'loading') {
     return (
-      <div className="page">
-        <Topbar />
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 60px)' }}>
-          <div className="spinner" style={{ width: 28, height: 28 }} />
-        </div>
+      <div className="page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <div className="spinner" style={{ width: 28, height: 28 }} />
       </div>
     )
   }
 
   if (state === 'error') {
     return (
-      <div className="page">
-        <Topbar />
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 60px)', padding: 24 }}>
-          <div style={{ fontSize: 36, marginBottom: 14 }}>🔒</div>
-          <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>Link unavailable</div>
-          <div style={{ color: 'var(--faint)', fontSize: 14, textAlign: 'center', maxWidth: 320 }}>{errorMsg}</div>
-        </div>
+      <div className="page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: 24 }}>
+        <div style={{ fontSize: 36, marginBottom: 14 }}>🔒</div>
+        <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>Link unavailable</div>
+        <div style={{ color: 'var(--faint)', fontSize: 14, textAlign: 'center', maxWidth: 320 }}>{errorMsg}</div>
       </div>
     )
   }
 
   return (
     <div className="page">
-      <Topbar />
 
-      {/* Search bar — same as DealerCatalog */}
+      {/* ── Simple branded header (no nav links) ── */}
+      <div className="topbar">
+        <div className="topbar-logo" style={{ cursor: 'default' }}>
+          Brandville <span>Vault</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          {meta?.label && (
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{meta.label}</div>
+              <div style={{ fontSize: 11, color: 'var(--faint)' }}>Valid until {fmtDate(meta.expires_at)}</div>
+            </div>
+          )}
+          <div style={{ fontSize: 11, color: 'var(--faint)', background: 'var(--surface2)', padding: '4px 10px', borderRadius: 20, letterSpacing: '0.04em' }}>
+            Confidential
+          </div>
+        </div>
+      </div>
+
+      {/* ── Hero image ── */}
+      <div style={{
+        position: 'relative', width: '100%', height: 260, overflow: 'hidden',
+        background: heroImg ? 'transparent' : '#1a1612',
+      }}>
+        {heroImg && (
+          <img
+            src={heroImg}
+            alt=""
+            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 30%', display: 'block' }}
+          />
+        )}
+        {/* Dark overlay */}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(10,8,5,0.55) 0%, rgba(10,8,5,0.75) 100%)' }} />
+        {/* Hero text */}
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.22em', color: '#b8965a', textTransform: 'uppercase' }}>Brandville Vault</div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: '#fff', letterSpacing: '-0.01em' }}>Watch Inventory</div>
+          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 2 }}>
+            {products.length} watches available · Confidential preview
+          </div>
+        </div>
+      </div>
+
+      {/* ── Search bar ── */}
       <div className="catalog-searchbar">
         <div className="catalog-searchbar-inner">
           <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" className="csb-icon">
@@ -149,14 +186,9 @@ export default function PreviewCatalog() {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        {meta?.label && (
-          <div style={{ fontSize: 12, color: 'var(--faint)', marginLeft: 12, whiteSpace: 'nowrap' }}>
-            {meta.label} · <span style={{ color: 'var(--gold)' }}>{filtered.length} watches</span>
-          </div>
-        )}
       </div>
 
-      {/* Sidebar + grid */}
+      {/* ── Sidebar + grid ── */}
       <div className="catalog-layout">
         <aside className="catalog-sidebar">
           <div className="sidebar-header-row">
@@ -245,6 +277,11 @@ export default function PreviewCatalog() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Footer */}
+      <div style={{ padding: '14px 24px', textAlign: 'center', fontSize: 11, color: 'var(--faint)', borderTop: '1px solid var(--border-light)', background: 'var(--surface)', lineHeight: 1.8 }}>
+        © Brandville Vault — Confidential inventory preview · Not for distribution
       </div>
     </div>
   )
