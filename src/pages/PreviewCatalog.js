@@ -87,7 +87,14 @@ export default function PreviewCatalog() {
       })
   }, [token])
 
-  const heroImg = useMemo(() => products.find(p => p.image_url)?.image_url || null, [products])
+  const heroImg = useMemo(() => {
+    const preferred = ['omega', 'rolex', 'tag heuer', 'tudor', 'breitling']
+    for (const name of preferred) {
+      const match = products.find(p => p.brand?.toLowerCase().includes(name) && p.image_url)
+      if (match) return match.image_url
+    }
+    return [...products].sort((a, b) => (a.price_eur ?? Infinity) - (b.price_eur ?? Infinity)).find(p => p.image_url)?.image_url || null
+  }, [products])
   const brandOptions = useMemo(() => [...new Set(products.map(p => p.brand).filter(Boolean))].sort(), [products])
   const condOptions = useMemo(() => [...new Set(products.map(p => p.condition).filter(Boolean))].sort(), [products])
 
