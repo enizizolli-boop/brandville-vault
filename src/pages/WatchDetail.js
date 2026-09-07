@@ -115,6 +115,7 @@ export default function WatchDetail() {
         price_usd: data.price_usd || '',
         price_eur: data.price_eur || '',
         cost_eur: data.cost_eur || '',
+        cost_cny: data.cost_cny || '',
         vendor: data.vendor || '',
         notes: data.notes || '',
         metal_type: data.metal_type || '',
@@ -145,6 +146,7 @@ export default function WatchDetail() {
         price_usd: preorder.price_usd || '',
         price_eur: preorder.price_eur || '',
         cost_eur: preorder.cost_eur || '',
+        cost_cny: preorder.cost_cny || '',
         vendor: preorder.vendor || '',
         notes: preorder.notes || '',
         metal_type: preorder.metal_type || '',
@@ -195,6 +197,7 @@ export default function WatchDetail() {
       price_usd: editForm.price_eur && rate ? Math.round(Number(editForm.price_eur) * rate) : editForm.price_usd ? Number(editForm.price_usd) : null,
       price_eur: editForm.price_eur ? Number(editForm.price_eur) : null,
       cost_eur: editForm.cost_eur ? Number(editForm.cost_eur) : null,
+      cost_cny: editForm.cost_cny ? Number(editForm.cost_cny) : null,
       vendor: editForm.vendor || null,
       notes: editForm.notes || null,
       scope_of_delivery: editForm.scope_of_delivery || null,
@@ -556,6 +559,7 @@ export default function WatchDetail() {
               <div className="form-2col">
                 <div className="form-row"><label>Selling Price EUR</label><input type="number" value={editForm.price_eur} onChange={e => setEditForm(f => ({ ...f, price_eur: e.target.value }))} /></div>
                 <div className="form-row"><label>Cost Price EUR</label><input type="number" value={editForm.cost_eur} onChange={e => setEditForm(f => ({ ...f, cost_eur: e.target.value }))} placeholder="Internal only" /></div>
+                <div className="form-row"><label>Cost Price CNY ¥</label><input type="number" value={editForm.cost_cny} onChange={e => setEditForm(f => ({ ...f, cost_cny: e.target.value }))} placeholder="Internal only" /></div>
               </div>
               <div className="form-row"><label>Vendor</label><input value={editForm.vendor} onChange={e => setEditForm(f => ({ ...f, vendor: e.target.value }))} placeholder="Internal only" /></div>
               <div className="form-row"><label>Notes</label><textarea rows={2} value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} /></div>
@@ -594,10 +598,11 @@ export default function WatchDetail() {
               <div style={{ marginBottom: 24, paddingBottom: 24, borderBottom: '1px solid var(--border-light)' }}>
                 <div className="detail-price">{priceMain}</div>
                 {priceSecondary && <div className="detail-price-secondary">≈ {priceSecondary}</div>}
-                {canEdit && (watch.cost_eur || watch.vendor) && (
+                {canEdit && (watch.cost_eur || watch.cost_cny || watch.vendor) && (
                   <div style={{ fontSize: 12, color: 'var(--gold)', marginTop: 8, fontWeight: 500 }}>
                     {watch.cost_eur && <>Cost: €{Number(watch.cost_eur).toLocaleString()}</>}
-                    {watch.cost_eur && watch.vendor && '  ·  '}
+                    {watch.cost_cny && <> · ¥{Number(watch.cost_cny).toLocaleString()} CNY</>}
+                    {(watch.cost_eur || watch.cost_cny) && watch.vendor && '  ·  '}
                     {watch.vendor && <>Vendor: {watch.vendor}</>}
                   </div>
                 )}
