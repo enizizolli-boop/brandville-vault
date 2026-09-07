@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import Footer from '../components/Footer'
 
 const WA_NUMBER = '18488639660' // Watches
@@ -29,7 +29,7 @@ export default function PreviewDetail() {
   const [lightbox, setLightbox] = useState(null)
   const [shared, setShared] = useState(false)
 
-  const token = useMemo(() => new URLSearchParams(window.location.search).get('token'), [])
+  const { token } = useParams()
 
   const product = useMemo(() => {
     try { return JSON.parse(sessionStorage.getItem('bv-preview-product') || 'null') } catch { return null }
@@ -50,7 +50,7 @@ export default function PreviewDetail() {
     return () => window.removeEventListener('keydown', onKey)
   }, [lightbox, images.length])
 
-  function goBack() { navigate(token ? `/preview?token=${token}` : '/preview') }
+  function goBack() { navigate(token ? `/preview/${token}` : '/preview') }
 
   function handleWhatsApp() {
     const msg = encodeURIComponent(`Hi, I'm interested in the ${product.brand} ${product.model}${cleanRef(product.reference) ? ` Ref. ${cleanRef(product.reference)}` : ''} listed on Brandville Vault.`)

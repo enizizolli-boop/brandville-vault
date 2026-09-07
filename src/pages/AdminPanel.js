@@ -398,7 +398,7 @@ export default function AdminPanel() {
   }
 
   function copyTokenLink(tok) {
-    const url = `${window.location.origin}/preview?token=${tok.token}`
+    const url = `${window.location.origin}/preview/${tok.token}`
     navigator.clipboard.writeText(url).then(() => {
       setCopiedId(tok.id)
       setTimeout(() => setCopiedId(null), 2000)
@@ -872,7 +872,7 @@ export default function AdminPanel() {
                               {tok.revoked ? 'Revoked' : `Expires ${new Date(tok.expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`}
                             </div>
                             <div style={{ marginTop: 8, fontFamily: 'monospace', fontSize: 11, color: 'var(--faint)', background: 'var(--surface2)', padding: '5px 8px', borderRadius: 6, wordBreak: 'break-all' }}>
-                              {window.location.origin}/preview?token={tok.token}
+                              {window.location.origin}/preview/{tok.token}
                             </div>
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>

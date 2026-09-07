@@ -44,8 +44,8 @@ export default function App() {
       <CurrencyProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/preview" element={<PreviewCatalog />} />
-          <Route path="/preview-detail" element={<PreviewDetail />} />
+          <Route path="/preview/:token" element={<PreviewCatalog />} />
+          <Route path="/preview/:token/detail" element={<PreviewDetail />} />
           <Route path="/login" element={<Login />} />
           <Route path="/join/:token" element={<JoinPage />} />
           <Route path="/reset-password" element={<ResetPassword />} />

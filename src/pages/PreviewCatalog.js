@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL
 const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY
@@ -53,7 +53,7 @@ export default function PreviewCatalog() {
   const [filterCond, setFilterCond] = useState('')
   const [expanded, setExpanded] = useState({ brand: true, condition: true })
 
-  const token = useMemo(() => new URLSearchParams(window.location.search).get('token'), [])
+  const { token } = useParams()
 
   useEffect(() => {
     if (!token) {
@@ -110,7 +110,7 @@ export default function PreviewCatalog() {
 
   function openProduct(w) {
     sessionStorage.setItem('bv-preview-product', JSON.stringify(w))
-    navigate(`/preview-detail?token=${token}`)
+    navigate(`/preview/${token}/detail`)
   }
 
   if (state === 'loading') {
