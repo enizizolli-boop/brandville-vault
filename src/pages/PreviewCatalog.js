@@ -93,12 +93,14 @@ export default function PreviewCatalog() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return products.filter(p => {
-      if (filterBrand && p.brand !== filterBrand) return false
-      if (filterCond && p.condition !== filterCond) return false
-      if (!q) return true
-      return [p.brand, p.model, p.reference, p.condition].some(f => (f || '').toLowerCase().includes(q))
-    })
+    return products
+      .filter(p => {
+        if (filterBrand && p.brand !== filterBrand) return false
+        if (filterCond && p.condition !== filterCond) return false
+        if (!q) return true
+        return [p.brand, p.model, p.reference, p.condition].some(f => (f || '').toLowerCase().includes(q))
+      })
+      .sort((a, b) => (a.price_eur ?? Infinity) - (b.price_eur ?? Infinity))
   }, [products, search, filterBrand, filterCond])
 
   const hasFilters = !!(filterBrand || filterCond)
