@@ -146,6 +146,33 @@ export default async function handler(req, res) {
     const created = zohoData.item
     console.log(`Zoho draft created: ${created.item_id} — ${created.name}`)
 
+    // Zoho generates the auto-name at creation before applying custom fields from the
+    // request body, so brand/conditions/scope end up as dashes. A follow-up PUT with
+    // the same custom fields forces Zoho to regenerate the name correctly.
+    if (customFields.length) {
+      try {
+        const updateRes = await fetch(
+          `https://www.zohoapis.eu/inventory/v1/items/${created.item_id}?organization_id=${ZOHO_ORG_ID}`,
+          {
+            method: 'PUT',
+            headers: {
+              Authorization: `Zoho-oauthtoken ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ custom_fields: customFields }),
+          }
+        )
+        const updateData = await parseJsonSafe(updateRes, 'Zoho update item')
+        if (updateData.code === 0) {
+          console.log(`Zoho name after update: ${updateData.item?.name}`)
+        } else {
+          console.warn('Zoho update (name refresh) failed:', updateData.message)
+        }
+      } catch (e) {
+        console.warn('Zoho update (name refresh) error:', e.message)
+      }
+    }
+
     return res.status(200).json({
       ok: true,
       zoho_item_id: created.item_id,
