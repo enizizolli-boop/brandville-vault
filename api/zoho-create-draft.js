@@ -60,13 +60,22 @@ export default async function handler(req, res) {
   try {
     const token = await getAccessToken()
 
+    // Build custom fields matching the Zoho Inventory field names used by the sync
+    const customFields = []
+    if (p.brand)              customFields.push({ label: 'Brand',             value: p.brand })
+    if (p.model)              customFields.push({ label: 'Model',             value: p.model })
+    if (p.condition)          customFields.push({ label: 'Conditions',        value: p.condition })
+    if (p.scope_of_delivery)  customFields.push({ label: 'Scope of delivery', value: p.scope_of_delivery })
+
     const itemPayload = {
       name: buildItemName(p),
       item_type: 'inventory',
       unit: 'pcs',
-      status: 'inactive',          // "draft" equivalent in Zoho Inventory
+      status: 'inactive',           // "draft" equivalent in Zoho Inventory
       description: buildDescription(p),
-      ...(p.price_eur ? { rate: Number(p.price_eur) } : {}),
+      ...(p.reference ? { sku: p.reference } : {}),
+      ...(p.price_eur  ? { rate: Number(p.price_eur) } : {}),
+      ...(customFields.length ? { custom_fields: customFields } : {}),
     }
 
     const zohoRes = await fetch(
