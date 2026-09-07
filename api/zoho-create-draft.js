@@ -60,13 +60,32 @@ export default async function handler(req, res) {
   try {
     const token = await getAccessToken()
 
-    // Build custom fields using api_name (more reliable than label)
-    // These match the cf_* field names used by zoho-sync.js
+    // Fetch exact custom field labels from Zoho settings so we don't hardcode wrong ones
+    let cfBrandLabel = 'Brand', cfModelLabel = 'Model', cfCondLabel = 'Conditions', cfScopeLabel = null
+    try {
+      const cfRes = await fetch(
+        `https://www.zohoapis.eu/inventory/v1/settings/customfields?entity=item&organization_id=${ZOHO_ORG_ID}`,
+        { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+      )
+      const cfData = await cfRes.json()
+      const fields = cfData.customfields || []
+      for (const f of fields) {
+        const api = (f.api_name || '').toLowerCase()
+        if (api === 'cf_brand')             cfBrandLabel = f.label
+        if (api === 'cf_model')             cfModelLabel = f.label
+        if (api === 'cf_conditions')        cfCondLabel  = f.label
+        if (api === 'cf_scope_of_delivery') cfScopeLabel = f.label
+      }
+      console.log('Custom field labels:', { cfBrandLabel, cfModelLabel, cfCondLabel, cfScopeLabel })
+    } catch (e) {
+      console.warn('Could not fetch custom field labels, using defaults:', e.message)
+    }
+
     const customFields = []
-    if (p.brand)              customFields.push({ api_name: 'cf_brand',             value: p.brand })
-    if (p.model)              customFields.push({ api_name: 'cf_model',             value: p.model })
-    if (p.condition)          customFields.push({ api_name: 'cf_conditions',        value: p.condition })
-    if (p.scope_of_delivery)  customFields.push({ api_name: 'cf_scope_of_delivery', value: p.scope_of_delivery })
+    if (p.brand)                         customFields.push({ label: cfBrandLabel, value: p.brand })
+    if (p.model)                         customFields.push({ label: cfModelLabel, value: p.model })
+    if (p.condition)                     customFields.push({ label: cfCondLabel,  value: p.condition })
+    if (p.scope_of_delivery && cfScopeLabel) customFields.push({ label: cfScopeLabel, value: p.scope_of_delivery })
 
     const itemPayload = {
       name: buildItemName(p),
