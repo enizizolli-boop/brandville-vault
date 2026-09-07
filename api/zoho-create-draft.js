@@ -31,6 +31,30 @@ async function getAccessToken() {
   return data.access_token
 }
 
+// Must match Zoho's dropdown options exactly (same list as zoho-sync.js)
+const ZOHO_CONDITIONS = [
+  'pre-owned conditions with MINOR signs of usage',
+  'pre-owned conditions with MAJOR signs of usage',
+  'Fair',
+  'Needs Repair',
+  'Repaired',
+  'Repaired Albania',
+  'New / unworn',
+]
+
+function mapCondition(c) {
+  if (!c) return null
+  if (ZOHO_CONDITIONS.includes(c)) return c
+  const lower = c.toLowerCase()
+  if (lower.includes('minor'))   return 'pre-owned conditions with MINOR signs of usage'
+  if (lower.includes('major'))   return 'pre-owned conditions with MAJOR signs of usage'
+  if (lower.includes('fair'))    return 'Fair'
+  if (lower.includes('repair') && lower.includes('albania')) return 'Repaired Albania'
+  if (lower.includes('repair'))  return 'Needs Repair'
+  if (lower.includes('new'))     return 'New / unworn'
+  return null  // don't send invalid dropdown values
+}
+
 function buildItemName(p) {
   let name = [p.brand, p.model].filter(Boolean).join(' ')
   if (p.reference) name += ` Ref. ${p.reference}`
@@ -81,11 +105,12 @@ export default async function handler(req, res) {
       console.warn('Could not fetch custom field labels, using defaults:', e.message)
     }
 
+    const mappedCondition = mapCondition(p.condition)
     const customFields = []
-    if (p.brand)                         customFields.push({ label: cfBrandLabel, value: p.brand })
-    if (p.model)                         customFields.push({ label: cfModelLabel, value: p.model })
-    if (p.condition)                     customFields.push({ label: cfCondLabel,  value: p.condition })
-    if (p.scope_of_delivery && cfScopeLabel) customFields.push({ label: cfScopeLabel, value: p.scope_of_delivery })
+    if (p.brand)                              customFields.push({ label: cfBrandLabel, value: p.brand })
+    if (p.model)                              customFields.push({ label: cfModelLabel, value: p.model })
+    if (mappedCondition)                      customFields.push({ label: cfCondLabel,  value: mappedCondition })
+    if (p.scope_of_delivery && cfScopeLabel)  customFields.push({ label: cfScopeLabel, value: p.scope_of_delivery })
 
     const itemPayload = {
       name: buildItemName(p),
