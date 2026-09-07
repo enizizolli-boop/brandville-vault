@@ -87,14 +87,7 @@ export default function PreviewCatalog() {
       })
   }, [token])
 
-  const heroImg = useMemo(() => {
-    const preferred = ['omega', 'rolex', 'tag heuer', 'tudor', 'breitling']
-    for (const name of preferred) {
-      const match = products.find(p => p.brand?.toLowerCase().includes(name) && p.image_url)
-      if (match) return match.image_url
-    }
-    return [...products].sort((a, b) => (a.price_eur ?? Infinity) - (b.price_eur ?? Infinity)).find(p => p.image_url)?.image_url || null
-  }, [products])
+  const HERO_IMG = 'https://images.unsplash.com/photo-1523170335258-f6f9e7e17cfd?w=1600&q=80'
   const brandOptions = useMemo(() => [...new Set(products.map(p => p.brand).filter(Boolean))].sort(), [products])
   const condOptions = useMemo(() => [...new Set(products.map(p => p.condition).filter(Boolean))].sort(), [products])
 
@@ -160,17 +153,12 @@ export default function PreviewCatalog() {
       </div>
 
       {/* ── Hero image ── */}
-      <div style={{
-        position: 'relative', width: '100%', height: 260, overflow: 'hidden',
-        background: heroImg ? 'transparent' : '#1a1612',
-      }}>
-        {heroImg && (
-          <img
-            src={heroImg}
-            alt=""
-            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 30%', display: 'block' }}
-          />
-        )}
+      <div style={{ position: 'relative', width: '100%', height: 260, overflow: 'hidden' }}>
+        <img
+          src={HERO_IMG}
+          alt=""
+          style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 40%', display: 'block' }}
+        />
         {/* Dark overlay */}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(10,8,5,0.55) 0%, rgba(10,8,5,0.75) 100%)' }} />
         {/* Hero text */}
