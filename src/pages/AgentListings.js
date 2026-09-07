@@ -1078,17 +1078,18 @@ export default function AgentListings() {
   async function markSold(product) {
     await supabase.from('products').update({ status: 'sold' }).eq('id', product.id)
     fetchMyWatches()
-    // Fire-and-forget: create draft item in Zoho Inventory
+    // Note: regular products already exist in Zoho — no draft creation needed
+  }
+
+  async function markPreorderSold(preorder) {
+    await supabase.from('preorders').update({ status: 'sold' }).eq('id', preorder.id)
+    fetchPreorders(0, listingType, search)
+    // Fire-and-forget: preorders don't exist in Zoho yet, create a draft there
     fetch('/api/zoho-create-draft', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(product),
+      body: JSON.stringify(preorder),
     }).catch(e => console.warn('zoho-create-draft failed:', e.message))
-  }
-
-  async function markPreorderSold(id) {
-    await supabase.from('preorders').update({ status: 'sold' }).eq('id', id)
-    fetchPreorders(0, listingType, search)
   }
 
   async function markPreorderAvailable(id) {
@@ -1566,7 +1567,7 @@ export default function AgentListings() {
                   )}
                   {p.status === 'sold'
                     ? <button className="btn btn-sm" onClick={e => { e.stopPropagation(); markPreorderAvailable(p.id) }}>Mark available</button>
-                    : <button className="btn btn-sm" onClick={e => { e.stopPropagation(); markPreorderSold(p.id) }}>Mark sold</button>
+                    : <button className="btn btn-sm" onClick={e => { e.stopPropagation(); markPreorderSold(p) }}>Mark sold</button>
                   }
                   <button className="btn btn-sm" onClick={e => { e.stopPropagation(); extendPreorder(p.id) }}>
                     {archived ? 'Reactivate' : 'Extend 7 days'}
