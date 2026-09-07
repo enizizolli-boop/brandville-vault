@@ -21,8 +21,6 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Always use service role so we can validate the token and query
-    // products without exposing a way to bypass auth.
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -56,19 +54,17 @@ Deno.serve(async (req) => {
       )
     }
 
-    // --- Fetch available products (house stock) ---
-    // Includes both zoho-synced and manually added items.
-    // Excludes dealer consignment items (none exist in products table).
+    // --- Fetch available products ---
     const { data: products, error: productsError } = await supabase
       .from('products')
-      .select('id, brand, model, reference, condition, price_eur, scope_of_delivery, category')
+      .select('id, brand, model, reference, condition, price_eur, scope_of_delivery, category, notes, year')
       .eq('status', 'available')
       .order('brand', { ascending: true })
       .order('model', { ascending: true })
 
     if (productsError) throw productsError
 
-    // --- Attach first image per product ---
+    // --- Attach ALL images per product (ordered by position) ---
     let result = products || []
     if (result.length > 0) {
       const ids = result.map((p: any) => p.id)
@@ -84,17 +80,17 @@ Deno.serve(async (req) => {
         )
       }
       const batchResults = await Promise.all(batches)
-      const firstImage: Record<string, string> = {}
+      const allImages: Record<string, string[]> = {}
       for (const { data } of batchResults) {
         for (const img of (data || [])) {
-          if (!firstImage[img.product_id]) {
-            firstImage[img.product_id] = img.url
-          }
+          if (!allImages[img.product_id]) allImages[img.product_id] = []
+          allImages[img.product_id].push(img.url)
         }
       }
       result = result.map((p: any) => ({
         ...p,
-        image_url: firstImage[p.id] || null,
+        image_url: allImages[p.id]?.[0] || null,
+        images: allImages[p.id] || [],
       }))
     }
 

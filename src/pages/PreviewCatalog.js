@@ -18,9 +18,6 @@ function cleanRef(ref) {
 function shortenCond(c) {
   if (!c) return ''
   if (c === 'New / unworn') return 'New'
-  if (c === 'Like new') return 'Like new'
-  if (c === 'Very good') return 'Very good'
-  if (c === 'Good') return 'Good'
   return c
 }
 
@@ -29,7 +26,125 @@ function fmtPrice(eur) {
   return '€' + Number(eur).toLocaleString('en-EU', { maximumFractionDigits: 0 })
 }
 
-const CATEGORY_ORDER = ['All', 'Watches', 'Jewellery', 'Bags', 'Accessories', 'Shoes']
+function SectionHeader({ label, open, onToggle, count }) {
+  return (
+    <div className="sidebar-acc-header" onClick={onToggle}>
+      <span>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        {count > 0 && <span className="sidebar-acc-count">{count}</span>}
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5"
+          style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', color: 'var(--muted)' }}>
+          <polyline points="2,3 5,7 8,3"/>
+        </svg>
+      </div>
+    </div>
+  )
+}
+
+function DetailModal({ product, onClose }) {
+  const [mainIdx, setMainIdx] = useState(0)
+  const images = product.images || (product.image_url ? [product.image_url] : [])
+
+  useEffect(() => {
+    setMainIdx(0)
+    const onKey = e => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [product, onClose])
+
+  return (
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(0,0,0,0.65)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 20,
+      }}
+    >
+      <div style={{
+        background: 'var(--surface)', borderRadius: 16,
+        maxWidth: 820, width: '100%', maxHeight: '90vh', overflow: 'auto',
+        display: 'flex', flexDirection: 'column',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.4)',
+      }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border-light)' }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 11, color: 'var(--gold)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{product.brand}</div>
+            <div style={{ fontWeight: 600, fontSize: 17 }}>{product.model}</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--faint)' }}>
+            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ display: 'flex', gap: 0, flex: 1 }}>
+          {/* Images */}
+          <div style={{ width: 360, flexShrink: 0, padding: 20 }}>
+            <div style={{ aspectRatio: '1/1', borderRadius: 10, overflow: 'hidden', background: 'var(--surface2)', marginBottom: 10 }}>
+              {images[mainIdx] ? (
+                <img src={images[mainIdx]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="48" height="48" fill="none" stroke="var(--border-light)" strokeWidth="1" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/>
+                    <path d="M12 3v2M12 19v2M3 12h2M19 12h2" strokeLinecap="round"/>
+                  </svg>
+                </div>
+              )}
+            </div>
+            {images.length > 1 && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {images.map((url, i) => (
+                  <div
+                    key={i}
+                    onClick={() => setMainIdx(i)}
+                    style={{
+                      width: 54, height: 54, borderRadius: 8, overflow: 'hidden', cursor: 'pointer',
+                      border: i === mainIdx ? '2px solid var(--gold)' : '2px solid transparent',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Details */}
+          <div style={{ flex: 1, padding: '20px 20px 20px 0' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <tbody>
+                {[
+                  { label: 'Reference', value: cleanRef(product.reference) || '—' },
+                  { label: 'Condition', value: product.condition || '—' },
+                  { label: 'Scope of delivery', value: product.scope_of_delivery || '—' },
+                  { label: 'Year', value: product.year || (product.notes && /\b(19|20)\d{2}\b/.test(product.notes) ? product.notes.match(/\b(19|20)\d{2}\b/)?.[0] : null) || '—' },
+                  { label: 'Category', value: product.category || '—' },
+                ].map(row => (
+                  <tr key={row.label}>
+                    <td style={{ padding: '8px 12px 8px 0', color: 'var(--faint)', fontWeight: 500, verticalAlign: 'top', whiteSpace: 'nowrap' }}>{row.label}</td>
+                    <td style={{ padding: '8px 0', fontWeight: 500, verticalAlign: 'top' }}>{row.value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border-light)' }}>
+              <div style={{ fontSize: 11, color: 'var(--faint)', marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Price</div>
+              <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em' }}>{fmtPrice(product.price_eur)}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function PreviewCatalog() {
   const [state, setState] = useState('loading')
@@ -37,7 +152,10 @@ export default function PreviewCatalog() {
   const [meta, setMeta] = useState(null)
   const [products, setProducts] = useState([])
   const [search, setSearch] = useState('')
-  const [filterCategory, setFilterCategory] = useState('All')
+  const [filterBrand, setFilterBrand] = useState('')
+  const [filterCond, setFilterCond] = useState('')
+  const [expanded, setExpanded] = useState({ brand: true, condition: true })
+  const [selected, setSelected] = useState(null)
 
   const token = useMemo(() => new URLSearchParams(window.location.search).get('token'), [])
 
@@ -60,7 +178,8 @@ export default function PreviewCatalog() {
           setErrorMsg(data.error)
         } else {
           setMeta({ label: data.label, expires_at: data.expires_at })
-          setProducts(data.products || [])
+          // show only watches on preview
+          setProducts((data.products || []).filter(p => (p.category || '').toLowerCase() === 'watches'))
           setState('ready')
         }
       })
@@ -70,21 +189,25 @@ export default function PreviewCatalog() {
       })
   }, [token])
 
-  const categories = useMemo(() => {
-    const cats = new Set(products.map(p => p.category || 'Other'))
-    return ['All', ...CATEGORY_ORDER.slice(1).filter(c => cats.has(c)), ...[...cats].filter(c => !CATEGORY_ORDER.includes(c)).sort()]
-  }, [products])
+  const brandOptions = useMemo(() => [...new Set(products.map(p => p.brand).filter(Boolean))].sort(), [products])
+  const condOptions = useMemo(() => [...new Set(products.map(p => p.condition).filter(Boolean))].sort(), [products])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return products.filter(p => {
-      const matchCat = filterCategory === 'All' || (p.category || 'Other') === filterCategory
-      if (!matchCat) return false
+      if (filterBrand && p.brand !== filterBrand) return false
+      if (filterCond && p.condition !== filterCond) return false
       if (!q) return true
       return [p.brand, p.model, p.reference, p.condition, p.scope_of_delivery]
         .some(f => (f || '').toLowerCase().includes(q))
     })
-  }, [products, search, filterCategory])
+  }, [products, search, filterBrand, filterCond])
+
+  const hasFilters = !!(filterBrand || filterCond)
+
+  function toggleSec(key) {
+    setExpanded(e => ({ ...e, [key]: !e[key] }))
+  }
 
   if (state === 'loading') {
     return (
@@ -109,125 +232,150 @@ export default function PreviewCatalog() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg, #f5f5f0)' }}>
 
-      {/* Header */}
+      {/* Topbar */}
       <div style={{
-        background: 'var(--surface, #fff)',
-        borderBottom: '1px solid var(--border-light, #e5e7eb)',
-        position: 'sticky', top: 0, zIndex: 20,
-        padding: '14px 24px',
+        background: 'var(--surface)',
+        borderBottom: '1px solid var(--border-light)',
+        padding: '0 24px',
+        height: 56,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+        position: 'sticky', top: 0, zIndex: 20,
       }}>
-        <div>
-          <div style={{ fontWeight: 800, fontSize: 16, letterSpacing: '0.12em', color: 'var(--gold, #b8965a)', textTransform: 'uppercase' }}>
-            Brandville Vault
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--faint)', letterSpacing: '0.06em', marginTop: 1 }}>
-            Inventory Preview · Confidential
-          </div>
+        <div style={{ fontWeight: 800, fontSize: 15, letterSpacing: '0.12em', color: 'var(--gold)', textTransform: 'uppercase' }}>
+          Brandville Vault
         </div>
-        <div style={{ textAlign: 'right', flexShrink: 0 }}>
-          {meta?.label && <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 1 }}>{meta.label}</div>}
-          <div style={{ fontSize: 11, color: 'var(--faint)' }}>
-            Valid until {meta?.expires_at ? fmtDate(meta.expires_at) : '—'}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          {/* Search */}
+          <div style={{ position: 'relative' }}>
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', opacity: 0.35, pointerEvents: 'none' }}>
+              <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5"/>
+              <path d="M11 11l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            <input
+              className="catalog-searchbar"
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search…"
+              style={{ paddingLeft: 30 }}
+            />
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            {meta?.label && <div style={{ fontWeight: 600, fontSize: 12 }}>{meta.label}</div>}
+            <div style={{ fontSize: 11, color: 'var(--faint)' }}>Valid until {meta?.expires_at ? fmtDate(meta.expires_at) : '—'}</div>
           </div>
         </div>
       </div>
 
-      {/* Search + category bar */}
-      <div style={{ background: 'var(--surface, #fff)', borderBottom: '1px solid var(--border-light, #e5e7eb)', padding: '10px 20px', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', width: 260 }}>
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', opacity: 0.35, pointerEvents: 'none' }}>
-            <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5"/>
-            <path d="M11 11l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-          </svg>
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search…"
-            style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 30, paddingRight: 10, paddingTop: 7, paddingBottom: 7, border: '1px solid var(--border-light, #e5e7eb)', borderRadius: 8, fontSize: 13, background: 'var(--surface2, #f5f5f0)', color: 'var(--text)', outline: 'none' }}
-          />
-        </div>
+      {/* Layout */}
+      <div className="catalog-layout" style={{ flex: 1 }}>
 
-        {categories.length > 1 && categories.map(cat => (
-          <button
-            key={cat}
-            onClick={() => setFilterCategory(cat)}
-            style={{
-              padding: '5px 13px', borderRadius: 20, border: 'none', fontSize: 12, cursor: 'pointer',
-              background: filterCategory === cat ? 'var(--gold, #b8965a)' : 'var(--surface2, #f3f4f6)',
-              color: filterCategory === cat ? '#fff' : 'var(--text-muted, #374151)',
-              fontWeight: filterCategory === cat ? 600 : 400,
-              transition: 'background 0.1s',
-            }}
-          >
-            {cat}
-            {cat !== 'All' && (
-              <span style={{ marginLeft: 5, opacity: 0.7, fontSize: 10 }}>
-                {products.filter(p => (p.category || 'Other') === cat).length}
-              </span>
+        {/* Sidebar */}
+        <aside className="catalog-sidebar">
+          <div className="sidebar-header-row">
+            <span className="sidebar-header-title">FILTERS</span>
+            {hasFilters && (
+              <button className="sidebar-clear" onClick={() => { setFilterBrand(''); setFilterCond('') }}>Clear all</button>
             )}
-          </button>
-        ))}
-
-        <div style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--faint)', whiteSpace: 'nowrap' }}>
-          {filtered.length}{filtered.length !== products.length ? ` of ${products.length}` : ''} item{products.length !== 1 ? 's' : ''}
-        </div>
-      </div>
-
-      {/* Grid */}
-      <div style={{ flex: 1 }}>
-        {filtered.length === 0 ? (
-          <div className="empty-state" style={{ margin: '48px auto' }}>
-            {search || filterCategory !== 'All' ? 'No items match your search.' : 'No available items.'}
           </div>
-        ) : (
-          <div className="watch-grid">
-            {filtered.map(p => (
-              <div className="watch-card" key={p.id} style={{ cursor: 'default' }}>
-                <div className="card-img-wrap" style={{ cursor: 'default' }}>
-                  {p.image_url ? (
-                    <img src={p.image_url} alt="" loading="lazy" />
-                  ) : (
-                    <div style={{ width: '100%', aspectRatio: '1/1', background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <svg width="36" height="36" fill="none" stroke="var(--border-light)" strokeWidth="1.2" viewBox="0 0 24 24">
-                        <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/>
-                        <path d="M12 3v2M12 19v2M3 12h2M19 12h2" strokeLinecap="round"/>
-                      </svg>
-                    </div>
-                  )}
-                </div>
-                <div className="card-body" style={{ cursor: 'default' }}>
-                  <div className="card-brand">{p.brand}</div>
-                  <div className="card-model">{p.model}</div>
-                  <div className="card-ref">{cleanRef(p.reference) ? `Ref. ${cleanRef(p.reference)}` : '—'}</div>
-                  <div className="card-meta">
-                    {shortenCond(p.condition) && (
-                      <span className="card-cond-pill">{shortenCond(p.condition)}</span>
-                    )}
-                    {p.scope_of_delivery && (
-                      <span className="card-cond-pill" style={{ marginLeft: 4, background: 'var(--surface2)', color: 'var(--text-muted)', border: '1px solid var(--border-light)' }}>
-                        {p.scope_of_delivery}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="card-price-row">
-                  <div className="card-price-block">
-                    <div className="card-price">{fmtPrice(p.price_eur)}</div>
-                  </div>
-                </div>
+
+          {/* Brand */}
+          <div className="sidebar-acc-section">
+            <SectionHeader label="Brand" open={expanded.brand} onToggle={() => toggleSec('brand')} count={filterBrand ? 1 : 0} />
+            {expanded.brand && (
+              <div className="sidebar-acc-body">
+                <select value={filterBrand} onChange={e => setFilterBrand(e.target.value)}>
+                  <option value="">All brands</option>
+                  {brandOptions.map(b => <option key={b}>{b}</option>)}
+                </select>
               </div>
-            ))}
+            )}
           </div>
-        )}
+
+          {/* Condition */}
+          <div className="sidebar-acc-section">
+            <SectionHeader label="Condition" open={expanded.condition} onToggle={() => toggleSec('condition')} count={filterCond ? 1 : 0} />
+            {expanded.condition && (
+              <div className="sidebar-acc-body">
+                <label className="sidebar-radio-row">
+                  <input type="radio" name="cond" checked={filterCond === ''} onChange={() => setFilterCond('')} />
+                  <span>All conditions</span>
+                </label>
+                {condOptions.map(cond => (
+                  <label key={cond} className="sidebar-radio-row">
+                    <input type="radio" name="cond" checked={filterCond === cond} onChange={() => setFilterCond(cond)} />
+                    <span>{cond.length > 22 ? cond.slice(0, 22) + '…' : cond}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Count */}
+          <div style={{ padding: '14px 18px', fontSize: 11, color: 'var(--faint)' }}>
+            {filtered.length}{filtered.length !== products.length ? ` of ${products.length}` : ''} watch{products.length !== 1 ? 'es' : ''}
+          </div>
+        </aside>
+
+        {/* Content */}
+        <div className="catalog-content">
+          {filtered.length === 0 ? (
+            <div className="empty-state" style={{ marginTop: 60 }}>
+              {search || hasFilters ? 'No watches match your filters.' : 'No available watches.'}
+            </div>
+          ) : (
+            <div className="watch-grid">
+              {filtered.map(w => (
+                <div
+                  className="watch-card"
+                  key={w.id}
+                  onClick={() => setSelected(w)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div className="card-img-wrap">
+                    {w.image_url ? (
+                      <img src={w.image_url} alt="" loading="lazy" />
+                    ) : (
+                      <div style={{ width: '100%', aspectRatio: '1/1', background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="36" height="36" fill="none" stroke="var(--border-light)" strokeWidth="1.2" viewBox="0 0 24 24">
+                          <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/>
+                          <path d="M12 3v2M12 19v2M3 12h2M19 12h2" strokeLinecap="round"/>
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                  <div className="card-body">
+                    <div className="card-brand">{w.brand}</div>
+                    <div className="card-model">{w.model}</div>
+                    <div className="card-ref">{cleanRef(w.reference) ? `Ref. ${cleanRef(w.reference)}` : '—'}</div>
+                    <div className="card-meta">
+                      {shortenCond(w.condition) && <span className="card-cond-pill">{shortenCond(w.condition)}</span>}
+                      {w.scope_of_delivery && (
+                        <span className="card-cond-pill" style={{ marginLeft: 4, background: 'var(--surface2)', color: 'var(--text-muted)', border: '1px solid var(--border-light)' }}>
+                          {w.scope_of_delivery}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="card-price-row">
+                    <div className="card-price-block">
+                      <div className="card-price">{fmtPrice(w.price_eur)}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Footer */}
-      <div style={{ padding: '16px 24px', textAlign: 'center', fontSize: 11, color: 'var(--faint)', borderTop: '1px solid var(--border-light, #e5e7eb)', background: 'var(--surface, #fff)', lineHeight: 1.8 }}>
-        <div>© Brandville Vault — Confidential inventory preview</div>
-        <div>This document is generated for verification purposes only and is not to be distributed.</div>
+      <div style={{ padding: '14px 24px', textAlign: 'center', fontSize: 11, color: 'var(--faint)', borderTop: '1px solid var(--border-light)', background: 'var(--surface)', lineHeight: 1.8 }}>
+        © Brandville Vault — Confidential inventory preview · Not for distribution
       </div>
+
+      {/* Detail modal */}
+      {selected && <DetailModal product={selected} onClose={() => setSelected(null)} />}
     </div>
   )
 }
