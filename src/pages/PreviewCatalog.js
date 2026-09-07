@@ -95,6 +95,7 @@ export default function PreviewCatalog() {
     const q = search.trim().toLowerCase()
     return products
       .filter(p => {
+        if ((p.price_eur ?? 0) > 30000) return false
         if (filterBrand && p.brand !== filterBrand) return false
         if (filterCond && p.condition !== filterCond) return false
         if (!q) return true
