@@ -87,7 +87,7 @@ export default function PreviewCatalog() {
       })
   }, [token])
 
-  const HERO_IMG = 'https://images.unsplash.com/photo-1523170335258-f6f9e7e17cfd?w=1600&q=80'
+  const HERO_IMG = '/hero-watch.jpg'
   const brandOptions = useMemo(() => [...new Set(products.map(p => p.brand).filter(Boolean))].sort(), [products])
   const condOptions = useMemo(() => [...new Set(products.map(p => p.condition).filter(Boolean))].sort(), [products])
 
