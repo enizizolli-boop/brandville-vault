@@ -451,7 +451,7 @@ export default function AgentListings() {
   const [bagImages, setBagImages] = useState([])
   const [bagPreviews, setBagPreviews] = useState([])
   const [bagDragIndex, setBagDragIndex] = useState(null)
-  const [bagIsPreorder, setBagIsPreorder] = useState(true)
+  const [bagIsPreorder, setBagIsPreorder] = useState(false)
   const [watches, setWatches] = useState([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -761,11 +761,7 @@ export default function AgentListings() {
         subcategory: null,
         item_size: null,
         posted_by: profile.id,
-        // TODO: needs to be deleted later
-        posted_bg: 'posted',
-        posted_individual: 'posted',
-        posted_pierre: 'posted',
-        status: 'sold',
+        status: 'available',
       }
 
       const table = bagIsPreorder ? 'preorders' : 'products'
@@ -808,7 +804,7 @@ export default function AgentListings() {
       setBagSellingCurrency('EUR')
       setBagImages([])
       setBagPreviews([])
-      setBagIsPreorder(true)
+      setBagIsPreorder(false)
       setBagMsg(imagesFailed > 0
         ? `Bag ${bagIsPreorder ? 'preorder' : 'listing'} posted, but ${imagesFailed} image(s) failed to save - open the listing and re-upload them.`
         : bagIsPreorder ? 'Bags preorder posted.' : 'Item posted - now live in the dealer catalog.')

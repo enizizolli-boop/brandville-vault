@@ -64,4 +64,3 @@ src/
   lib/
     supabase.js       — Supabase client
 ```
-"test" 
