@@ -43,6 +43,122 @@ const BAG_BRANDS = new Set([
   'hermès','hermes','loewe','louis vuitton','prada','saint laurent',
 ])
 
+const BAG_CONDITIONS = [
+  'Excellent',
+  'Very Good',
+  'Good',
+  'Preowned',
+  'Preowned/Excellent condition',
+]
+
+const BRAND_MAP = {
+  'bvlgari': 'Bulgari', 'bulgari': 'Bulgari',
+  'van cleef': 'Van Cleef & Arpels', 'vca': 'Van Cleef & Arpels',
+  'cartier': 'Cartier', 'chanel': 'Chanel', 'chopard': 'Chopard',
+  'hermes': 'Hermès',
+  'louis vuitton': 'Louis Vuitton', 'lv': 'Louis Vuitton',
+  'gucci': 'Gucci', 'prada': 'Prada',
+  'christian dior': 'Dior', 'dior': 'Dior',
+  'tiffany': 'Tiffany & Co', 'tiffany & co': 'Tiffany & Co',
+  'harry winston': 'Harry Winston', 'graff': 'Graff',
+  'fendi': 'Fendi', 'bottega veneta': 'Bottega Veneta',
+  'saint laurent': 'Saint Laurent', 'ysl': 'Saint Laurent',
+  'balenciaga': 'Balenciaga', 'loewe': 'Loewe',
+  'celine': 'Celine', 'burberry': 'Burberry',
+  'valentino': 'Valentino', 'chloe': 'Chloé',
+  'jacquemus': 'Jacquemus', 'dolce & gabbana': 'Dolce & Gabbana',
+  'dolce': 'Dolce & Gabbana', 'givenchy': 'Givenchy',
+  'alexander mcqueen': 'Alexander McQueen', 'mcm': 'MCM',
+  'coach': 'Coach', 'mulberry': 'Mulberry', 'furla': 'Furla',
+  'michael kors': 'Michael Kors', 'versace': 'Versace',
+  'miu miu': 'Miu Miu', 'marc jacobs': 'Marc Jacobs',
+}
+
+function normalizeForBrandMatch(value = '') {
+  return Array.from(value.normalize('NFD'))
+    .filter(ch => { const code = ch.codePointAt(0); return code < 0x0300 || code > 0x036f })
+    .join('')
+    .toLowerCase()
+}
+
+function findWholeAlias(text, alias) {
+  let from = 0
+  while (from <= text.length - alias.length) {
+    const index = text.indexOf(alias, from)
+    if (index === -1) return null
+    const before = text[index - 1]
+    const after = text[index + alias.length]
+    const startsClean = !before || !/[a-z0-9]/i.test(before)
+    const endsClean = !after || !/[a-z0-9]/i.test(after)
+    if (startsClean && endsClean) return { index, length: alias.length }
+    from = index + 1
+  }
+  return null
+}
+
+function detectBrand(text) {
+  const normalizedText = normalizeForBrandMatch(text)
+  const aliases = [
+    ...Object.entries(BRAND_MAP),
+    ...BRANDS.map(brand => [normalizeForBrandMatch(brand), brand]),
+  ].sort(([a], [b]) => b.length - a.length)
+
+  for (const [rawAlias, canonical] of aliases) {
+    const alias = normalizeForBrandMatch(rawAlias)
+    const match = findWholeAlias(normalizedText, alias)
+    if (match) return { brand: canonical, ...match }
+  }
+  return null
+}
+
+const BAG_FORM_BRANDS = [...new Set([...BRANDS, ...Object.values(BRAND_MAP)])].sort()
+
+function parseBagPriceLine(line = '') {
+  const match = line.match(/-?[\d]['\d,.\s]*[\d]|-?\d+/)
+  if (!match) return ''
+  const raw = match[0].replace(/['\s]/g, '')
+  const dots = (raw.match(/\./g) || []).length
+  const commas = (raw.match(/,/g) || []).length
+  let normalized = raw
+  if (dots > 1) normalized = raw.replace(/\./g, '')
+  else if (commas > 1) normalized = raw.replace(/,/g, '')
+  else if (dots === 1 && commas > 0) normalized = raw.replace(/[.,]/g, '')
+  else if (commas === 1 && raw.indexOf(',') > raw.length - 4) normalized = raw.replace(',', '.')
+  else normalized = raw.replace(/,/g, '')
+  const value = Number(normalized)
+  return Number.isFinite(value) ? String(Math.max(0, Math.round(value))) : ''
+}
+
+function detectPriceCurrency(line = '') {
+  if (/\b(?:cny|rmb|yuan)\b|¥|￥/i.test(line)) return 'CNY'
+  if (/\b(?:usd|dollar|dollars)\b|\$/i.test(line)) return 'USD'
+  if (/\b(?:eur|euro|euros)\b|€/i.test(line)) return 'EUR'
+  return null
+}
+
+function parseBagPriceInput(line = '') {
+  return {
+    amount: parseBagPriceLine(line),
+    currency: detectPriceCurrency(line),
+  }
+}
+
+function detectBagCondition(text = '') {
+  if (/pre[- ]?owned\s*\/\s*excellent\s+condition/i.test(text)) return 'Preowned/Excellent condition'
+  if (/\bvery\s+good\b/i.test(text)) return 'Very Good'
+  if (/\bexcellent\b/i.test(text)) return 'Excellent'
+  if (/\bgood\b/i.test(text)) return 'Good'
+  if (/\bpre[- ]?owned\b/i.test(text)) return 'Preowned'
+  return null
+}
+
+function stripBagCondition(value = '') {
+  return value
+    .replace(/\b(?:pre[- ]?owned\s*\/\s*excellent\s+condition|very\s+good|excellent|good|pre[- ]?owned)\b.*$/i, '')
+    .replace(/[\s,\-·]+$/g, '')
+    .trim()
+}
+
 const SCOPE_KEYWORDS = [
   { match: /card\s*[&+]\s*box/i, value: 'Card & Box' },
   { match: /with\s+card/i, value: 'With Card' },
@@ -295,6 +411,24 @@ async function notifyDealers(watch) {
   }
 }
 
+async function notifyN8nBagPreorder(item, imageUrls = []) {
+  try {
+    const res = await fetch('/api/n8n-bag-preorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event: 'bag_preorder_created',
+        item,
+        image_urls: imageUrls,
+      }),
+    })
+    const result = await res.json().catch(() => null)
+    if (!result?.ok) console.warn('n8n bag preorder webhook did not complete:', result)
+  } catch (err) {
+    console.error('n8n bag preorder webhook failed:', err)
+  }
+}
+
 const PAGE_SIZE = 100
 
 export default function AgentListings() {
@@ -315,9 +449,14 @@ export default function AgentListings() {
     if (t) setTab(t)
   }, [location.search])
   const [bagName, setBagName] = useState('')
+  const [bagCategory, setBagCategory] = useState('Bags')
+  const [bagBrand, setBagBrand] = useState('Other')
+  const [bagModel, setBagModel] = useState('')
+  const [bagCondition, setBagCondition] = useState('Preowned')
   const [bagCostPrice, setBagCostPrice] = useState('')
   const [bagCostCurrency, setBagCostCurrency] = useState('EUR')
   const [bagSellingPrice, setBagSellingPrice] = useState('')
+  const [bagSellingCurrency, setBagSellingCurrency] = useState('EUR')
   const [bagPosting, setBagPosting] = useState(false)
   const [bagMsg, setBagMsg] = useState('')
   const [bagError, setBagError] = useState('')
@@ -325,6 +464,8 @@ export default function AgentListings() {
   const [bagPreviews, setBagPreviews] = useState([])
   const [bagDragIndex, setBagDragIndex] = useState(null)
   const [bagIsPreorder, setBagIsPreorder] = useState(false)
+  const [preorderReposts, setPreorderReposts] = useState({})
+  const [repostingId, setRepostingId] = useState(null)
   const [watches, setWatches] = useState([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -528,6 +669,28 @@ export default function AgentListings() {
       fetchPreorders(0, listingType, search)
     }
   }, [profile, listingType, fetchPreorders]) // search excluded — its changes handled by debounce effect below
+
+  useEffect(() => {
+    if (listingType !== 'preorders-bags') return
+    const bagIds = preorders.map(p => p.id)
+    if (bagIds.length === 0) { setPreorderReposts({}); return }
+    let cancelled = false
+    supabase
+      .from('repost_requests')
+      .select('id, preorder_id, status, requested_at, completed_at, error_message')
+      .in('preorder_id', bagIds)
+      .order('requested_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error) { console.error('fetch preorder reposts error:', error); setPreorderReposts({}); return }
+        const latestByPreorder = {}
+        for (const row of data || []) {
+          if (!latestByPreorder[row.preorder_id]) latestByPreorder[row.preorder_id] = row
+        }
+        setPreorderReposts(latestByPreorder)
+      })
+    return () => { cancelled = true }
+  }, [preorders, listingType])
 
   // Debounced server-side search — fires 350ms after the user stops typing
   useEffect(() => {
@@ -852,6 +1015,70 @@ export default function AgentListings() {
     setBagPreviews(arr => arr.filter((_, i) => i !== idx))
   }
 
+  function handleBagName(value) {
+    setBagError('')
+    setBagName(value)
+    const lines = value.split('\n').map(line => line.trim()).filter(Boolean)
+    const brandMatch = detectBrand(value)
+    const firstLine = lines[0] || ''
+    let model = firstLine
+    if (brandMatch) {
+      const lineMatch = detectBrand(firstLine)
+      if (lineMatch) model = firstLine.slice(lineMatch.index + lineMatch.length).trim()
+    }
+    model = stripBagCondition(model)
+
+    const cost = parseBagPriceInput(lines[1])
+    const selling = parseBagPriceInput(lines[2])
+
+    setBagBrand(brandMatch?.brand || 'Other')
+    setBagModel(model)
+    setBagCondition(detectBagCondition(firstLine) || 'Preowned')
+    setBagCostPrice(cost.amount)
+    setBagSellingPrice(selling.amount)
+    if (cost.currency) setBagCostCurrency(cost.currency === 'USD' ? 'EUR' : cost.currency)
+    if (selling.currency) setBagSellingCurrency(selling.currency)
+  }
+
+  function isValidRate(value) {
+    return Number.isFinite(Number(value)) && Number(value) > 0
+  }
+
+  function convertBagSellingPrices(amount, currencyCode, includeCny = true) {
+    const sellingAmount = Number(amount)
+    const eurUsdRate = Number(rate)
+    const usdCnyRate = Number(usdToCnyRate)
+
+    if (!Number.isFinite(sellingAmount) || sellingAmount <= 0) return null
+    if (!isValidRate(eurUsdRate)) return null
+    if (includeCny && !isValidRate(usdCnyRate)) return null
+
+    if (currencyCode === 'USD') {
+      const priceEur = sellingAmount / eurUsdRate
+      return {
+        priceEur,
+        priceUsd: sellingAmount,
+        priceCny: includeCny ? sellingAmount * usdCnyRate : null,
+      }
+    }
+
+    if (currencyCode === 'CNY') {
+      const priceUsd = sellingAmount / usdCnyRate
+      return {
+        priceEur: priceUsd / eurUsdRate,
+        priceUsd,
+        priceCny: sellingAmount,
+      }
+    }
+
+    const priceUsd = sellingAmount * eurUsdRate
+    return {
+      priceEur: sellingAmount,
+      priceUsd,
+      priceCny: includeCny ? priceUsd * usdCnyRate : null,
+    }
+  }
+
   const usdPreview = form.price_eur && rate
     ? '$' + Math.round(Number(form.price_eur) * rate).toLocaleString()
     : null
@@ -950,29 +1177,55 @@ export default function AgentListings() {
     e.preventDefault()
     setBagError('')
     if (!bagName.trim()) { setBagError('Name is required.'); return }
-    if (!bagCostPrice) { setBagError('Cost price is required.'); return }
+    if (!bagCostPrice && !bagSellingPrice) { setBagError('Cost price or selling price is required.'); return }
+    if (!bagModel.trim()) { setBagError('Model name is required.'); return }
     setBagPosting(true)
     try {
       const parsed = parseQuickPost(bagName)
-      const brand = parsed.brand && parsed.brand !== EMPTY_FORM.brand ? parsed.brand : 'Other'
-      const model = parsed.model || bagName.trim()
-      const condition = parsed.condition || EMPTY_FORM.condition
 
-      const costEur = bagCostCurrency === 'CNY'
-        ? Number(bagCostPrice) / (usdToCnyRate || 1) / (rate || 1)
-        : Number(bagCostPrice)
-      const sellingEur = bagSellingPrice ? Number(bagSellingPrice) : costEur * 1.4
-      const priceUsd = rate ? Math.round(sellingEur * rate) : null
+      const costEur = bagCostPrice
+        ? bagCostCurrency === 'CNY'
+          ? Number(bagCostPrice) / (usdToCnyRate || 1) / (rate || 1)
+          : Number(bagCostPrice)
+        : null
+      const sellingAmount = bagSellingPrice ? Number(bagSellingPrice) : costEur * 1.4
+      const includeCny = bagIsPreorder || bagSellingCurrency === 'CNY'
+
+      if (includeCny && !isValidRate(usdToCnyRate)) {
+        setBagError('USD to CNY exchange rate is not available yet. Please try again in a moment.')
+        setBagPosting(false)
+        return
+      }
+      if (!isValidRate(rate)) {
+        setBagError('EUR to USD exchange rate is not available yet. Please try again in a moment.')
+        setBagPosting(false)
+        return
+      }
+
+      const converted = convertBagSellingPrices(sellingAmount, bagSellingCurrency, includeCny)
+      if (!converted) {
+        setBagError('Could not calculate converted prices. Please check the amount and exchange rates.')
+        setBagPosting(false)
+        return
+      }
+
+      const { priceEur, priceUsd, priceCny } = converted
+      const requiredPrices = bagIsPreorder ? [priceEur, priceUsd, priceCny] : [priceEur, priceUsd]
+      if (!requiredPrices.every(v => Number.isFinite(v) && v > 0)) {
+        setBagError('Could not calculate valid converted prices. Please check the amount and exchange rates.')
+        setBagPosting(false)
+        return
+      }
 
       const payload = {
-        category: 'Bags',
-        brand,
-        model,
+        category: bagCategory,
+        brand: bagBrand,
+        model: bagModel.trim(),
         reference: null,
-        condition,
-        price_eur: Math.round(sellingEur),
-        price_usd: priceUsd,
-        cost_eur: Math.round(costEur),
+        condition: bagCondition,
+        price_eur: Math.round(priceEur),
+        price_usd: Math.round(priceUsd),
+        cost_eur: costEur === null ? null : Math.round(costEur),
         vendor: parsed.vendor || null,
         notes: parsed.notes || null,
         scope_of_delivery: null,
@@ -986,12 +1239,15 @@ export default function AgentListings() {
       const table = bagIsPreorder ? 'preorders' : 'products'
       const imgTable = bagIsPreorder ? 'preorder_images' : 'product_images'
       const fkCol = bagIsPreorder ? 'preorder_id' : 'product_id'
-      const insertPayload = bagIsPreorder ? payload : { ...payload, source: 'manual' }
+      const insertPayload = bagIsPreorder
+        ? { ...payload, price_cny: Math.round(priceCny), price_currency: bagSellingCurrency }
+        : { ...payload, source: 'manual' }
 
       const { data: item, error: pErr } = await supabase.from(table).insert(insertPayload).select().single()
       if (pErr) throw pErr
 
       let imagesFailed = 0
+      const imageUrls = []
       for (let i = 0; i < bagImages.length; i++) {
         const file = bagImages[i]
         const ext = file.name.split('.').pop()
@@ -999,14 +1255,24 @@ export default function AgentListings() {
         const { error: upErr } = await supabase.storage.from('watch-images').upload(path, file)
         if (upErr) { console.error('Bag image upload error:', upErr.message); imagesFailed++; continue }
         const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path)
+        imageUrls.push(publicUrl)
         const { error: dbErr } = await supabase.from(imgTable).insert({ [fkCol]: item.id, url: publicUrl, position: i })
         if (dbErr) { console.error('Bag image DB error:', dbErr.message); imagesFailed++ }
       }
 
+      if (bagIsPreorder && bagCategory === 'Bags' && imageUrls.length > 0) {
+        notifyN8nBagPreorder(item, imageUrls)
+      }
+
       setBagName('')
+      setBagCategory('Bags')
+      setBagBrand('Other')
+      setBagModel('')
+      setBagCondition('Preowned')
       setBagCostPrice('')
       setBagCostCurrency('EUR')
       setBagSellingPrice('')
+      setBagSellingCurrency('EUR')
       setBagImages([])
       setBagPreviews([])
       setBagIsPreorder(false)
@@ -1110,6 +1376,34 @@ export default function AgentListings() {
   async function extendPreorder(id) {
     await supabase.from('preorders').update({ expires_at: new Date(Date.now() + 7 * 86400000).toISOString() }).eq('id', id)
     fetchPreorders(0, listingType, search)
+  }
+
+  async function requestPreorderRepost(preorder) {
+    if (!profile?.id || repostingId) return
+    setRepostingId(preorder.id)
+    const { data: request, error } = await supabase
+      .from('repost_requests')
+      .insert({ preorder_id: preorder.id, requested_by: profile.id })
+      .select('id, preorder_id, status, requested_at, completed_at, error_message')
+      .single()
+
+    if (error) {
+      console.error('request repost error:', error)
+      const isDuplicatePending = error.code === '23505'
+      setMsg(isDuplicatePending ? 'Repost already pending.' : `Could not request repost: ${error.message}`)
+    } else {
+      setPreorderReposts(prev => ({ ...prev, [preorder.id]: request }))
+      setMsg(`Repost requested for ${preorder.brand} ${preorder.model}.`)
+    }
+    setRepostingId(null)
+  }
+
+  function repostStatusText(repost) {
+    if (!repost) return null
+    if (repost.status === 'pending') return `Repost pending since ${fmtDate(repost.requested_at)}`
+    if (repost.status === 'completed') return `Last reposted ${fmtDate(repost.completed_at || repost.requested_at)}`
+    if (repost.status === 'failed') return `Repost failed ${fmtDate(repost.requested_at)}`
+    return null
   }
 
   function daysUntilExpiry(expiresAt) {
@@ -1547,6 +1841,11 @@ export default function AgentListings() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 500 }}>{p.brand} {p.model}</div>
                       <div style={{ fontSize: 11, color: '#aaa' }}>{p.price_eur ? `€${Number(p.price_eur).toLocaleString()}` : '—'} · {p.condition}{p.category ? ` · ${p.category}` : ''}</div>
+                      {listingType === 'preorders-bags' && repostStatusText(preorderReposts[p.id]) && (
+                        <div style={{ fontSize: 10, color: preorderReposts[p.id]?.status === 'failed' ? '#c62828' : '#b8965a', marginTop: 2 }}>
+                          {repostStatusText(preorderReposts[p.id])}
+                        </div>
+                      )}
                     </div>
                   </a>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
@@ -1580,6 +1879,15 @@ export default function AgentListings() {
                   <button className="btn btn-sm" onClick={e => { e.stopPropagation(); extendPreorder(p.id) }}>
                     {archived ? 'Reactivate' : 'Extend 7 days'}
                   </button>
+                  {listingType === 'preorders-bags' && (profile?.role === 'admin' || p.posted_by === profile?.id) && (
+                    <button
+                      className="btn btn-sm"
+                      onClick={e => { e.stopPropagation(); requestPreorderRepost(p) }}
+                      disabled={preorderReposts[p.id]?.status === 'pending' || repostingId === p.id}
+                    >
+                      {repostingId === p.id ? 'Requesting…' : preorderReposts[p.id]?.status === 'pending' ? 'Repost pending' : 'Repost'}
+                    </button>
+                  )}
                   {(profile?.role === 'admin' || p.posted_by === profile?.id) && (
                     <button className="btn btn-sm btn-danger" onClick={e => { e.stopPropagation(); deletePreorder(p.id) }}>Delete</button>
                   )}
@@ -1997,12 +2305,49 @@ export default function AgentListings() {
                 <label>Name</label>
                 <textarea
                   value={bagName}
-                  onChange={e => setBagName(e.target.value)}
+                  onChange={e => handleBagName(e.target.value)}
                   rows={3}
-                  placeholder={'e.g. Hermès Birkin 30 Togo Gold HW\nor paste full details — brand & condition are detected automatically'}
+                  placeholder={'Hermès Birkin 30 Togo Gold HW Repaired\n2800\n3920'}
                   style={{ width: '100%', boxSizing: 'border-box', fontSize: 13, borderRadius: 8, resize: 'vertical', lineHeight: 1.6 }}
                   required
                 />
+              </div>
+            </div>
+
+            <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', padding: '16px 16px 4px', marginBottom: 16 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.9px', marginBottom: 14 }}>Item details</div>
+
+              <div className="form-row">
+                <label>Category</label>
+                <select value={bagCategory} onChange={e => setBagCategory(e.target.value)}>
+                  {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+
+              <div className="form-row">
+                <label>Model name</label>
+                <input
+                  type="text"
+                  value={bagModel}
+                  onChange={e => { setBagError(''); setBagModel(e.target.value) }}
+                  placeholder="e.g. Birkin 30 Togo Gold HW Repaired"
+                  required
+                />
+              </div>
+
+              <div className="form-2col">
+                <div className="form-row">
+                  <label>Brand</label>
+                  <select value={bagBrand} onChange={e => setBagBrand(e.target.value)}>
+                    {BAG_FORM_BRANDS.map(b => <option key={b}>{b}</option>)}
+                  </select>
+                </div>
+                <div className="form-row">
+                  <label>Condition</label>
+                  <select value={bagCondition} onChange={e => setBagCondition(e.target.value)}>
+                    {BAG_CONDITIONS.map(c => <option key={c}>{c}</option>)}
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -2011,7 +2356,15 @@ export default function AgentListings() {
               <div className="form-row">
                 <label>Cost price</label>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <input type="number" value={bagCostPrice} onChange={e => setBagCostPrice(e.target.value)} placeholder="e.g. 28000" style={{ flex: 1 }} required />
+                  <input
+                    type="number"
+                    min="0"
+                    value={bagCostPrice}
+                    onChange={e => { setBagError(''); setBagCostPrice(e.target.value === '' ? '' : String(Math.max(0, Number(e.target.value)))) }}
+                    placeholder="e.g. 28000"
+                    style={{ flex: 1 }}
+                    required={!bagSellingPrice}
+                  />
                   <select value={bagCostCurrency} onChange={e => setBagCostCurrency(e.target.value)} style={{ width: 90 }}>
                     <option value="EUR">EUR</option>
                     <option value="CNY">CNY</option>
@@ -2025,15 +2378,37 @@ export default function AgentListings() {
               </div>
 
               <div className="form-row">
-                <label>Selling price (€) — optional</label>
-                <input type="number" value={bagSellingPrice} onChange={e => setBagSellingPrice(e.target.value)} placeholder="leave blank to auto-calc as cost + 40%" />
-                {bagCostPrice && (() => {
-                  const costEur = bagCostCurrency === 'CNY' ? Number(bagCostPrice) / (usdToCnyRate || 1) / (rate || 1) : Number(bagCostPrice)
-                  const sellingEur = bagSellingPrice ? Number(bagSellingPrice) : costEur * 1.4
-                  const usd = rate ? Math.round(sellingEur * rate) : null
+                <label>Selling price — optional</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    type="number"
+                    min="0"
+                    value={bagSellingPrice}
+                    onChange={e => { setBagError(''); setBagSellingPrice(e.target.value === '' ? '' : String(Math.max(0, Number(e.target.value)))) }}
+                    placeholder="leave blank to auto-calc as cost + 40%"
+                    style={{ flex: 1 }}
+                    required={!bagCostPrice}
+                  />
+                  <select value={bagSellingCurrency} onChange={e => setBagSellingCurrency(e.target.value)} style={{ width: 90 }}>
+                    <option value="EUR">EUR</option>
+                    <option value="USD">USD</option>
+                    <option value="CNY">CNY</option>
+                  </select>
+                </div>
+                {(bagCostPrice || bagSellingPrice) && (() => {
+                  const costEur = bagCostPrice
+                    ? bagCostCurrency === 'CNY' ? Number(bagCostPrice) / (usdToCnyRate || 1) / (rate || 1) : Number(bagCostPrice)
+                    : null
+                  const sellingAmount = bagSellingPrice ? Number(bagSellingPrice) : costEur * 1.4
+                  const includeCny = bagIsPreorder || bagSellingCurrency === 'CNY'
+                  const converted = convertBagSellingPrices(sellingAmount, bagSellingCurrency, includeCny)
+                  if (!converted) {
+                    return <div style={{ fontSize: 12, color: '#b0a898', marginTop: 4 }}>Loading exchange rates…</div>
+                  }
+                  const cnyPreview = converted.priceCny ? ` ≈ ¥${Math.round(converted.priceCny).toLocaleString()}` : ''
                   return (
                     <div style={{ fontSize: 12, color: '#b0a898', marginTop: 4 }}>
-                      Selling price: €{Math.round(sellingEur).toLocaleString()}{usd ? ` ≈ $${usd.toLocaleString()}` : ''}{!bagSellingPrice ? ' (auto: cost + 40%)' : ''}
+                      Selling price: €{Math.round(converted.priceEur).toLocaleString()} ≈ ${Math.round(converted.priceUsd).toLocaleString()}{cnyPreview}{!bagSellingPrice ? ' (auto: cost + 40%)' : ''}
                     </div>
                   )
                 })()}

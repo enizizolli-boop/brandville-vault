@@ -1,7 +1,19 @@
 {
   "permissions": {
     "allow": [
-      "Bash(node -e ':*)"
+      "Bash(mkdir -p .claude)",
+      "Bash(mv /tmp/settings.local.json.bak .claude/settings.local.json)",
+      "Bash(git reset *)",
+      "Bash(python3 -)",
+      "Bash(grep -n \"function handleBagImages\\\\|async function handleBagPost\\\\|^  }$\" src/pages/AgentListings.js)",
+      "Bash(CI=true timeout 180 npm run build)",
+      "Bash(npm run *)",
+      "Bash(git checkout *)",
+      "Bash(git diff *)",
+      "Read(//tmp/**)",
+      "Bash(supabase --version)",
+      "Bash(node -e ' *)",
+      "Bash(git -C /Users/joan/Desktop/Brandville/brandville-vault status --short)"
     ]
   }
 }
