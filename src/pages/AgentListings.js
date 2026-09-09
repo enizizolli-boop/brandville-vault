@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useNav } from '../hooks/useNav'
 import { supabase } from '../lib/supabase'
@@ -463,6 +463,7 @@ export default function AgentListings() {
   const [bagImages, setBagImages] = useState([])
   const [bagPreviews, setBagPreviews] = useState([])
   const [bagDragIndex, setBagDragIndex] = useState(null)
+  const bagImgUploadRef = useRef(null)
   const [bagIsPreorder, setBagIsPreorder] = useState(false)
   const [preorderReposts, setPreorderReposts] = useState({})
   const [repostingId, setRepostingId] = useState(null)
@@ -1179,6 +1180,11 @@ export default function AgentListings() {
     if (!bagName.trim()) { setBagError('Name is required.'); return }
     if (!bagCostPrice && !bagSellingPrice) { setBagError('Cost price or selling price is required.'); return }
     if (!bagModel.trim()) { setBagError('Model name is required.'); return }
+    if (bagImages.length === 0) {
+      setBagError('At least one photo is required.')
+      bagImgUploadRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
     setBagPosting(true)
     try {
       const parsed = parseQuickPost(bagName)
@@ -2266,7 +2272,7 @@ export default function AgentListings() {
 
           <form onSubmit={handleBagPost}>
             {/* Photos */}
-            <label htmlFor="bag-img-upload" style={{ display: 'block', marginBottom: 20, borderRadius: 14, border: '1.5px dashed var(--border)', background: 'var(--surface)', cursor: 'pointer', overflow: 'hidden', minHeight: 90, transition: 'border-color 0.15s' }}>
+            <label ref={bagImgUploadRef} htmlFor="bag-img-upload" style={{ display: 'block', marginBottom: 20, borderRadius: 14, border: `1.5px dashed ${bagError === 'At least one photo is required.' ? '#c62828' : 'var(--border)'}`, background: 'var(--surface)', cursor: 'pointer', overflow: 'hidden', minHeight: 90, transition: 'border-color 0.15s' }}>
               {bagPreviews.length > 0
                 ? <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: 12 }}>
                     {bagPreviews.map((p, i) => (
