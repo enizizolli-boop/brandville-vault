@@ -1000,6 +1000,7 @@ export default function AgentListings() {
 
   function handleBagImages(e) {
     const files = Array.from(e.target.files)
+    setBagError('')
     setBagImages(prev => [...prev, ...files])
     setBagPreviews(prev => [...prev, ...files.map(f => URL.createObjectURL(f))])
     e.target.value = ''
