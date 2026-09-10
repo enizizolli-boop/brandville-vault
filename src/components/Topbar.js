@@ -136,6 +136,7 @@ function MobileMenu({ profile, currency, setCurrency, onNavigate, onSignOut, onC
           {profile?.role === 'admin' && <button className="btn btn-sm" onClick={() => { onClose(); onNavigate('/admin') }}>Admin</button>}
           {profile?.role === 'dealer' && <button className="btn btn-sm" onClick={() => { onClose(); onNavigate('/offers') }}>My Offers</button>}
           {(profile?.role === 'agent' || profile?.role === 'admin' || profile?.role === 'jewellery_agent') && <button className="btn btn-sm" onClick={() => { onClose(); onNavigate('/agent') }}>Agent Panel</button>}
+          {(profile?.role === 'agent' || profile?.role === 'admin' || profile?.role === 'jewellery_agent') && <button className="btn btn-sm" onClick={() => { onClose(); onNavigate('/want-to-buy') }}>Want to Buy</button>}
           <button className="btn btn-sm" onClick={onSignOut}>Sign out</button>
         </div>
       </div>
@@ -353,6 +354,10 @@ export default function Topbar() {
           {(profile?.role === 'agent' || profile?.role === 'admin' || profile?.role === 'jewellery_agent') && (
             <button className="btn btn-sm topbar-btn-desktop" onClick={() => navigate('/agent')}
               style={{ fontSize: 11, padding: '5px 10px' }}>Agent Panel</button>
+          )}
+          {(profile?.role === 'agent' || profile?.role === 'admin' || profile?.role === 'jewellery_agent') && (
+            <button className="btn btn-sm topbar-btn-desktop" onClick={() => navigate('/want-to-buy')}
+              style={{ fontSize: 11, padding: '5px 10px' }}>WTB</button>
           )}
           {profile?.role === 'admin' && (
             <button className="btn btn-sm topbar-btn-desktop" onClick={() => navigate('/admin')}

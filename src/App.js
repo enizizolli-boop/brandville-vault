@@ -16,6 +16,7 @@ import SupplierDashboard from './pages/SupplierDashboard'
 import JewellerySupplierDashboard from './pages/JewellerySupplierDashboard'
 import PreviewCatalog from './pages/PreviewCatalog'
 import PreviewDetail from './pages/PreviewDetail'
+import WantToBuyPage from './pages/WantToBuyPage'
 
 function PrivateRoute({ children, allowedRoles }) {
   const { user, profile, loading } = useAuth()
@@ -63,6 +64,7 @@ export default function App() {
           <Route path="/account" element={<PrivateRoute><MyAccount /></PrivateRoute>} />
           <Route path="/supplier" element={<PrivateRoute allowedRoles={['supplier']}><SupplierDashboard /></PrivateRoute>} />
           <Route path="/jewellery-supplier" element={<PrivateRoute allowedRoles={['jewellery_supplier']}><JewellerySupplierDashboard /></PrivateRoute>} />
+          <Route path="/want-to-buy" element={<PrivateRoute allowedRoles={['admin', 'agent', 'jewellery_agent']}><WantToBuyPage /></PrivateRoute>} />
         </Routes>
       </BrowserRouter>
       </CurrencyProvider>
