@@ -29,7 +29,17 @@ function PrivateRoute({ children, allowedRoles }) {
 function RoleRedirect() {
   const { profile, loading } = useAuth()
   if (loading) return <div className="loading-page"><div className="spinner" /></div>
-  if (!profile) return <Navigate to="/login" replace />
+  if (!profile) {
+    // Catch Supabase auth errors in the URL hash (e.g. otp_expired when a magic link
+    // is opened inside an in-app browser like QQ Mail / WeChat which consumes the token)
+    const hash = window.location.hash
+    if (hash && hash.includes('error=')) {
+      const params = new URLSearchParams(hash.replace(/^#/, ''))
+      const code = params.get('error_code') || params.get('error') || 'unknown'
+      return <Navigate to={`/login?auth_error=${encodeURIComponent(code)}`} replace />
+    }
+    return <Navigate to="/login" replace />
+  }
   if (profile.role === 'admin') return <Navigate to="/admin" replace />
   if (profile.role === 'agent') return <Navigate to="/home" replace />
   if (profile.role === 'b2c') return <Navigate to="/home" replace />

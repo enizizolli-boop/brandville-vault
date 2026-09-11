@@ -1,10 +1,31 @@
 import { useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 
+function authErrorMessage(code) {
+  if (code === 'otp_expired') {
+    return {
+      title: 'Setup link already used',
+      body: 'Your invitation link was opened inside an email app (e.g. QQ Mail, WeChat) which blocked it from completing. The link can only be used once — please ask the Brandville team to send you a new invitation, then open it directly in Chrome or Safari.',
+    }
+  }
+  if (code === 'access_denied') {
+    return {
+      title: 'Access denied',
+      body: 'Your login link could not be verified. Please try signing in with your email and password, or request a new link.',
+    }
+  }
+  return {
+    title: 'Link expired or invalid',
+    body: 'Your login link has expired or already been used. Please sign in with your email and password, or use "Forgot password?" to get a new link.',
+  }
+}
+
 export default function Login() {
   const { signIn, user, profile } = useAuth()
+  const [searchParams] = useSearchParams()
+  const authError = searchParams.get('auth_error')
   const [email, setEmail] = useState(() => localStorage.getItem('bv_saved_email') || '')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -53,6 +74,16 @@ export default function Login() {
           </div>
           <div style={{ fontSize: 12, color: 'var(--muted)', letterSpacing: 0.3 }}>Private catalog — access by invitation only</div>
         </div>
+        {authError && (() => {
+          const { title, body } = authErrorMessage(authError)
+          return (
+            <div style={{ marginBottom: 16, padding: '14px 16px', borderRadius: 10,
+              background: 'rgba(184,150,90,0.12)', border: '1px solid rgba(184,150,90,0.35)' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--gold)', marginBottom: 4 }}>{title}</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6 }}>{body}</div>
+            </div>
+          )
+        })()}
         <div className="card" style={{ padding: '28px 24px' }}>
           {forgotMode ? (
             forgotSent ? (
