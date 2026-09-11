@@ -18,10 +18,23 @@ import PreviewCatalog from './pages/PreviewCatalog'
 import PreviewDetail from './pages/PreviewDetail'
 import WantToBuyPage from './pages/WantToBuyPage'
 
+function authErrorFromHash() {
+  // Supabase puts auth errors in the URL hash, e.g.:
+  // /#error=access_denied&error_code=otp_expired&...
+  const hash = window.location.hash
+  if (!hash || !hash.includes('error=')) return null
+  const params = new URLSearchParams(hash.replace(/^#/, ''))
+  return params.get('error_code') || params.get('error') || 'unknown'
+}
+
 function PrivateRoute({ children, allowedRoles }) {
   const { user, profile, loading } = useAuth()
   if (loading) return <div className="loading-page"><div className="spinner" /></div>
-  if (!user) return <Navigate to="/login" replace />
+  if (!user) {
+    const errCode = authErrorFromHash()
+    if (errCode) return <Navigate to={`/login?auth_error=${encodeURIComponent(errCode)}`} replace />
+    return <Navigate to="/login" replace />
+  }
   if (allowedRoles && !allowedRoles.includes(profile?.role)) return <Navigate to="/" replace />
   return children
 }
@@ -29,17 +42,7 @@ function PrivateRoute({ children, allowedRoles }) {
 function RoleRedirect() {
   const { profile, loading } = useAuth()
   if (loading) return <div className="loading-page"><div className="spinner" /></div>
-  if (!profile) {
-    // Catch Supabase auth errors in the URL hash (e.g. otp_expired when a magic link
-    // is opened inside an in-app browser like QQ Mail / WeChat which consumes the token)
-    const hash = window.location.hash
-    if (hash && hash.includes('error=')) {
-      const params = new URLSearchParams(hash.replace(/^#/, ''))
-      const code = params.get('error_code') || params.get('error') || 'unknown'
-      return <Navigate to={`/login?auth_error=${encodeURIComponent(code)}`} replace />
-    }
-    return <Navigate to="/login" replace />
-  }
+  if (!profile) return <Navigate to="/login" replace />
   if (profile.role === 'admin') return <Navigate to="/admin" replace />
   if (profile.role === 'agent') return <Navigate to="/home" replace />
   if (profile.role === 'b2c') return <Navigate to="/home" replace />
