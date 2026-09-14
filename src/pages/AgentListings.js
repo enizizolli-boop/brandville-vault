@@ -671,27 +671,37 @@ export default function AgentListings() {
     }
   }, [profile, listingType, fetchPreorders]) // search excluded — its changes handled by debounce effect below
 
-  useEffect(() => {
-    if (listingType !== 'preorders-bags') return
-    const bagIds = preorders.map(p => p.id)
+  const fetchPreorderReposts = useCallback(async (bagIds) => {
     if (bagIds.length === 0) { setPreorderReposts({}); return }
-    let cancelled = false
-    supabase
+    const { data, error } = await supabase
       .from('repost_requests')
       .select('id, preorder_id, status, requested_at, completed_at, error_message')
       .in('preorder_id', bagIds)
       .order('requested_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (cancelled) return
-        if (error) { console.error('fetch preorder reposts error:', error); setPreorderReposts({}); return }
-        const latestByPreorder = {}
-        for (const row of data || []) {
-          if (!latestByPreorder[row.preorder_id]) latestByPreorder[row.preorder_id] = row
-        }
-        setPreorderReposts(latestByPreorder)
+    if (error) { console.error('fetch preorder reposts error:', error); setPreorderReposts({}); return }
+    const latestByPreorder = {}
+    for (const row of data || []) {
+      if (!latestByPreorder[row.preorder_id]) latestByPreorder[row.preorder_id] = row
+    }
+    setPreorderReposts(latestByPreorder)
+  }, [])
+
+  useEffect(() => {
+    if (listingType !== 'preorders-bags') return
+    fetchPreorderReposts(preorders.map(p => p.id))
+  }, [preorders, listingType, fetchPreorderReposts])
+
+  // Live-update repost status (e.g. n8n marking a request completed/failed)
+  // without needing a manual refresh — same pattern as Topbar/DealerCatalog.
+  useEffect(() => {
+    if (listingType !== 'preorders-bags') return
+    const sub = supabase.channel('repost-requests-bags')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'repost_requests' }, () => {
+        fetchPreorderReposts(preorders.map(p => p.id))
       })
-    return () => { cancelled = true }
-  }, [preorders, listingType])
+      .subscribe()
+    return () => supabase.removeChannel(sub)
+  }, [listingType, preorders, fetchPreorderReposts])
 
   // Debounced server-side search — fires 350ms after the user stops typing
   useEffect(() => {
