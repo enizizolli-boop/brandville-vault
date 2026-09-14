@@ -1368,19 +1368,9 @@ export default function AgentListings() {
   async function markPreorderSold(preorder) {
     await supabase.from('preorders').update({ status: 'sold' }).eq('id', preorder.id)
     fetchPreorders(0, listingType, search)
-    // Create draft in Zoho Inventory and show confirmation
-    setMsg('Marked as sold — creating draft in Zoho Inventory…')
-    fetch('/api/zoho-create-draft', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(preorder),
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.ok) setMsg(`✓ Marked sold · Draft created in Zoho Inventory: "${data.zoho_item_name}"`)
-        else setMsg(`Marked sold · Zoho draft failed: ${data.error || 'unknown error'}`)
-      })
-      .catch(e => setMsg(`Marked sold · Zoho draft failed: ${e.message}`))
+    setMsg('Marked as sold.')
+    // Zoho draft creation temporarily disabled
+    // fetch('/api/zoho-create-draft', { ... })
   }
 
   async function markPreorderAvailable(id) {
