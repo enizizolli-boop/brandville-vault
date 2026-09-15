@@ -265,7 +265,7 @@ export default function DealerCatalog({ routeCategory }) {
   const [filterPriceMax, setFilterPriceMax] = useState(150000)
   const [filterYearMin, setFilterYearMin] = useState('')
   const [filterYearMax, setFilterYearMax] = useState('')
-  const [sortBy, setSortBy] = useState('')
+  const [sortBy, setSortBy] = useState(lockedCategory === 'Jewellery' ? 'price_desc' : '')
   const [filterSourceType, setFilterSourceType] = useState('')
   const [filterReadyToShip, setFilterReadyToShip] = useState(false)
 
