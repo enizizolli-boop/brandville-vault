@@ -266,6 +266,10 @@ export default function DealerCatalog({ routeCategory }) {
   const [filterYearMin, setFilterYearMin] = useState('')
   const [filterYearMax, setFilterYearMax] = useState('')
   const [sortBy, setSortBy] = useState(lockedCategory === 'Jewellery' ? 'price_desc' : '')
+  // Reset sort to the correct default whenever the category changes (e.g. navigating catalog → jewellery)
+  useEffect(() => {
+    setSortBy(lockedCategory === 'Jewellery' ? 'price_desc' : '')
+  }, [lockedCategory])
   const [filterSourceType, setFilterSourceType] = useState('')
   const [filterReadyToShip, setFilterReadyToShip] = useState(false)
 
