@@ -34,8 +34,8 @@ const PRICE_CURRENCIES = [
 const STATUS_CONFIG = {
   draft:          { color: '#94a3b8' },
   pending_review: { color: '#f59e0b' },
-  approved:       { color: '#22c55e' },
-  rejected:       { color: '#ef4444' },
+  approved:       { color: '#b8965a' },
+  rejected:       { color: '#b8965a' },
   sold:           { color: '#6b7280' },
 }
 
@@ -44,8 +44,8 @@ const TRANSLATIONS = {
     // Sidebar
     sidebarLabel: '列表',
     myListings: '我的商品',
-    approved: '已批准',
-    rejected: '已拒绝',
+    approved: '已发布',
+    rejected: '已发布',
     needHelp: '需要帮助？',
     helpDesc: '我们的团队随时为您服务。',
     contactSupport: '联系客服 →',
@@ -100,13 +100,11 @@ const TRANSLATIONS = {
     // Tabs / status labels
     tabAll: '全部',
     tabPending: '待审核',
-    tabApproved: '已批准',
-    tabRejected: '已拒绝',
+    tabPosted: '已发布',
     tabSold: '已售',
     statusDraft: '草稿',
     statusPending: '待审核',
-    statusApproved: '已批准',
-    statusRejected: '已拒绝',
+    statusPosted: '已发布',
     statusSold: '已售',
     // Confirm dialogs
     confirmSubmit: '确认提交此商品供审核？',
@@ -124,8 +122,8 @@ const TRANSLATIONS = {
     // Sidebar
     sidebarLabel: 'Listings',
     myListings: 'My Listings',
-    approved: 'Approved',
-    rejected: 'Rejected',
+    approved: 'Posted',
+    rejected: 'Posted',
     needHelp: 'Need help?',
     helpDesc: 'Our team is here to help you.',
     contactSupport: 'Contact Support →',
@@ -180,13 +178,11 @@ const TRANSLATIONS = {
     // Tabs / status labels
     tabAll: 'All',
     tabPending: 'Pending Review',
-    tabApproved: 'Approved',
-    tabRejected: 'Rejected',
+    tabPosted: 'Posted',
     tabSold: 'Sold',
     statusDraft: 'Draft',
     statusPending: 'Pending Review',
-    statusApproved: 'Approved',
-    statusRejected: 'Rejected',
+    statusPosted: 'Posted',
     statusSold: 'Sold',
     // Confirm dialogs
     confirmSubmit: 'Submit this listing for agent review?',
@@ -258,8 +254,8 @@ export default function SupplierDashboard() {
   const statusLabel = s => ({
     draft: t.statusDraft,
     pending_review: t.statusPending,
-    approved: t.statusApproved,
-    rejected: t.statusRejected,
+    approved: t.statusPosted,
+    rejected: t.statusPosted,
     sold: t.statusSold,
   }[s] || s)
 
@@ -504,7 +500,9 @@ export default function SupplierDashboard() {
   }
 
   const filteredListings = listings.filter(l => {
-    if (filterStatus !== 'all' && l.status !== filterStatus) return false
+    if (filterStatus === 'posted') {
+      if (l.status !== 'approved' && l.status !== 'rejected') return false
+    } else if (filterStatus !== 'all' && l.status !== filterStatus) return false
     if (supSearch) {
       const q = supSearch.toLowerCase()
       if (!`${l.brand} ${l.model} ${l.reference || ''}`.toLowerCase().includes(q)) return false
@@ -571,8 +569,7 @@ export default function SupplierDashboard() {
           <button onClick={() => setMobileMenuOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: 18, lineHeight: 1, display: 'flex', alignItems: 'center' }}>✕</button>
         </div>
         {sbNav('all', t.myListings, <IconBagSB />)}
-        {sbNav('approved', t.approved, <IconCheck />)}
-        {sbNav('rejected', t.rejected, <IconX />)}
+        {sbNav('posted', t.approved, <IconCheck />)}
         <div style={{ flex: 1 }} />
         <div style={{ margin: '16px 12px 0', background: '#fdf8f2', border: '1px solid #e9d8bc', borderRadius: 12, padding: '14px 14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
@@ -786,11 +783,7 @@ export default function SupplierDashboard() {
                 <div style={{ padding: '4px 12px', borderRadius: 20, background: cfg.color + '20', color: cfg.color, fontSize: 12, fontWeight: 600 }}>{statusLabel(selected.status)}</div>
               </div>
 
-              {selected.status === 'rejected' && selected.rejection_reason && (
-                <div style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.18)', borderRadius: 10, padding: '12px 14px', marginBottom: 20, fontSize: 13, color: '#ef4444' }}>
-                  <strong>{t.rejectionReason}</strong> {selected.rejection_reason}
-                </div>
-              )}
+              {/* rejection reason hidden from supplier */}
 
               {imgs.length > 0 && (
                 <div style={{ marginBottom: 20 }}>
@@ -848,10 +841,7 @@ export default function SupplierDashboard() {
                 {selected.status === 'draft' && (
                   <button className="btn" onClick={() => submitDraft(selected)}>{t.submitForReview}</button>
                 )}
-                {selected.status === 'rejected' && (
-                  <button className="btn" onClick={() => submitDraft(selected)}>{t.resubmitForReview}</button>
-                )}
-                {(selected.status === 'approved' || selected.status === 'pending_review') && (
+                {(selected.status === 'approved' || selected.status === 'rejected' || selected.status === 'pending_review') && (
                   <button
                     onClick={() => markAsSold(selected)}
                     style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', color: '#374151', fontSize: 14, cursor: 'pointer', fontWeight: 500 }}
@@ -868,11 +858,11 @@ export default function SupplierDashboard() {
   }
 
   const countByStatus = s => listings.filter(l => l.status === s).length
+  const countPosted = countByStatus('approved') + countByStatus('rejected')
   const TABS = [
     { key: 'all', label: t.tabAll, count: listings.length },
     { key: 'pending_review', label: t.tabPending, count: countByStatus('pending_review') },
-    { key: 'approved', label: t.tabApproved, count: countByStatus('approved') },
-    { key: 'rejected', label: t.tabRejected, count: countByStatus('rejected') },
+    { key: 'posted', label: t.tabPosted, count: countPosted },
     { key: 'sold', label: t.tabSold, count: countByStatus('sold') },
   ].filter(tab => tab.key === 'all' || tab.count > 0)
 
