@@ -148,7 +148,7 @@ export default async function handler(req, res) {
     const domain = [
       ['active', '=', true],
       ['categ_id', '=', JEWELRY_CATEG_ID],
-      ['dr_free_qty', '>', 0],
+      ['qty_available', '>', 0],
     ];
     let odooItems = [];
     let page = 0;
