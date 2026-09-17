@@ -292,6 +292,7 @@ export default function WatchDetail() {
     setMsg('')
     const maxPos = images.length > 0 ? Math.max(...images.map(img => img.position)) + 1 : 0
     let uploaded = 0
+    let addPos = 0
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
       const ext = file.name.split('.').pop()
@@ -300,10 +301,11 @@ export default function WatchDetail() {
       if (upErr) { setMsg(`Upload failed: ${upErr.message}`); continue }
       const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path)
       const imgTable = isPreorder ? 'preorder_images' : 'product_images'
-      const imgRecord = isPreorder ? { preorder_id: watch.id, url: publicUrl, position: maxPos + i } : { product_id: watch.id, url: publicUrl, position: maxPos + i }
+      const imgRecord = isPreorder ? { preorder_id: watch.id, url: publicUrl, position: maxPos + addPos } : { product_id: watch.id, url: publicUrl, position: maxPos + addPos }
       const { error: dbErr } = await supabase.from(imgTable).insert(imgRecord)
       if (dbErr) { setMsg(`Save failed: ${dbErr.message}`); continue }
       uploaded++
+      addPos++
     }
     setUploadingImg(false)
     if (uploaded > 0) setMsg('')

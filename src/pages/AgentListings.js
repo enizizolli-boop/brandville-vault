@@ -1134,6 +1134,7 @@ export default function AgentListings() {
         if (pErr) throw pErr
 
         let imagesFailed = 0
+        let imgPos = 0
         for (let i = 0; i < images.length; i++) {
           const file = images[i]
           const ext = file.name.split('.').pop()
@@ -1141,8 +1142,9 @@ export default function AgentListings() {
           const { error: upErr } = await supabase.storage.from('watch-images').upload(path, file)
           if (upErr) { console.error('Preorder image upload error:', upErr.message); imagesFailed++; continue }
           const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path)
-          const { error: dbErr } = await supabase.from('preorder_images').insert({ preorder_id: preorder.id, url: publicUrl, position: i })
+          const { error: dbErr } = await supabase.from('preorder_images').insert({ preorder_id: preorder.id, url: publicUrl, position: imgPos })
           if (dbErr) { console.error('Preorder image DB error:', dbErr.message); imagesFailed++ }
+          else imgPos++
         }
 
         setForm(EMPTY_FORM)
@@ -1264,6 +1266,7 @@ export default function AgentListings() {
       if (pErr) throw pErr
 
       let imagesFailed = 0
+      let bagImgPos = 0
       const imageUrls = []
       for (let i = 0; i < bagImages.length; i++) {
         const file = bagImages[i]
@@ -1273,8 +1276,9 @@ export default function AgentListings() {
         if (upErr) { console.error('Bag image upload error:', upErr.message); imagesFailed++; continue }
         const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path)
         imageUrls.push(publicUrl)
-        const { error: dbErr } = await supabase.from(imgTable).insert({ [fkCol]: item.id, url: publicUrl, position: i })
+        const { error: dbErr } = await supabase.from(imgTable).insert({ [fkCol]: item.id, url: publicUrl, position: bagImgPos })
         if (dbErr) { console.error('Bag image DB error:', dbErr.message); imagesFailed++ }
+        else bagImgPos++
       }
 
       if (bagIsPreorder && bagCategory === 'Bags' && imageUrls.length > 0) {
