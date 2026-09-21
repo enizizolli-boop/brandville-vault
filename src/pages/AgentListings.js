@@ -878,8 +878,8 @@ export default function AgentListings() {
     }).select().single()
     if (pErr) { alert('Failed to create preorder: ' + pErr.message); return }
     const imgs = (listing.supplier_listing_images || []).sort((a, b) => a.position - b.position)
-    for (const img of imgs) {
-      await supabase.from('preorder_images').insert({ preorder_id: preorder.id, url: img.url, position: img.position })
+    for (let imgIdx = 0; imgIdx < imgs.length; imgIdx++) {
+      await supabase.from('preorder_images').insert({ preorder_id: preorder.id, url: imgs[imgIdx].url, position: imgIdx })
     }
     await supabase.from('supplier_listings').update({
       status: 'approved',
@@ -980,6 +980,7 @@ export default function AgentListings() {
     }
 
     const startPos = supEditExistingImgs.filter(img => !supEditRemovedIds.includes(img.id)).length
+    let newImgPos = 0
     for (let i = 0; i < supEditNewFiles.length; i++) {
       const file = supEditNewFiles[i]
       const ext = file.name.split('.').pop()
@@ -987,7 +988,8 @@ export default function AgentListings() {
       const { error: upErr } = await supabase.storage.from('watch-images').upload(path, file)
       if (upErr) continue
       const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path)
-      await supabase.from('supplier_listing_images').insert({ listing_id: listingId, url: publicUrl, position: startPos + i })
+      await supabase.from('supplier_listing_images').insert({ listing_id: listingId, url: publicUrl, position: startPos + newImgPos })
+      newImgPos++
     }
 
     // Optimistic update: immediately reflect edits in local state so the approve
