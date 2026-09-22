@@ -290,6 +290,8 @@ export default function AdminPanel() {
         setBagsResult({ inProgress: !data.done, added: totalAdded, updated: totalUpdated, removed: totalRemoved, images_added: totalImages, processed: offset + (data.processed || 0), total: grandTotal })
         if (data.done || !data.next_offset) break; offset = data.next_offset
       }
+      // After all image batches, run the cron to mark sold items (qty=0 drops)
+      try { await fetch('/api/cron-odoo-bags-sync') } catch (_) {}
       fetchStats()
     } catch (err) { setBagsError(err.message || 'Bags sync failed.') }
     setBagsSyncing(false)
