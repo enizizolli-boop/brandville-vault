@@ -252,6 +252,7 @@ export default async function handler(req, res) {
           'gucci': 'Gucci',
           'prada': 'Prada',
           'dior': 'Dior',
+          'fred': 'Fred',
           'tiffany': 'Tiffany & Co',
           'harry winston': 'Harry Winston',
           'graff': 'Graff',

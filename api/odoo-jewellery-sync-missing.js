@@ -112,7 +112,7 @@ const BRAND_MAP = {
   'cartier': 'Cartier', 'chanel': 'Chanel', 'chopard': 'Chopard',
   'hermes': 'Hermès', 'hermès': 'Hermès',
   'louis vuitton': 'Louis Vuitton', 'gucci': 'Gucci', 'prada': 'Prada',
-  'dior': 'Dior', 'tiffany': 'Tiffany & Co',
+  'dior': 'Dior', 'fred': 'Fred', 'tiffany': 'Tiffany & Co',
   'harry winston': 'Harry Winston', 'graff': 'Graff',
   'piaget': 'Piaget', 'de beers': 'De Beers', 'mikimoto': 'Mikimoto',
   'rolex': 'Rolex', 'omega': 'Omega', 'breitling': 'Breitling',
