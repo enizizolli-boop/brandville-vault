@@ -210,7 +210,7 @@ export default async function handler(req, res) {
 
       const items = await odooRead(
         domain,
-        ['id', 'name', 'default_code', 'list_price', 'description_sale', 'image_1920', 'qty_available', 'virtual_available', 'categ_id', 'x_studio_condition'],
+        ['id', 'name', 'default_code', 'list_price', 'description_sale', 'image_1920', 'qty_available', 'virtual_available', 'categ_id', 'x_studio_condition', 'brand_id'],
         BATCH_SIZE, offset
       );
       if (!items || items.length === 0) break;
@@ -238,7 +238,9 @@ export default async function handler(req, res) {
       (existing || []).forEach(i => { existingMap[i.odoo_product_id] = { id: i.id, status: i.status }; });
 
       for (const item of items) {
-        const brand = brandMap[String(item.id)] || 'Unknown';
+        const brand = (Array.isArray(item.brand_id) ? item.brand_id[1] : null)
+          || brandMap[String(item.id)]
+          || 'Unknown';
 
         const existingEntry = existingMap[String(item.id)];
         const isExisting = !!existingEntry;

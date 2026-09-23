@@ -160,7 +160,7 @@ export default async function handler(req, res) {
     while (true) {
       const batch = await odooSearchRead(
         'product.template', domain,
-        ['id', 'name', 'default_code', 'list_price', 'description_sale', 'categ_id', 'x_studio_condition'],
+        ['id', 'name', 'default_code', 'list_price', 'description_sale', 'categ_id', 'x_studio_condition', 'brand_id'],
         pageSize, page * pageSize
       );
       if (!batch.length) break;
@@ -297,7 +297,7 @@ export default async function handler(req, res) {
         subcategory,
         odoo_product_id: String(n.odoo_id),
         source: 'odoo',
-        brand: brandMap[String(n.odoo_id)] || 'Unknown',
+        brand: (Array.isArray(n.brand_id) ? n.brand_id[1] : null) || brandMap[String(n.odoo_id)] || 'Unknown',
         model: (n.name || '').trim(),
         reference: refClean,
         price_eur: n.list_price || null,

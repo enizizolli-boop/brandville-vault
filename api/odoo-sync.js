@@ -144,8 +144,9 @@ async function fetchSoldProductTemplateIds() {
   // Returns a Set of product.template IDs on any non-cancelled sale order (draft or confirmed).
   // Two-step: sale.order.line → product.product → product.template (works across all Odoo versions).
   try {
-    // Step 1: get product.product IDs from non-cancelled sale order lines
-    const domainXml = domainToXml([['order_id.state', '!=', 'cancel']]);
+    // Step 1: get product.product IDs from confirmed/done sale order lines only
+    // (drafts/quotations don't represent actual sales — don't hide the product yet)
+    const domainXml = domainToXml([['order_id.state', 'in', ['sale', 'done']]]);
     const body1 = `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>` +
       `<param><value><string>${ODOO_DB}</string></value></param>` +
       `<param><value><int>${ODOO_UID}</int></value></param>` +
@@ -252,7 +253,7 @@ export default async function handler(req, res) {
   try {
     const domain = [['active', '=', true], ['categ_id', 'child_of', JEWELRY_CATEG_ID], ['qty_available', '>', 0]];
     const totalCount = await odooCount(domain);
-    const items = await odooRead(domain, ['id', 'name', 'default_code', 'list_price', 'description_sale', 'image_1920', 'qty_available', 'virtual_available', 'categ_id', 'x_studio_condition'], batch_size, offset);
+    const items = await odooRead(domain, ['id', 'name', 'default_code', 'list_price', 'description_sale', 'image_1920', 'qty_available', 'virtual_available', 'categ_id', 'x_studio_condition', 'brand_id'], batch_size, offset);
 
     // Fetch all product template IDs currently on any non-cancelled sale order (draft or confirmed).
     // These are definitively sold regardless of qty_available.
@@ -287,7 +288,10 @@ export default async function handler(req, res) {
     const brandMap = await fetchBrandMap(items.map(i => i.id));
 
     for (const item of items) {
-      const brand = brandMap[String(item.id)] || 'Unknown';
+      // brand_id is a Many2one → [id, 'Brand Name'] or false
+      const brand = (Array.isArray(item.brand_id) ? item.brand_id[1] : null)
+        || brandMap[String(item.id)]
+        || 'Unknown';
 
       const existingEntry = existingMap[String(item.id)];
       const isExisting = !!existingEntry;
