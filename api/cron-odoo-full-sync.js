@@ -15,19 +15,6 @@ const ODOO_API_KEY = process.env.ODOO_API_KEY;
 const JEWELRY_CATEG_ID = 8;
 const BATCH_SIZE = 50; // larger batches since we skip images for existing items
 
-const BRAND_MAP = {
-  'bvlgari': 'Bulgari', 'bulgari': 'Bulgari',
-  'van cleef': 'Van Cleef & Arpels', 'vca': 'Van Cleef & Arpels',
-  'cartier': 'Cartier', 'chanel': 'Chanel', 'chopard': 'Chopard',
-  'hermes': 'Hermès', 'hermès': 'Hermès',
-  'louis vuitton': 'Louis Vuitton', 'gucci': 'Gucci', 'prada': 'Prada',
-  'dior': 'Dior', 'fred': 'Fred', 'tiffany': 'Tiffany & Co', 'harry winston': 'Harry Winston',
-  'graff': 'Graff', 'piaget': 'Piaget', 'de beers': 'De Beers',
-  'mikimoto': 'Mikimoto', 'rolex': 'Rolex', 'omega': 'Omega',
-  'breitling': 'Breitling', 'patek': 'Patek Philippe',
-  'audemars': 'Audemars Piguet', 'richard mille': 'Richard Mille',
-  'iwc': 'IWC', 'jaeger': 'Jaeger-LeCoultre', 'vacheron': 'Vacheron Constantin',
-};
 
 const JEWELLERY_TYPE_MAP = {
   'bracelets': 'Bracelets', 'bracelet': 'Bracelets',
@@ -41,10 +28,57 @@ function domainToXml(domain) {
   return domain.map(([field, op, val]) => {
     let valXml;
     if (typeof val === 'boolean') valXml = `<value><boolean>${val ? 1 : 0}</boolean></value>`;
-    else if (typeof val === 'number') valXml = `<value><int>${val}</int></value>`;
+    else if (Array.isArray(val)) {
+      const inner = val.map(v => typeof v === 'number' ? `<value><int>${v}</int></value>` : `<value><string>${v}</string></value>`).join('');
+      valXml = `<value><array><data>${inner}</data></array></value>`;
+    } else if (typeof val === 'number') valXml = `<value><int>${val}</int></value>`;
     else valXml = `<value><string>${val}</string></value>`;
     return `<value><array><data><value><string>${field}</string></value><value><string>${op}</string></value>${valXml}</data></array></value>`;
   }).join('');
+}
+
+async function odooModelRead(model, domain, fields, limit = 200) {
+  const fieldsXml = fields.map(f => `<value><string>${f}</string></value>`).join('');
+  const body = `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>` +
+    `<param><value><string>${ODOO_DB}</string></value></param>` +
+    `<param><value><int>${ODOO_UID}</int></value></param>` +
+    `<param><value><string>${ODOO_API_KEY}</string></value></param>` +
+    `<param><value><string>${model}</string></value></param>` +
+    `<param><value><string>search_read</string></value></param>` +
+    `<param><value><array><data><value><array><data>${domainToXml(domain)}</data></array></value></data></array></value></param>` +
+    `<param><value><struct><member><name>fields</name><value><array><data>${fieldsXml}</data></array></value></member>` +
+    `<member><name>limit</name><value><int>${limit}</int></value></member></struct></value></param></params></methodCall>`;
+  const res = await fetch(ODOO_URL + '/xmlrpc/2/object', { method: 'POST', headers: { 'Content-Type': 'text/xml' }, body });
+  const text = await res.text();
+  if (text.includes('<fault>')) throw new Error(`Odoo model read fault (${model}): ` + text.substring(0, 200));
+  return parseItems(text);
+}
+
+async function fetchBrandMap(templateIds) {
+  if (!templateIds.length) return {};
+  try {
+    const attrs = await odooModelRead('product.attribute', [['name', '=', 'Brand']], ['id'], 1);
+    if (!attrs.length) return {};
+    const brandAttrId = attrs[0].id;
+    const lines = await odooModelRead(
+      'product.template.attribute.line',
+      [['attribute_id', '=', brandAttrId], ['product_tmpl_id', 'in', templateIds]],
+      ['product_tmpl_id', 'value_ids'], 5000
+    );
+    if (!lines.length) return {};
+    const valueIds = [...new Set(lines.map(l => typeof l.value_ids === 'number' ? l.value_ids : null).filter(Boolean))];
+    if (!valueIds.length) return {};
+    const values = await odooModelRead('product.attribute.value', [['id', 'in', valueIds]], ['id', 'name'], valueIds.length);
+    const valueMap = {};
+    values.forEach(v => { valueMap[v.id] = v.name; });
+    const brandMap = {};
+    for (const line of lines) {
+      const tmplId = String(Array.isArray(line.product_tmpl_id) ? line.product_tmpl_id[0] : line.product_tmpl_id);
+      const valueId = typeof line.value_ids === 'number' ? line.value_ids : null;
+      if (tmplId && valueId && valueMap[valueId]) brandMap[tmplId] = valueMap[valueId];
+    }
+    return brandMap;
+  } catch (e) { console.error('fetchBrandMap error:', e); return {}; }
 }
 
 function parseItems(xml) {
@@ -156,6 +190,9 @@ export default async function handler(req, res) {
     // Remove stale items
     const allOdooItems = await odooRead(domain, ['id'], 5000, 0);
     const allOdooIds = allOdooItems.map(i => String(i.id));
+
+    // Fetch brand from Odoo attribute (no hardcoded map needed)
+    const brandMap = await fetchBrandMap(allOdooItems.map(i => i.id));
     const { data: allExisting } = await supabase.from('products').select('odoo_product_id').eq('source', 'odoo').eq('category', 'Jewellery');
     const toDelete = (allExisting || []).map(i => i.odoo_product_id).filter(id => id && !allOdooIds.includes(id));
     if (toDelete.length > 0) {
@@ -201,12 +238,7 @@ export default async function handler(req, res) {
       (existing || []).forEach(i => { existingMap[i.odoo_product_id] = { id: i.id, status: i.status }; });
 
       for (const item of items) {
-        let brand = 'Unknown';
-        const nameLower = item.name?.toLowerCase() || '';
-        const refLower = (item.default_code || '').toLowerCase();
-        for (const [key, val] of Object.entries(BRAND_MAP)) {
-          if (nameLower.includes(key) || refLower.includes(key)) { brand = val; break; }
-        }
+        const brand = brandMap[String(item.id)] || 'Unknown';
 
         const existingEntry = existingMap[String(item.id)];
         const isExisting = !!existingEntry;

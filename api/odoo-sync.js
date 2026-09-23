@@ -200,6 +200,51 @@ async function fetchSoldProductTemplateIds() {
   }
 }
 
+async function odooModelRead(model, domain, fields, limit = 200) {
+  const fieldsXml = fields.map(f => '<value><string>' + f + '</string></value>').join('');
+  const body = '<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>' +
+    '<param><value><string>' + ODOO_DB + '</string></value></param>' +
+    '<param><value><int>' + ODOO_UID + '</int></value></param>' +
+    '<param><value><string>' + ODOO_API_KEY + '</string></value></param>' +
+    '<param><value><string>' + model + '</string></value></param>' +
+    '<param><value><string>search_read</string></value></param>' +
+    '<param><value><array><data><value><array><data>' + domainToXml(domain) + '</data></array></value></data></array></value></param>' +
+    '<param><value><struct><member><name>fields</name><value><array><data>' + fieldsXml + '</data></array></value></member>' +
+    '<member><name>limit</name><value><int>' + limit + '</int></value></member></struct></value></param>' +
+    '</params></methodCall>';
+  const res = await fetch(ODOO_URL + '/xmlrpc/2/object', { method: 'POST', headers: { 'Content-Type': 'text/xml' }, body });
+  const text = await res.text();
+  if (text.includes('<fault>')) throw new Error('Odoo model read fault (' + model + '): ' + text.substring(0, 200));
+  return parseItems(text);
+}
+
+async function fetchBrandMap(templateIds) {
+  if (!templateIds.length) return {};
+  try {
+    const attrs = await odooModelRead('product.attribute', [['name', '=', 'Brand']], ['id'], 1);
+    if (!attrs.length) return {};
+    const brandAttrId = attrs[0].id;
+    const lines = await odooModelRead(
+      'product.template.attribute.line',
+      [['attribute_id', '=', brandAttrId], ['product_tmpl_id', 'in', templateIds]],
+      ['product_tmpl_id', 'value_ids'], 5000
+    );
+    if (!lines.length) return {};
+    const valueIds = [...new Set(lines.map(l => typeof l.value_ids === 'number' ? l.value_ids : null).filter(Boolean))];
+    if (!valueIds.length) return {};
+    const values = await odooModelRead('product.attribute.value', [['id', 'in', valueIds]], ['id', 'name'], valueIds.length);
+    const valueMap = {};
+    values.forEach(v => { valueMap[v.id] = v.name; });
+    const brandMap = {};
+    for (const line of lines) {
+      const tmplId = String(Array.isArray(line.product_tmpl_id) ? line.product_tmpl_id[0] : line.product_tmpl_id);
+      const valueId = typeof line.value_ids === 'number' ? line.value_ids : null;
+      if (tmplId && valueId && valueMap[valueId]) brandMap[tmplId] = valueMap[valueId];
+    }
+    return brandMap;
+  } catch (e) { console.error('fetchBrandMap error:', e); return {}; }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const { batch_size = 5, offset = 0 } = req.body || {};
@@ -238,47 +283,11 @@ export default async function handler(req, res) {
     let added = 0, updated = 0, imagesAdded = 0;
     const errors = [];
 
+    // Fetch brand from Odoo attribute for this batch
+    const brandMap = await fetchBrandMap(items.map(i => i.id));
+
     for (const item of items) {
-      let brand = 'Unknown';
-      if (item.name) {
-        const brandMap = {
-          'bvlgari': 'Bulgari', 'bulgari': 'Bulgari',
-          'van cleef': 'Van Cleef & Arpels', 'vca': 'Van Cleef & Arpels',
-          'cartier': 'Cartier',
-          'chanel': 'Chanel',
-          'chopard': 'Chopard',
-          'hermes': 'Hermès', 'hermès': 'Hermès',
-          'louis vuitton': 'Louis Vuitton',
-          'gucci': 'Gucci',
-          'prada': 'Prada',
-          'dior': 'Dior',
-          'fred': 'Fred',
-          'tiffany': 'Tiffany & Co',
-          'harry winston': 'Harry Winston',
-          'graff': 'Graff',
-          'piaget': 'Piaget',
-          'de beers': 'De Beers',
-          'mikimoto': 'Mikimoto',
-          'rolex': 'Rolex',
-          'omega': 'Omega',
-          'breitling': 'Breitling',
-          'patek': 'Patek Philippe',
-          'audemars': 'Audemars Piguet',
-          'richard mille': 'Richard Mille',
-          'iwc': 'IWC',
-          'jaeger': 'Jaeger-LeCoultre',
-          'vacheron': 'Vacheron Constantin',
-        };
-        const nameLower = item.name.toLowerCase();
-        // Also check reference for brand hints
-        const refLower = (item.default_code || '').toLowerCase();
-        for (const [key, val] of Object.entries(brandMap)) {
-          if (nameLower.includes(key) || refLower.includes(key)) {
-            brand = val;
-            break;
-          }
-        }
-      }
+      const brand = brandMap[String(item.id)] || 'Unknown';
 
       const existingEntry = existingMap[String(item.id)];
       const isExisting = !!existingEntry;

@@ -106,27 +106,31 @@ async function odooReadById(model, ids, fields) {
   return parseItems(text);
 }
 
-const BRAND_MAP = {
-  'bvlgari': 'Bulgari', 'bulgari': 'Bulgari',
-  'van cleef': 'Van Cleef & Arpels', 'vca': 'Van Cleef & Arpels',
-  'cartier': 'Cartier', 'chanel': 'Chanel', 'chopard': 'Chopard',
-  'hermes': 'Hermès', 'hermès': 'Hermès',
-  'louis vuitton': 'Louis Vuitton', 'gucci': 'Gucci', 'prada': 'Prada',
-  'dior': 'Dior', 'fred': 'Fred', 'tiffany': 'Tiffany & Co',
-  'harry winston': 'Harry Winston', 'graff': 'Graff',
-  'piaget': 'Piaget', 'de beers': 'De Beers', 'mikimoto': 'Mikimoto',
-  'rolex': 'Rolex', 'omega': 'Omega', 'breitling': 'Breitling',
-  'patek': 'Patek Philippe', 'audemars': 'Audemars Piguet',
-  'richard mille': 'Richard Mille', 'iwc': 'IWC',
-  'jaeger': 'Jaeger-LeCoultre', 'vacheron': 'Vacheron Constantin',
-};
-
-function extractBrand(name, sku) {
-  const combined = `${name || ''} ${sku || ''}`.toLowerCase();
-  for (const [key, val] of Object.entries(BRAND_MAP)) {
-    if (combined.includes(key)) return val;
-  }
-  return 'Unknown';
+async function fetchBrandMap(templateIds) {
+  if (!templateIds.length) return {};
+  try {
+    const attrs = await odooSearchRead('product.attribute', [['name', '=', 'Brand']], ['id'], 1, 0);
+    if (!attrs.length) return {};
+    const brandAttrId = attrs[0].id;
+    const lines = await odooSearchRead(
+      'product.template.attribute.line',
+      [['attribute_id', '=', brandAttrId], ['product_tmpl_id', 'in', templateIds]],
+      ['product_tmpl_id', 'value_ids'], 5000, 0
+    );
+    if (!lines.length) return {};
+    const valueIds = [...new Set(lines.map(l => typeof l.value_ids === 'number' ? l.value_ids : null).filter(Boolean))];
+    if (!valueIds.length) return {};
+    const values = await odooSearchRead('product.attribute.value', [['id', 'in', valueIds]], ['id', 'name'], valueIds.length, 0);
+    const valueMap = {};
+    values.forEach(v => { valueMap[v.id] = v.name; });
+    const brandMap = {};
+    for (const line of lines) {
+      const tmplId = String(Array.isArray(line.product_tmpl_id) ? line.product_tmpl_id[0] : line.product_tmpl_id);
+      const valueId = typeof line.value_ids === 'number' ? line.value_ids : null;
+      if (tmplId && valueId && valueMap[valueId]) brandMap[tmplId] = valueMap[valueId];
+    }
+    return brandMap;
+  } catch (e) { console.error('fetchBrandMap error:', e); return {}; }
 }
 
 const JEWELLERY_TYPE_MAP = {
@@ -165,7 +169,10 @@ export default async function handler(req, res) {
       page++;
     }
 
-    // 2. Count extra images per template (chunked to avoid huge payloads).
+    // 2. Fetch brand from Odoo attribute (no hardcoded map needed)
+    const brandMap = await fetchBrandMap(odooItems.map(i => i.id));
+
+    // 3. Count extra images per template (chunked to avoid huge payloads).
     const allIds = odooItems.map(b => b.id);
     const extrasByTmpl = {};
     if (allIds.length > 0) {
@@ -290,7 +297,7 @@ export default async function handler(req, res) {
         subcategory,
         odoo_product_id: String(n.odoo_id),
         source: 'odoo',
-        brand: extractBrand(n.name, n.default_code),
+        brand: brandMap[String(n.odoo_id)] || 'Unknown',
         model: (n.name || '').trim(),
         reference: refClean,
         price_eur: n.list_price || null,
