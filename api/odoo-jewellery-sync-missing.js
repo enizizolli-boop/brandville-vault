@@ -147,7 +147,7 @@ export default async function handler(req, res) {
     // 1. List eligible Odoo jewellery (metadata only, no image data).
     const domain = [
       ['active', '=', true],
-      ['categ_id', '=', JEWELRY_CATEG_ID],
+      ['categ_id', 'child_of', JEWELRY_CATEG_ID],
       ['qty_available', '>', 0],
     ];
     let odooItems = [];

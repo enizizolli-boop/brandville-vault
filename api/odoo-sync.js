@@ -205,7 +205,7 @@ export default async function handler(req, res) {
   const { batch_size = 5, offset = 0 } = req.body || {};
 
   try {
-    const domain = [['active', '=', true], ['categ_id', '=', JEWELRY_CATEG_ID], ['qty_available', '>', 0]];
+    const domain = [['active', '=', true], ['categ_id', 'child_of', JEWELRY_CATEG_ID], ['qty_available', '>', 0]];
     const totalCount = await odooCount(domain);
     const items = await odooRead(domain, ['id', 'name', 'default_code', 'list_price', 'description_sale', 'image_1920', 'qty_available', 'virtual_available', 'categ_id', 'x_studio_condition'], batch_size, offset);
 

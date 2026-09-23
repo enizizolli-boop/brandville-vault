@@ -150,7 +150,7 @@ export default async function handler(req, res) {
   let added = 0, updated = 0, imagesAdded = 0, removed = 0;
 
   try {
-    const domain = [['sale_ok', '=', true], ['active', '=', true], ['categ_id', '=', JEWELRY_CATEG_ID]];
+    const domain = [['sale_ok', '=', true], ['active', '=', true], ['categ_id', 'child_of', JEWELRY_CATEG_ID]];
     const totalCount = await odooCount(domain);
 
     // Remove stale items
