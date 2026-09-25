@@ -374,7 +374,7 @@ export default function WatchDetail() {
 
   const isB2C = profile?.role === 'b2c'
   const displayEur = isB2C
-    ? applyB2CMarkup(watch.price_eur, { category: watch.category, costEur: watch.cost_eur })
+    ? applyB2CMarkup(watch.price_eur, { category: watch.category, costEur: watch.cost_eur, b2cPriceEur: watch.b2c_price_eur })
     : (watch.price_eur ? Number(watch.price_eur) : null)
 
   const priceMain = currency === 'USD'

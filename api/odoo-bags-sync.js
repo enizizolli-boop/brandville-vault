@@ -334,7 +334,7 @@ export default async function handler(req, res) {
     const totalCount = await odooCount(domain);
     const allItems = await odooRead(
       domain,
-      ['id', 'name', 'default_code', 'standard_price', 'description_sale', 'categ_id'],
+      ['id', 'name', 'default_code', 'standard_price', 'list_price', 'description_sale', 'categ_id'],
       batch_size,
       offset
     );
@@ -446,6 +446,7 @@ export default async function handler(req, res) {
         reference: item.default_code || null,
         price_eur: priceEur,
         cost_eur: cost > 0 ? cost : null,
+        b2c_price_eur: item.list_price > 0 ? item.list_price : null,
         category,
         subcategory: subcategory || null,
         condition,

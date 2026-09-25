@@ -12,13 +12,13 @@ const B2C_MARKUP_BRACKETS = [
 const BAGS_DEALER_MARKUP = 1.40
 const BAGS_B2C_MULTIPLIER = 1.45
 
-export function applyB2CMarkup(priceEur, { category, costEur } = {}) {
+export function applyB2CMarkup(priceEur, { category, costEur, b2cPriceEur } = {}) {
   // Jewellery: show dealer price unchanged
   if (category === 'Jewellery') return priceEur ? Number(priceEur) : null
 
-  // Bags, Accessories and Shoes: cost + 45%
-  // Use cost_eur if available; otherwise derive cost from price_eur (price_eur = cost × 1.40)
+  // Bags, Accessories and Shoes: use Odoo list_price if available, else cost + 45%
   if (category === 'Bags' || category === 'Accessories' || category === 'Shoes') {
+    if (b2cPriceEur) return Number(b2cPriceEur)
     if (!priceEur && !costEur) return null
     const cost = costEur ? Number(costEur) : Number(priceEur) / BAGS_DEALER_MARKUP
     return Math.round(cost * BAGS_B2C_MULTIPLIER)

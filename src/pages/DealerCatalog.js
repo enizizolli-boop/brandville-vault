@@ -78,7 +78,7 @@ function cleanRef(ref) {
 
 function fmtPrice(watch, currency, rate, isB2C) {
   const baseEur = watch.price_eur || watch.cost_eur
-    ? (isB2C ? applyB2CMarkup(watch.price_eur, { category: watch.category, costEur: watch.cost_eur }) : (watch.price_eur ? Number(watch.price_eur) : null))
+    ? (isB2C ? applyB2CMarkup(watch.price_eur, { category: watch.category, costEur: watch.cost_eur, b2cPriceEur: watch.b2c_price_eur }) : (watch.price_eur ? Number(watch.price_eur) : null))
     : null
   if (currency === 'USD') {
     if (baseEur && rate) return '$' + Math.round(baseEur * rate).toLocaleString()
@@ -418,7 +418,7 @@ export default function DealerCatalog({ routeCategory }) {
       if (filterCond && w.condition !== filterCond) return false
       if (filterJewelleryType && inferJewelleryType(w) !== filterJewelleryType) return false
       const effectivePrice = isB2C
-        ? (applyB2CMarkup(w.price_eur, { category: w.category, costEur: w.cost_eur }) || 0)
+        ? (applyB2CMarkup(w.price_eur, { category: w.category, costEur: w.cost_eur, b2cPriceEur: w.b2c_price_eur }) || 0)
         : (Number(w.price_eur) || 0)
       if (filterPriceMin > 1000 && effectivePrice < filterPriceMin) return false
       if (filterPriceMax < 150000 && effectivePrice > filterPriceMax) return false
@@ -432,8 +432,8 @@ export default function DealerCatalog({ routeCategory }) {
       return w.model?.toLowerCase().includes(q) || w.reference?.toLowerCase().includes(q) || w.brand?.toLowerCase().includes(q)
     })
     .sort((a, b) => {
-      const aP = isB2C ? (applyB2CMarkup(a.price_eur, { category: a.category, costEur: a.cost_eur }) || 0) : (a.price_eur || 0)
-      const bP = isB2C ? (applyB2CMarkup(b.price_eur, { category: b.category, costEur: b.cost_eur }) || 0) : (b.price_eur || 0)
+      const aP = isB2C ? (applyB2CMarkup(a.price_eur, { category: a.category, costEur: a.cost_eur, b2cPriceEur: a.b2c_price_eur }) || 0) : (a.price_eur || 0)
+      const bP = isB2C ? (applyB2CMarkup(b.price_eur, { category: b.category, costEur: b.cost_eur, b2cPriceEur: b.b2c_price_eur }) || 0) : (b.price_eur || 0)
       if (sortBy === 'price_asc') return aP - bP
       if (sortBy === 'price_desc') return bP - aP
       if (sortBy === 'sku_asc' || sortBy === 'sku_desc') {
