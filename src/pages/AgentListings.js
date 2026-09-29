@@ -558,13 +558,21 @@ export default function AgentListings() {
       .select('*, supplier_listing_images(id, url, position), profiles!supplier_id(full_name, phone)')
       .eq('status', 'pending_review')
       .order('created_at', { ascending: false })
-    // jewellery_agent only sees jewellery queue; watch agents see everything else
+
     if (profile?.role === 'jewellery_agent') {
       query = query.eq('category', 'Jewellery')
+      const { data: assigned } = await supabase.from('profiles').select('id').eq('assigned_agent_id', profile.id)
+      const ids = (assigned || []).map(s => s.id)
+      if (ids.length === 0) { setSupplierListings([]); return }
+      query = query.in('supplier_id', ids)
     } else if (profile?.role === 'agent') {
       query = query.or('category.is.null,category.eq.Watches')
+      const { data: assigned } = await supabase.from('profiles').select('id').eq('assigned_agent_id', profile.id)
+      const ids = (assigned || []).map(s => s.id)
+      if (ids.length === 0) { setSupplierListings([]); return }
+      query = query.in('supplier_id', ids)
     }
-    // admin sees all pending (both categories)
+    // admin sees all pending
     const { data } = await query
     setSupplierListings(data || [])
   }, [profile])

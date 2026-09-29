@@ -314,6 +314,11 @@ export default function AdminPanel() {
     fetchUsers()
   }
 
+  async function assignAgent(supplierId, agentId) {
+    await supabase.from('profiles').update({ assigned_agent_id: agentId || null }).eq('id', supplierId)
+    fetchUsers()
+  }
+
   async function handleRevoke(userId, userName) {
     if (!window.confirm(`Remove ${userName || 'this user'}? They will lose access immediately.`)) return
     await supabase.from('invite_tokens').update({ used_by: null }).eq('used_by', userId)
@@ -670,8 +675,47 @@ export default function AdminPanel() {
           {/* Suppliers */}
           {tab === 'suppliers' && (
             <div>
-              <h2 style={{ margin: '0 0 24px', fontSize: 20, fontWeight: 700 }}>Suppliers</h2>
-              <UserList list={suppliers} />
+              <h2 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 700 }}>Suppliers</h2>
+              <div style={{ fontSize: 13, color: 'var(--faint)', marginBottom: 24 }}>Assign an agent to each supplier — agents only see listings from their assigned suppliers.</div>
+              {suppliers.length === 0 ? (
+                <div className="empty-state">No suppliers yet.</div>
+              ) : (
+                <div style={{ border: '1px solid var(--border-light)', borderRadius: 14, overflow: 'hidden' }}>
+                  {suppliers.map((u, i) => (
+                    <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 16px', background: 'var(--surface)', borderTop: i > 0 ? '1px solid var(--border-light)' : 'none', flexWrap: 'wrap' }}>
+                      <div className={`avatar ${avatarColor(u.full_name)}`} style={{ flexShrink: 0, width: 38, height: 38, fontSize: 13 }}>
+                        {initials(u.full_name)}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <div style={{ fontWeight: 600, fontSize: 14 }}>{u.full_name || '—'}</div>
+                          {u.role === 'jewellery_supplier' && (
+                            <span style={{ padding: '1px 6px', borderRadius: 20, fontSize: 10, fontWeight: 600, background: '#ede9fe', color: '#7c3aed', flexShrink: 0 }}>Jewellery</span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--faint)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {u.email}{u.phone ? ` · ${u.phone}` : ''}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                        <span style={{ fontSize: 11, color: 'var(--faint)', whiteSpace: 'nowrap' }}>Managed by</span>
+                        <select
+                          value={u.assigned_agent_id || ''}
+                          onChange={e => assignAgent(u.id, e.target.value)}
+                          style={{ fontSize: 12, minWidth: 150 }}
+                        >
+                          <option value="">— Unassigned —</option>
+                          {agents.map(a => <option key={a.id} value={a.id}>{a.full_name}</option>)}
+                        </select>
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        {(u.role === 'supplier' || u.role === 'jewellery_supplier') && <button className="btn btn-sm" onClick={() => changeRole(u.id, 'dealer')} style={{ fontSize: 11 }}>Make dealer</button>}
+                        <button className="btn btn-sm btn-danger" onClick={() => handleRevoke(u.id, u.full_name)} style={{ fontSize: 11 }}>Revoke</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
