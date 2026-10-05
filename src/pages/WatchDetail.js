@@ -618,6 +618,7 @@ export default function WatchDetail() {
               {/* Specs */}
               {(() => {
                 const isBags = watch.category === 'Bags'
+                const isInternal = profile?.role === 'admin' || profile?.role === 'agent' || profile?.role === 'jewellery_agent'
                 let displayGender = null, displayColor = null, displayNotes = watch.notes || null
                 if (watch.notes) {
                   const remaining = []
@@ -628,10 +629,9 @@ export default function WatchDetail() {
                   }
                   displayNotes = remaining.join(' | ') || null
                 }
-                // Suppress Zoho auto-generated descriptions — they start with an internal
-                // numeric ID and just repeat fields already shown (condition, scope, ref).
-                // Pattern: "12345 - Brand - Reference (...) - condition - scope"
-                if (displayNotes && /^\d+\s*-\s*\S/.test(displayNotes.trim())) {
+                // Suppress Zoho auto-generated descriptions for dealers/b2c only —
+                // admin/agents see raw notes. Pattern: "12345 - Brand - Reference..."
+                if (!isInternal && displayNotes && /^\d+\s*-\s*\S/.test(displayNotes.trim())) {
                   displayNotes = null
                 }
                 return (
