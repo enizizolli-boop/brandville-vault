@@ -310,7 +310,9 @@ export default function DealerCatalog({ routeCategory }) {
     if (filterMetal) q = q.eq('metal_type', filterMetal)
     if (filterSize) q = q.eq('item_size', filterSize)
 
+    const now = new Date().toISOString()
     let pq = supabase.from('preorders').select('*').order('created_at', { ascending: false }).limit(500)
+      .or(`expires_at.is.null,expires_at.gte.${now}`)
     if (filterBrand) pq = pq.eq('brand', filterBrand)
     if (filterStatus) pq = pq.eq('status', filterStatus)
     else pq = pq.neq('status', 'sold')
