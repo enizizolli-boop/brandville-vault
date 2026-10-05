@@ -825,6 +825,7 @@ export default function AgentListings() {
   const CURRENCY_SYMBOLS = { EUR: '€', USD: '$', CNY: '¥', HKD: 'HK$' }
 
   async function approveSupplierListing(listing) {
+    if (listing.preorder_id) { alert('This listing has already been approved and a preorder created.'); return }
     const rd = supReviewData[listing.id] || {}
     if (!rd.price) { alert('Set a selling price before approving.'); return }
     const cur = rd.currency || 'EUR'
@@ -889,13 +890,19 @@ export default function AgentListings() {
     for (let imgIdx = 0; imgIdx < imgs.length; imgIdx++) {
       await supabase.from('preorder_images').insert({ preorder_id: preorder.id, url: imgs[imgIdx].url, position: imgIdx })
     }
-    await supabase.from('supplier_listings').update({
+    const { error: slErr } = await supabase.from('supplier_listings').update({
       status: 'approved',
       selling_price: Number(rd.price),
       reviewed_by: profile.id,
       reviewed_at: new Date().toISOString(),
       preorder_id: preorder.id,
     }).eq('id', listing.id)
+    if (slErr) {
+      // Preorder was created — force the status update directly so the listing
+      // doesn't reappear in the queue and get double-approved.
+      console.error('supplier_listing status update failed:', slErr.message)
+      await supabase.from('supplier_listings').update({ status: 'approved', preorder_id: preorder.id }).eq('id', listing.id)
+    }
     fetchSupplierListings()
     fetchPreorders(0, listingType, search)
   }
