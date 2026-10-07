@@ -315,7 +315,16 @@ export default async function handler(req, res) {
       extrasRows.sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
 
       const hasPrimary = fullItem?.image_1920 && fullItem.image_1920 !== false;
-      const odooTotal = (hasPrimary ? 1 : 0) + extrasRows.length;
+      // Deduplicate extras — skip images that match the primary or each other
+      const seenPrefixes = new Set(hasPrimary ? [String(fullItem.image_1920).slice(0, 100)] : [])
+      const uniqueExtras = extrasRows.filter(ex => {
+        if (!ex.image_1920 || ex.image_1920 === false) return false
+        const prefix = String(ex.image_1920).slice(0, 100)
+        if (seenPrefixes.has(prefix)) return false
+        seenPrefixes.add(prefix)
+        return true
+      })
+      const odooTotal = (hasPrimary ? 1 : 0) + uniqueExtras.length;
       if (odooTotal === 0) continue;
 
       // Upsert product row
@@ -382,7 +391,7 @@ export default async function handler(req, res) {
 
       // Upload extras beyond what's already in DB
       const alreadyUploadedExtras = Math.max(0, existing - (hasPrimary ? 1 : 0));
-      const extrasToUpload = extrasRows.slice(alreadyUploadedExtras);
+      const extrasToUpload = uniqueExtras.slice(alreadyUploadedExtras);
       for (const ex of extrasToUpload) {
         if (!ex.image_1920 || ex.image_1920 === false) continue;
         try {

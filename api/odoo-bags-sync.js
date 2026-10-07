@@ -467,7 +467,17 @@ export default async function handler(req, res) {
       isExisting ? updated++ : added++;
 
       if (watchId) {
-        const allImages = extraImagesMap[String(item.id)] || [];
+        // Deduplicate by image content — Odoo sometimes stores the primary image
+        // in product.image records AND separately in template.image_1920, causing
+        // identical thumbnails. Compare first 100 chars of base64 to detect same file.
+        const seenPrefixes = new Set()
+        const allImages = (extraImagesMap[String(item.id)] || []).filter(img => {
+          if (!img.image_1920 || img.image_1920 === false) return false
+          const prefix = String(img.image_1920).slice(0, 100)
+          if (seenPrefixes.has(prefix)) return false
+          seenPrefixes.add(prefix)
+          return true
+        })
         const odooTotal = allImages.length;
 
         const { count: dbCount } = await supabase.from('product_images')
