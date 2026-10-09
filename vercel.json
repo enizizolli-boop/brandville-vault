@@ -50,6 +50,7 @@
     "api/zoho-create-draft.js": { "maxDuration": 30 },
     "api/odoo-bags-sync-missing.js": { "maxDuration": 300 },
     "api/odoo-jewellery-sync-missing.js": { "maxDuration": 300 },
-    "api/cron-zoho-images-missing.js": { "maxDuration": 60 }
+    "api/cron-zoho-images-missing.js": { "maxDuration": 60 },
+    "api/inventory.js": { "maxDuration": 30 }
   }
 }
