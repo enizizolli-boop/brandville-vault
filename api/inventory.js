@@ -51,7 +51,7 @@ export default async function handler(req, res) {
   // Preorders query (available, not expired)
   let pq = supabase
     .from('preorders')
-    .select('id, brand, model, reference, price_eur, price_usd, category, subcategory, condition, scope_of_delivery, notes, status, created_at, updated_at, expires_at, preorder_images(url, position)', { count: 'exact' })
+    .select('id, brand, model, reference, price_eur, price_usd, category, subcategory, condition, scope_of_delivery, notes, status, created_at, expires_at, preorder_images(url, position)', { count: 'exact' })
     .eq('status', 'available')
     .or(`expires_at.is.null,expires_at.gte.${now}`)
     .order('created_at', { ascending: false });
@@ -104,7 +104,6 @@ export default async function handler(req, res) {
     expires_at: p.expires_at || null,
     images: formatImages(p.preorder_images),
     created_at: p.created_at,
-    updated_at: p.updated_at,
   });
 
   return res.status(200).json({
