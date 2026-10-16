@@ -693,7 +693,8 @@ export default function DealerCatalog({ routeCategory }) {
             </div>
           )}
 
-          {/* Ready to Ship */}
+          {/* Ready to Ship — watches only */}
+          {lockedCategory !== 'Bags' && lockedCategory !== 'Jewellery' && (
           <div className="sidebar-acc-section">
             <div className="sidebar-acc-header" style={{ cursor: 'pointer' }} onClick={() => setFilterReadyToShip(v => !v)}>
               <span>Ready to Ship</span>
@@ -704,6 +705,7 @@ export default function DealerCatalog({ routeCategory }) {
               </div>
             </div>
           </div>
+          )}
 
           {/* Condition */}
           <div className="sidebar-acc-section">
@@ -903,7 +905,7 @@ export default function DealerCatalog({ routeCategory }) {
                     <div className="watch-card" key={w.id}>
                       <a className="card-img-wrap" href={`/catalog/${toSlug(w)}`} onClick={e => { if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) return; e.preventDefault(); navigate(`/catalog/${toSlug(w)}`); }}>
                         <CardImages watch={w} />
-                        {w.ready_to_ship && <span className="card-badge card-badge-ready">Ready to ship</span>}
+                        {w.ready_to_ship && w.category !== 'Bags' && w.category !== 'Jewellery' && <span className="card-badge card-badge-ready">Ready to ship</span>}
                         <button
                           className="card-bookmark"
                           onClick={e => toggleSave(e, w.id)}
