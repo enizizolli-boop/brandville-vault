@@ -219,7 +219,7 @@ export default async function handler(req, res) {
   try {
     const domain = [
       ['active', '=', true],
-      ['website_published', '=', true],
+      ['is_published', '=', true],
       ['qty_available', '>', 0],
       ['categ_id', '!=', 8],
     ];
