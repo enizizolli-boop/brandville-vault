@@ -256,9 +256,10 @@ export default async function handler(req, res) {
     // Remove stale items no longer in Odoo
     const { data: existing } = await supabase
       .from('products').select('odoo_product_id').eq('source', 'odoo_bags');
-    const existingIds = (existing || []).map(i => i.odoo_product_id);
+    const existingIds = (existing || []).map(i => String(i.odoo_product_id));
     const existingIdsSet = new Set(existingIds);
-    const toDelete = existingIds.filter(id => !liveOdooIds.includes(id));
+    const liveOdooIdsSet = new Set(liveOdooIds);
+    const toDelete = existingIds.filter(id => !liveOdooIdsSet.has(id));
     if (toDelete.length > 0) {
       await supabase.from('products').update({ status: 'sold' }).in('odoo_product_id', toDelete).eq('source', 'odoo_bags');
     }
