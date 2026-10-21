@@ -238,6 +238,7 @@ export default function DealerCatalog({ routeCategory }) {
   const urlType = params.get('type') || ''
   const urlCategory = params.get('category') || ''
   const urlAgent = params.get('agent') || ''
+  const urlSort = params.get('sort') || ''
   const lockedCategory = routeCategory || urlCategory
 
   const { currency } = useCurrency()
@@ -265,7 +266,11 @@ export default function DealerCatalog({ routeCategory }) {
   const [filterPriceMax, setFilterPriceMax] = useState(150000)
   const [filterYearMin, setFilterYearMin] = useState('')
   const [filterYearMax, setFilterYearMax] = useState('')
-  const [sortBy, setSortBy] = useState(lockedCategory === 'Jewellery' ? 'price_desc' : '')
+  const isWatchesView = lockedCategory === 'Watches' || (!lockedCategory && routeCategory !== 'Bags' && routeCategory !== 'Jewellery')
+  const [sortBy, setSortBy] = useState(
+    lockedCategory === 'Jewellery' ? 'price_desc' :
+    isWatchesView && urlSort === 'newest' ? 'date_desc' : ''
+  )
   // Reset sort to the correct default whenever the category changes (e.g. navigating catalog → jewellery)
   useEffect(() => {
     setSortBy(lockedCategory === 'Jewellery' ? 'price_desc' : '')
@@ -436,6 +441,7 @@ export default function DealerCatalog({ routeCategory }) {
     .sort((a, b) => {
       const aP = isB2C ? (applyB2CMarkup(a.price_eur, { category: a.category, costEur: a.cost_eur, b2cPriceEur: a.b2c_price_eur }) || 0) : (a.price_eur || 0)
       const bP = isB2C ? (applyB2CMarkup(b.price_eur, { category: b.category, costEur: b.cost_eur, b2cPriceEur: b.b2c_price_eur }) || 0) : (b.price_eur || 0)
+      if (sortBy === 'date_desc') return new Date(b.created_at) - new Date(a.created_at)
       if (sortBy === 'price_asc') return aP - bP
       if (sortBy === 'price_desc') return bP - aP
       if (sortBy === 'sku_asc' || sortBy === 'sku_desc') {
@@ -593,7 +599,8 @@ export default function DealerCatalog({ routeCategory }) {
             <div className="drawer-section">
               <div className="drawer-label">Sort</div>
               <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
-                <option value="">Newest First</option>
+                <option value="">Default</option>
+                <option value="date_desc">Newest First</option>
                 <option value="price_asc">Price: Low → High</option>
                 <option value="price_desc">Price: High → Low</option>
                 <option value="sku_desc">SKU: High → Low</option>
@@ -857,7 +864,8 @@ export default function DealerCatalog({ routeCategory }) {
             <div className="ctab-sortby">
               <span className="ctab-sort-label">Sort by</span>
               <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
-                <option value="">Newest First</option>
+                <option value="">Default</option>
+                <option value="date_desc">Newest First</option>
                 <option value="price_asc">Price: Low → High</option>
                 <option value="price_desc">Price: High → Low</option>
                 <option value="sku_desc">SKU: High → Low</option>
