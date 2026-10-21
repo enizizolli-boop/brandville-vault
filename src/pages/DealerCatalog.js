@@ -287,7 +287,7 @@ export default function DealerCatalog({ routeCategory }) {
     }
     const newSearch = current.toString()
     navigate(location.pathname + (newSearch ? '?' + newSearch : ''), { replace: true })
-  }, [sortBy]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sortBy]) // only re-run when sort changes
   const [filterSourceType, setFilterSourceType] = useState('')
   const [filterReadyToShip, setFilterReadyToShip] = useState(false)
 
