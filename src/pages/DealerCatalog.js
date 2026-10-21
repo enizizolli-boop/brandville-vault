@@ -275,6 +275,19 @@ export default function DealerCatalog({ routeCategory }) {
   useEffect(() => {
     setSortBy(lockedCategory === 'Jewellery' ? 'price_desc' : '')
   }, [lockedCategory])
+
+  // Sync ?sort=newest into the URL when the sort changes (watches only)
+  useEffect(() => {
+    if (!isWatchesView) return
+    const current = new URLSearchParams(location.search)
+    if (sortBy === 'date_desc') {
+      current.set('sort', 'newest')
+    } else {
+      current.delete('sort')
+    }
+    const newSearch = current.toString()
+    navigate(location.pathname + (newSearch ? '?' + newSearch : ''), { replace: true })
+  }, [sortBy]) // eslint-disable-line react-hooks/exhaustive-deps
   const [filterSourceType, setFilterSourceType] = useState('')
   const [filterReadyToShip, setFilterReadyToShip] = useState(false)
 
