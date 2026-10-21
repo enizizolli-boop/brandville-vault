@@ -276,15 +276,22 @@ export default function DealerCatalog({ routeCategory }) {
     setSortBy(lockedCategory === 'Jewellery' ? 'price_desc' : '')
   }, [lockedCategory])
 
-  // Sync ?sort=newest into the URL when the sort changes (watches only)
+  // When URL gains ?sort=newest (SPA navigation / shared link), apply it to state
+  useEffect(() => {
+    if (!isWatchesView) return
+    const p = new URLSearchParams(location.search)
+    if (p.get('sort') === 'newest') setSortBy('date_desc')
+  }, [location.search]) // only re-run when sort changes
+
+  // Sync sortBy back to URL (with guard to avoid infinite loop)
   useEffect(() => {
     if (!isWatchesView) return
     const current = new URLSearchParams(location.search)
-    if (sortBy === 'date_desc') {
-      current.set('sort', 'newest')
-    } else {
-      current.delete('sort')
-    }
+    const currentParam = current.get('sort') || ''
+    const desiredParam = sortBy === 'date_desc' ? 'newest' : ''
+    if (currentParam === desiredParam) return // already in sync
+    if (desiredParam) current.set('sort', desiredParam)
+    else current.delete('sort')
     const newSearch = current.toString()
     navigate(location.pathname + (newSearch ? '?' + newSearch : ''), { replace: true })
   }, [sortBy]) // only re-run when sort changes
