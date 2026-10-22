@@ -315,10 +315,9 @@ export default async function handler(req, res) {
           if (!isLive && p.status !== 'sold') {
             await supabase.from('products').update({ status: 'sold' }).eq('id', p.id);
             zohoMarkedSold++;
-          } else if (isLive && p.status === 'sold') {
-            await supabase.from('products').update({ status: 'available' }).eq('id', p.id);
-            zohoMarkedAvailable++;
-          }
+          // Do NOT auto-restore Zoho watches to available — Zoho stock briefly shows > 0
+          // during SO merges/cancellations, which would flip the status incorrectly.
+          // Restoring a watch to available requires a manual admin action.
         }
       }
       // Also check Zoho SOs — a confirmed SO means the watch is reserved regardless of stock
