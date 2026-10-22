@@ -129,14 +129,43 @@ async function fetchSoldProductTemplateIds() {
 
     const variants = parseItems(text2);
     const ids = new Set();
+    const tmplIds = [];
     for (const v of variants) {
       const tmplId = Array.isArray(v.product_tmpl_id) ? v.product_tmpl_id[0] : v.product_tmpl_id;
-      if (typeof tmplId === 'number') ids.add(tmplId);
+      if (typeof tmplId === 'number') { ids.add(tmplId); tmplIds.push(tmplId); }
     }
-    return ids;
+
+    // Step 3: fetch default_code (SKU) for each sold template — used to cross-check Zoho watches
+    const skus = new Set();
+    if (tmplIds.length > 0) {
+      const tmplIdsXml = [...new Set(tmplIds)].map(id => `<value><int>${id}</int></value>`).join('');
+      const domainXml3 = `<value><array><data><value><string>id</string></value><value><string>in</string></value><value><array><data>${tmplIdsXml}</data></array></value></data></array></value>`;
+      const body3 = `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>` +
+        `<param><value><string>${ODOO_DB}</string></value></param>` +
+        `<param><value><int>${ODOO_UID}</int></value></param>` +
+        `<param><value><string>${ODOO_API_KEY}</string></value></param>` +
+        `<param><value><string>product.template</string></value></param>` +
+        `<param><value><string>search_read</string></value></param>` +
+        `<param><value><array><data><value><array><data>${domainXml3}</data></array></value></data></array></value></param>` +
+        `<param><value><struct>` +
+        `<member><name>fields</name><value><array><data><value><string>id</string></value><value><string>default_code</string></value></data></array></value></member>` +
+        `<member><name>limit</name><value><int>5000</int></value></member>` +
+        `</struct></value></param></params></methodCall>`;
+      const res3 = await fetch(ODOO_URL + '/xmlrpc/2/object', { method: 'POST', headers: { 'Content-Type': 'text/xml' }, body: body3 });
+      const text3 = await res3.text();
+      if (!text3.includes('<fault>')) {
+        for (const t of parseItems(text3)) {
+          if (t.default_code && typeof t.default_code === 'string' && t.default_code.trim()) {
+            skus.add(t.default_code.trim());
+          }
+        }
+      }
+    }
+
+    return { ids, skus };
   } catch (e) {
     console.error('fetchSoldProductTemplateIds error:', e);
-    return new Set();
+    return { ids: new Set(), skus: new Set() };
   }
 }
 
@@ -181,7 +210,7 @@ export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end();
 
   try {
-    const soldTemplateIds = await fetchSoldProductTemplateIds();
+    const { ids: soldTemplateIds, skus: soldOdooSkus } = await fetchSoldProductTemplateIds();
     const soldIdStrings = [...soldTemplateIds].map(String);
 
     // Fetch all Odoo-sourced products with their current status (exclude Jewellery — handled separately with qty check below)
@@ -270,7 +299,29 @@ export default async function handler(req, res) {
       console.error('Zoho status check error:', e.message);
     }
 
-    console.log(`Cron status sync: ${markedSold} marked sold, ${markedAvailable} restored available | jewellery: ${jewelleryMarkedSold} sold, ${jewelleryMarkedAvailable} restored | zoho: ${zohoMarkedSold} sold, ${zohoMarkedAvailable} restored`);
+    // Cross-check Zoho watches against Odoo SOs by SKU — catches watches that have a confirmed
+    // Odoo SO but Zoho inventory hasn't been updated yet (the Zoho stock check above would
+    // keep them available; this overrides with the Odoo SO as the source of truth)
+    let zohoSoMarkedSold = 0;
+    if (soldOdooSkus.size > 0) {
+      try {
+        const { data: zohoWatchesBySku } = await supabase
+          .from('products')
+          .select('id, reference, status')
+          .eq('source', 'zoho')
+          .neq('status', 'sold');
+        for (const w of zohoWatchesBySku || []) {
+          if (w.reference && soldOdooSkus.has(w.reference.trim())) {
+            await supabase.from('products').update({ status: 'sold' }).eq('id', w.id);
+            zohoSoMarkedSold++;
+          }
+        }
+      } catch (e) {
+        console.error('Zoho SO cross-check error:', e.message);
+      }
+    }
+
+    console.log(`Cron status sync: ${markedSold} marked sold, ${markedAvailable} restored available | jewellery: ${jewelleryMarkedSold} sold, ${jewelleryMarkedAvailable} restored | zoho: ${zohoMarkedSold} sold, ${zohoMarkedAvailable} restored | zoho_so: ${zohoSoMarkedSold} sold via Odoo SO`);
     return res.status(200).json({
       success: true,
       sold_on_order: soldTemplateIds.size,
@@ -282,6 +333,7 @@ export default async function handler(req, res) {
       jewellery_checked: allJewellery?.length || 0,
       zoho_marked_sold: zohoMarkedSold,
       zoho_marked_available: zohoMarkedAvailable,
+      zoho_so_marked_sold: zohoSoMarkedSold,
     });
   } catch (err) {
     console.error('Cron status sync error:', err);
