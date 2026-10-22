@@ -236,7 +236,7 @@ export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end();
 
   try {
-    const { ids: soldTemplateIds, skus: soldOdooSkus } = await fetchSoldProductTemplateIds();
+    const { ids: soldTemplateIds } = await fetchSoldProductTemplateIds();
     const soldIdStrings = [...soldTemplateIds].map(String);
 
     // Fetch all Odoo-sourced products with their current status (exclude Jewellery — handled separately with qty check below)
@@ -353,29 +353,7 @@ export default async function handler(req, res) {
       console.error('Zoho status check error:', e.message);
     }
 
-    // Cross-check Zoho watches against Odoo SOs by SKU — catches watches that have a confirmed
-    // Odoo SO but Zoho inventory hasn't been updated yet (the Zoho stock check above would
-    // keep them available; this overrides with the Odoo SO as the source of truth)
-    let zohoSoMarkedSold = 0;
-    if (soldOdooSkus.size > 0) {
-      try {
-        const { data: zohoWatchesBySku } = await supabase
-          .from('products')
-          .select('id, reference, status')
-          .eq('source', 'zoho')
-          .neq('status', 'sold');
-        for (const w of zohoWatchesBySku || []) {
-          if (w.reference && soldOdooSkus.has(w.reference.trim())) {
-            await supabase.from('products').update({ status: 'sold' }).eq('id', w.id);
-            zohoSoMarkedSold++;
-          }
-        }
-      } catch (e) {
-        console.error('Zoho SO cross-check error:', e.message);
-      }
-    }
-
-    console.log(`Cron status sync: ${markedSold} marked sold, ${markedAvailable} restored available | jewellery: ${jewelleryMarkedSold} sold, ${jewelleryMarkedAvailable} restored | zoho: ${zohoMarkedSold} sold, ${zohoMarkedAvailable} restored | zoho_so: ${zohoSoMarkedSold} sold via Odoo SO`);
+    console.log(`Cron status sync: ${markedSold} marked sold, ${markedAvailable} restored available | jewellery: ${jewelleryMarkedSold} sold, ${jewelleryMarkedAvailable} restored | zoho: ${zohoMarkedSold} sold, ${zohoMarkedAvailable} restored`);
     return res.status(200).json({
       success: true,
       sold_on_order: soldTemplateIds.size,
@@ -387,7 +365,6 @@ export default async function handler(req, res) {
       jewellery_checked: allJewellery?.length || 0,
       zoho_marked_sold: zohoMarkedSold,
       zoho_marked_available: zohoMarkedAvailable,
-      zoho_so_marked_sold: zohoSoMarkedSold,
     });
   } catch (err) {
     console.error('Cron status sync error:', err);
