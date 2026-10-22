@@ -309,15 +309,23 @@ export default async function handler(req, res) {
             .filter(i => (i.show_in_storefront === true || i.show_in_storefront === 'true') && Number(i.actual_available_stock ?? i.available_stock ?? i.stock_on_hand ?? 0) > 0)
             .map(i => String(i.item_id))
         );
-        const { data: zohoProducts } = await supabase.from('products').select('id, zoho_item_id, status').eq('source', 'zoho');
+        const { data: zohoProducts } = await supabase.from('products').select('id, zoho_item_id, status, updated_at').eq('source', 'zoho');
+        const RESTORE_AFTER_MS = 24 * 60 * 60 * 1000; // 24 hours
         for (const p of zohoProducts || []) {
           const isLive = liveIds.has(p.zoho_item_id);
           if (!isLive && p.status !== 'sold') {
             await supabase.from('products').update({ status: 'sold' }).eq('id', p.id);
             zohoMarkedSold++;
-          // Do NOT auto-restore Zoho watches to available — Zoho stock briefly shows > 0
-          // during SO merges/cancellations, which would flip the status incorrectly.
-          // Restoring a watch to available requires a manual admin action.
+          } else if (isLive && p.status === 'sold') {
+            // Only restore if sold for >24h — prevents SO merge/cancellation windows
+            // (which last minutes) from triggering a false restore.
+            // Genuine returns take at least a day before the watch is back on sale.
+            const soldMs = Date.now() - new Date(p.updated_at).getTime();
+            if (soldMs > RESTORE_AFTER_MS) {
+              await supabase.from('products').update({ status: 'available' }).eq('id', p.id);
+              zohoMarkedAvailable++;
+            }
+          }
         }
       }
       // Also check Zoho SOs — a confirmed SO means the watch is reserved regardless of stock
