@@ -26,6 +26,32 @@ async function getZohoAccessToken() {
   return data.access_token;
 }
 
+async function fetchZohoSoItemIds(accessToken) {
+  // Returns item_ids that appear on confirmed/open Zoho Sales Orders.
+  // These watches are reserved regardless of what the stock level shows.
+  const soldItemIds = new Set();
+  const ACTIVE_STATUSES = ['confirmed', 'partially_invoiced'];
+  for (const status of ACTIVE_STATUSES) {
+    let page = 1;
+    while (true) {
+      const res = await fetch(
+        `https://www.zohoapis.eu/inventory/v1/salesorders?organization_id=${process.env.ZOHO_ORG_ID}&status=${status}&per_page=200&page=${page}`,
+        { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+      );
+      const data = await res.json();
+      if (!data.salesorders || data.salesorders.length === 0) break;
+      for (const so of data.salesorders) {
+        for (const line of (so.line_items || [])) {
+          if (line.item_id) soldItemIds.add(String(line.item_id));
+        }
+      }
+      if (data.salesorders.length < 200) break;
+      page++;
+    }
+  }
+  return soldItemIds;
+}
+
 async function fetchAllZohoItems(accessToken) {
   let items = [], page = 1;
   while (true) {
@@ -295,6 +321,27 @@ export default async function handler(req, res) {
           }
         }
       }
+      // Also check Zoho SOs — a confirmed SO means the watch is reserved regardless of stock
+      let zohoNativeSoMarkedSold = 0;
+      try {
+        const soItemIds = await fetchZohoSoItemIds(zohoToken);
+        if (soItemIds.size > 0) {
+          const { data: notSold } = await supabase
+            .from('products')
+            .select('id, zoho_item_id')
+            .eq('source', 'zoho')
+            .neq('status', 'sold');
+          for (const p of notSold || []) {
+            if (soItemIds.has(p.zoho_item_id)) {
+              await supabase.from('products').update({ status: 'sold' }).eq('id', p.id);
+              zohoNativeSoMarkedSold++;
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Zoho SO check error:', e.message);
+      }
+      zohoMarkedSold += zohoNativeSoMarkedSold;
     } catch (e) {
       console.error('Zoho status check error:', e.message);
     }
