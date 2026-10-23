@@ -89,6 +89,15 @@ function fmtPrice(watch, currency, rate, isB2C) {
   return '—'
 }
 
+function fmtB2b(eur, currency, rate) {
+  const n = Number(eur)
+  if (!(n > 0)) return null
+  const e = '€' + n.toLocaleString()
+  const u = rate ? '$' + Math.round(n * rate).toLocaleString() : null
+  if (currency === 'USD' && u) return u + ' ≈ ' + e
+  return u ? e + ' ≈ ' + u : e
+}
+
 function inferJewelleryType(item) {
   const explicit = item?.subcategory
   if (explicit) return explicit
@@ -959,6 +968,7 @@ export default function DealerCatalog({ routeCategory }) {
                       <div className="card-price-row">
                         <div className="card-price-block">
                           <div className="card-price">{fmtPrice(w, currency, rate, isB2C)}</div>
+                          {!isB2C && fmtB2b(w.b2b_price_eur, currency, rate) && <div style={{ fontSize: 11, color: "var(--text-muted)" }}>B2B: {fmtB2b(w.b2b_price_eur, currency, rate)}</div>}
                         </div>
                         <div className="card-cta">
                           <a className="btn-wa" href={`https://wa.me/${waNum}?text=${waMsg}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>

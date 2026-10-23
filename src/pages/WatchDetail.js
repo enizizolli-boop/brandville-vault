@@ -389,6 +389,12 @@ export default function WatchDetail() {
       ? `$${Math.round(displayEur * rate).toLocaleString()} USD`
       : null
 
+  const b2bEur = Number(watch.b2b_price_eur) > 0 ? Number(watch.b2b_price_eur) : null
+  const b2bUsd = b2bEur && rate ? `$${Math.round(b2bEur * rate).toLocaleString()}` : null
+  const b2bEurStr = b2bEur ? `€${b2bEur.toLocaleString()}` : null
+  const b2bMain = currency === 'USD' && b2bUsd ? b2bUsd : b2bEurStr
+  const b2bSecondary = currency === 'USD' ? (b2bUsd ? b2bEurStr : null) : b2bUsd
+
   const canEdit = profile?.role === 'admin' || profile?.role === 'agent'
 
   function handleBrandClick() {
@@ -603,8 +609,17 @@ export default function WatchDetail() {
 
               {/* Price */}
               <div style={{ marginBottom: 24, paddingBottom: 24, borderBottom: '1px solid var(--border-light)' }}>
-                <div className="detail-price">{priceMain}</div>
-                {priceSecondary && <div className="detail-price-secondary">≈ {priceSecondary}</div>}
+                {!isB2C && b2bMain ? (
+                  <>
+                    <div className="detail-price">{b2bMain}</div>
+                    {b2bSecondary && <div className="detail-price-secondary">≈ {b2bSecondary} {currency === 'USD' ? 'EUR' : 'USD'}</div>}
+                  </>
+                ) : (
+                  <>
+                    <div className="detail-price">{priceMain}</div>
+                    {priceSecondary && <div className="detail-price-secondary">≈ {priceSecondary}</div>}
+                  </>
+                )}
                 {canEdit && (watch.cost_eur || watch.cost_cny || watch.vendor) && (
                   <div style={{ fontSize: 12, color: 'var(--gold)', marginTop: 8, fontWeight: 500 }}>
                     {watch.cost_eur && <>Cost: €{Number(watch.cost_eur).toLocaleString()}</>}
