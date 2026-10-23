@@ -238,7 +238,7 @@ export default async function handler(req, res) {
     while (true) {
       const batch = await odooRead(
         domain,
-        ['id', 'name', 'default_code', 'standard_price', 'list_price', 'description_sale', 'categ_id'],
+        ['id', 'name', 'default_code', 'standard_price', 'list_price', 'x_b2b_price', 'description_sale', 'categ_id'],
         pageSize,
         page * pageSize
       );
@@ -290,6 +290,7 @@ export default async function handler(req, res) {
           price_eur: priceEur,
           cost_eur: cost > 0 ? cost : null,
           b2c_price_eur: item.list_price > 0 ? item.list_price : null,
+          b2b_price_eur: item.x_b2b_price > 0 ? item.x_b2b_price : null,
           category,
           subcategory: subcategory || null,
           condition,

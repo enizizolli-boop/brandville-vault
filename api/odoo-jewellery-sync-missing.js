@@ -160,7 +160,7 @@ export default async function handler(req, res) {
     while (true) {
       const batch = await odooSearchRead(
         'product.template', domain,
-        ['id', 'name', 'default_code', 'list_price', 'description_sale', 'categ_id', 'x_studio_condition', 'brand_id'],
+        ['id', 'name', 'default_code', 'list_price', 'x_b2b_price', 'description_sale', 'categ_id', 'x_studio_condition', 'brand_id'],
         pageSize, page * pageSize
       );
       if (!batch.length) break;
@@ -249,6 +249,7 @@ export default async function handler(req, res) {
           description_sale: item.description_sale,
           categ_id: item.categ_id,
           list_price: item.list_price,
+          x_b2b_price: item.x_b2b_price,
           db_image_count: dbImageCount,
           extras_count: extrasCount,
           db_row_id: dbRow?.id || null,
@@ -301,6 +302,7 @@ export default async function handler(req, res) {
         model: (n.name || '').trim(),
         reference: refClean,
         price_eur: n.list_price || null,
+        b2b_price_eur: n.x_b2b_price > 0 ? n.x_b2b_price : null,
         condition: n.x_studio_condition || 'Fair',
         category: 'Jewellery',
         notes: n.description_sale && typeof n.description_sale === 'string' && n.description_sale.trim() ? n.description_sale.trim() : null,

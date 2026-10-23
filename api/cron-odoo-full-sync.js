@@ -210,7 +210,7 @@ export default async function handler(req, res) {
 
       const items = await odooRead(
         domain,
-        ['id', 'name', 'default_code', 'list_price', 'description_sale', 'image_1920', 'qty_available', 'virtual_available', 'categ_id', 'x_studio_condition', 'brand_id'],
+        ['id', 'name', 'default_code', 'list_price', 'x_b2b_price', 'description_sale', 'image_1920', 'qty_available', 'virtual_available', 'categ_id', 'x_studio_condition', 'brand_id'],
         BATCH_SIZE, offset
       );
       if (!items || items.length === 0) break;
@@ -261,6 +261,7 @@ export default async function handler(req, res) {
           model: (item.name || '').trim(),
           reference: item.default_code || null,
           price_eur: item.list_price || null,
+          b2b_price_eur: item.x_b2b_price > 0 ? item.x_b2b_price : null,
           condition: item.x_studio_condition || 'Pre-owned',
           ...(isSold ? { status: 'sold' } : currentStatus === 'sold' ? { status: 'available' } : isExisting ? {} : { status: 'available' }),
           category: 'Jewellery',
