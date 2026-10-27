@@ -328,6 +328,9 @@ export default async function handler(req, res) {
       ['active', '=', true],
       ['is_published', '=', true],
       ['qty_available', '>', 0],
+      // also require forecast > 0: a bag reserved on a confirmed order (on hand 1, forecast 0) is sold.
+      // on hand must stay > 0 too, so a stale incoming transfer can never bring a sold bag back.
+      ['virtual_available', '>', 0],
       ['categ_id', '!=', 8],
     ];
 
