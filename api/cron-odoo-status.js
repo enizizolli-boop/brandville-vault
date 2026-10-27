@@ -253,7 +253,7 @@ export default async function handler(req, res) {
     // Fetch all Odoo-sourced products with their current status (exclude Jewellery — handled separately with qty check below)
     const { data: allProducts, error } = await supabase
       .from('products')
-      .select('id, odoo_product_id, status')
+      .select('id, odoo_product_id, status, source')
       .in('source', ['odoo', 'odoo_bags'])
       .neq('category', 'Jewellery');
 
@@ -268,8 +268,11 @@ export default async function handler(req, res) {
       if (isSold && product.status !== 'sold') {
         await supabase.from('products').update({ status: 'sold' }).eq('id', product.id);
         markedSold++;
-      } else if (!isSold && product.status === 'sold') {
-        // Order cancelled and stock available again — restore to available
+      } else if (!isSold && product.status === 'sold' && product.source !== 'odoo_bags') {
+        // Order cancelled and stock available again — restore to available.
+        // Not for odoo_bags: "not on a sale order" does not mean "in stock" (POS/delivery sales have no
+        // sale order), and restoring here fought the bags sync, which marks out-of-stock bags sold.
+        // Bags are restored only by cron-odoo-bags-sync, when they are back in stock in Odoo.
         await supabase.from('products').update({ status: 'available' }).eq('id', product.id);
         markedAvailable++;
       }
