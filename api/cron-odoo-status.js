@@ -125,7 +125,7 @@ async function fetchSoldProductTemplateIds() {
       `</struct></value></param></params></methodCall>`;
     const res1 = await fetch(ODOO_URL + '/xmlrpc/2/object', { method: 'POST', headers: { 'Content-Type': 'text/xml' }, body: body1 });
     const text1 = await res1.text();
-    if (text1.includes('<fault>')) { console.error('cron step1 fault:', text1.substring(0, 300)); return new Set(); }
+    if (text1.includes('<fault>')) throw new Error('Odoo sale.order.line fault: ' + text1.substring(0, 300));
 
     const lines = parseItems(text1);
     const variantIds = [...new Set(lines.map(l => {
@@ -133,7 +133,7 @@ async function fetchSoldProductTemplateIds() {
       return typeof pid === 'number' ? pid : null;
     }).filter(Boolean))];
 
-    if (!variantIds.length) return new Set();
+    if (!variantIds.length) return { ids: new Set(), skus: new Set() };
 
     // Step 2: map product.product → product.template
     const idsXml = variantIds.map(id => `<value><int>${id}</int></value>`).join('');
@@ -151,7 +151,7 @@ async function fetchSoldProductTemplateIds() {
       `</struct></value></param></params></methodCall>`;
     const res2 = await fetch(ODOO_URL + '/xmlrpc/2/object', { method: 'POST', headers: { 'Content-Type': 'text/xml' }, body: body2 });
     const text2 = await res2.text();
-    if (text2.includes('<fault>')) { console.error('cron step2 fault:', text2.substring(0, 300)); return new Set(); }
+    if (text2.includes('<fault>')) throw new Error('Odoo product.product fault: ' + text2.substring(0, 300));
 
     const variants = parseItems(text2);
     const ids = new Set();
@@ -190,8 +190,9 @@ async function fetchSoldProductTemplateIds() {
 
     return { ids, skus };
   } catch (e) {
+    // Rethrow: an empty result here would make every sold Odoo bag look "not sold" and get restored.
     console.error('fetchSoldProductTemplateIds error:', e);
-    return { ids: new Set(), skus: new Set() };
+    throw e;
   }
 }
 
@@ -236,7 +237,17 @@ export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end();
 
   try {
-    const { ids: soldTemplateIds } = await fetchSoldProductTemplateIds();
+    // Safety guard: if the Odoo order lookup fails or comes back empty, skip the Odoo bags/watches
+    // status update entirely (an empty set would restore every sold product to available).
+    let soldTemplateIds = new Set();
+    let odooOrdersOk = false;
+    try {
+      soldTemplateIds = (await fetchSoldProductTemplateIds()).ids;
+      odooOrdersOk = soldTemplateIds.size > 0;
+      if (!odooOrdersOk) console.error('Odoo sold lookup returned empty — skipping Odoo product status update');
+    } catch (e) {
+      console.error('Odoo sold lookup failed — skipping Odoo product status update:', e.message);
+    }
     const soldIdStrings = [...soldTemplateIds].map(String);
 
     // Fetch all Odoo-sourced products with their current status (exclude Jewellery — handled separately with qty check below)
@@ -251,7 +262,7 @@ export default async function handler(req, res) {
     let markedSold = 0;
     let markedAvailable = 0;
 
-    for (const product of allProducts || []) {
+    for (const product of odooOrdersOk ? (allProducts || []) : []) {
       const isSold = soldIdStrings.includes(product.odoo_product_id);
 
       if (isSold && product.status !== 'sold') {
