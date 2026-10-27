@@ -254,14 +254,23 @@ export default async function handler(req, res) {
     const liveOdooIds = items.map(i => String(i.id));
 
     // Remove stale items no longer in Odoo
-    const { data: existing } = await supabase
-      .from('products').select('odoo_product_id').eq('source', 'odoo_bags');
-    const existingIds = (existing || []).map(i => String(i.odoo_product_id));
+    // Page through every odoo_bags row: Supabase returns at most 1000 rows per request,
+    // so a single query silently skips the rest of the catalogue.
+    const existing = [];
+    for (let from = 0; ; from += 1000) {
+      const { data: page, error: pageErr } = await supabase
+        .from('products').select('odoo_product_id').eq('source', 'odoo_bags').order('id').range(from, from + 999);
+      if (pageErr) throw pageErr;
+      existing.push(...page);
+      if (page.length < 1000) break;
+    }
+    const existingIds = existing.map(i => String(i.odoo_product_id));
     const existingIdsSet = new Set(existingIds);
     const liveOdooIdsSet = new Set(liveOdooIds);
     const toDelete = existingIds.filter(id => !liveOdooIdsSet.has(id));
-    if (toDelete.length > 0) {
-      await supabase.from('products').update({ status: 'sold' }).in('odoo_product_id', toDelete).eq('source', 'odoo_bags');
+    // Chunked so the request URL stays short now that the full list is covered
+    for (let i = 0; i < toDelete.length; i += 200) {
+      await supabase.from('products').update({ status: 'sold' }).in('odoo_product_id', toDelete.slice(i, i + 200)).eq('source', 'odoo_bags');
     }
 
     // Build rows — data only, no image uploads

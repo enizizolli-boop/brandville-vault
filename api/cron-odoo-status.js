@@ -251,13 +251,20 @@ export default async function handler(req, res) {
     const soldIdStrings = [...soldTemplateIds].map(String);
 
     // Fetch all Odoo-sourced products with their current status (exclude Jewellery — handled separately with qty check below)
-    const { data: allProducts, error } = await supabase
-      .from('products')
-      .select('id, odoo_product_id, status, source')
-      .in('source', ['odoo', 'odoo_bags'])
-      .neq('category', 'Jewellery');
-
-    if (error) throw error;
+    // Paged: Supabase returns at most 1000 rows per request, so a single query skipped part of the catalogue.
+    const allProducts = [];
+    for (let from = 0; ; from += 1000) {
+      const { data: page, error } = await supabase
+        .from('products')
+        .select('id, odoo_product_id, status, source')
+        .in('source', ['odoo', 'odoo_bags'])
+        .neq('category', 'Jewellery')
+        .order('id')
+        .range(from, from + 999);
+      if (error) throw error;
+      allProducts.push(...page);
+      if (page.length < 1000) break;
+    }
 
     let markedSold = 0;
     let markedAvailable = 0;
