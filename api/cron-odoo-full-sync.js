@@ -193,7 +193,15 @@ export default async function handler(req, res) {
 
     // Fetch brand from Odoo attribute (no hardcoded map needed)
     const brandMap = await fetchBrandMap(allOdooItems.map(i => i.id));
-    const { data: allExisting } = await supabase.from('products').select('odoo_product_id').eq('source', 'odoo').eq('category', 'Jewellery');
+    // Paged: Supabase returns at most 1000 rows per request, so a single query skipped part of the jewellery.
+    const allExisting = [];
+    for (let from = 0; ; from += 1000) {
+      const { data: page, error: pageErr } = await supabase.from('products').select('odoo_product_id')
+        .eq('source', 'odoo').eq('category', 'Jewellery').order('id').range(from, from + 999);
+      if (pageErr) throw pageErr;
+      allExisting.push(...page);
+      if (page.length < 1000) break;
+    }
     const toDelete = (allExisting || []).map(i => i.odoo_product_id).filter(id => id && !allOdooIds.includes(id));
     if (toDelete.length > 0) {
       await supabase.from('products').update({ status: 'sold' }).in('odoo_product_id', toDelete).eq('source', 'odoo').eq('category', 'Jewellery');

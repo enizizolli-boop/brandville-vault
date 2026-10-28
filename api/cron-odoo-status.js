@@ -206,13 +206,16 @@ async function fetchOdooQtyMap(odooIds) {
       const chunk = odooIds.slice(i, i + CHUNK);
       const idsXml = chunk.map(id => `<value><int>${id}</int></value>`).join('');
       const domainXml = `<value><array><data><value><string>id</string></value><value><string>in</string></value><value><array><data>${idsXml}</data></array></value></data></array></value>`;
+      // Only items still for sale in Odoo (same rule as the jewellery full sync): not-for-sale items are
+      // missing from the result, so they count as sold and can never be restored to available here.
+      const saleOkXml = `<value><array><data><value><string>sale_ok</string></value><value><string>=</string></value><value><boolean>1</boolean></value></data></array></value>`;
       const body = `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>` +
         `<param><value><string>${ODOO_DB}</string></value></param>` +
         `<param><value><int>${ODOO_UID}</int></value></param>` +
         `<param><value><string>${ODOO_API_KEY}</string></value></param>` +
         `<param><value><string>product.template</string></value></param>` +
         `<param><value><string>search_read</string></value></param>` +
-        `<param><value><array><data><value><array><data>${domainXml}</data></array></value></data></array></value></param>` +
+        `<param><value><array><data><value><array><data>${domainXml}${saleOkXml}</data></array></value></data></array></value></param>` +
         `<param><value><struct>` +
         `<member><name>fields</name><value><array><data><value><string>id</string></value><value><string>virtual_available</string></value></data></array></value></member>` +
         `<member><name>limit</name><value><int>${CHUNK}</int></value></member>` +
@@ -286,11 +289,20 @@ export default async function handler(req, res) {
     }
 
     // Also update jewellery status (source = 'odoo', category = 'Jewellery')
-    const { data: allJewellery } = await supabase
-      .from('products')
-      .select('id, odoo_product_id, status')
-      .eq('source', 'odoo')
-      .eq('category', 'Jewellery');
+    // Paged: Supabase returns at most 1000 rows per request, so a single query skipped part of the jewellery.
+    const allJewellery = [];
+    for (let from = 0; ; from += 1000) {
+      const { data: page, error: jErr } = await supabase
+        .from('products')
+        .select('id, odoo_product_id, status')
+        .eq('source', 'odoo')
+        .eq('category', 'Jewellery')
+        .order('id')
+        .range(from, from + 999);
+      if (jErr) throw jErr;
+      allJewellery.push(...page);
+      if (page.length < 1000) break;
+    }
 
     let jewelleryMarkedSold = 0;
     let jewelleryMarkedAvailable = 0;
