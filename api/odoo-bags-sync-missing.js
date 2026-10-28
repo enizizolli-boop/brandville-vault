@@ -166,14 +166,14 @@ const CATEG_MAP = {
 async function fetchRealRealOnlyIds() {
   const quants = await odooSearchRead('stock.quant',
     [['location_id.warehouse_id.code', '=', 'Real'], ['location_id.usage', '=', 'internal'], ['quantity', '>', 0]],
-    ['product_tmpl_id', 'quantity'], 5000);
+    ['product_tmpl_id', 'quantity'], 5000, 0);
   const realReal = new Map();
   for (const q of quants) {
     const id = Array.isArray(q.product_tmpl_id) ? q.product_tmpl_id[0] : q.product_tmpl_id;
     if (typeof id === 'number') realReal.set(id, (realReal.get(id) || 0) + (q.quantity || 0));
   }
   if (realReal.size === 0) return [];
-  const templates = await odooSearchRead('product.template', [['id', 'in', [...realReal.keys()]]], ['id', 'qty_available'], realReal.size);
+  const templates = await odooSearchRead('product.template', [['id', 'in', [...realReal.keys()]]], ['id', 'qty_available'], realReal.size, 0);
   return templates.filter(t => (t.qty_available || 0) - realReal.get(t.id) <= 0).map(t => t.id);
 }
 
@@ -245,10 +245,20 @@ export default async function handler(req, res) {
     }
 
     // 3. Fetch Supabase state: bag products + per-product image counts.
-    const { data: dbProducts } = await supabase
-      .from('products')
-      .select('id, odoo_product_id')
-      .eq('source', 'odoo_bags');
+    // Paged: Supabase returns at most 1000 rows per request. Reading only the first 1000 made the other bags
+    // look "missing", so their primary photo was inserted again on every run.
+    const dbProducts = [];
+    for (let from = 0; ; from += 1000) {
+      const { data: page, error: pageErr } = await supabase
+        .from('products')
+        .select('id, odoo_product_id')
+        .eq('source', 'odoo_bags')
+        .order('id')
+        .range(from, from + 999);
+      if (pageErr) throw pageErr;
+      dbProducts.push(...page);
+      if (page.length < 1000) break;
+    }
     const dbByOdooId = new Map((dbProducts || []).map(p => [String(p.odoo_product_id), p]));
 
     const dbIds = (dbProducts || []).map(p => p.id);
@@ -366,30 +376,37 @@ export default async function handler(req, res) {
       const categName = (Array.isArray(n.categ_id) ? n.categ_id[1] : n.categ_id || '').replace('All / ', '').toLowerCase();
       const { category, subcategory } = CATEG_MAP[categName] || { category: 'Accessories', subcategory: null };
 
-      const mapped = {
-        odoo_product_id: String(n.odoo_id),
-        source: 'odoo_bags',
-        brand: extractBrand(n.name, n.default_code),
-        model: (n.name || '').trim(),
-        reference: n.default_code || null,
-        price_eur: priceEur,
-        cost_eur: cost > 0 ? cost : null,
-        b2c_price_eur: n.list_price > 0 ? n.list_price : null,
-        b2b_price_eur: n.x_b2b_price > 0 ? n.x_b2b_price : null,
-        category,
-        subcategory: subcategory || null,
-        condition: n.x_studio_condition || '',
-        notes: n.description_sale && typeof n.description_sale === 'string' && n.description_sale.trim() ? n.description_sale.trim() : null,
-        status: 'available',
-      };
-      const { data: upserted, error: upErr } = await supabase
-        .from('products')
-        .upsert(mapped, { onConflict: 'odoo_product_id' })
-        .select('id')
-        .single();
-      if (upErr) { errors.push({ odoo_id: n.odoo_id, stage: 'upsert', error: upErr.message }); continue; }
-      upsertedRows++;
-      const productId = upserted.id;
+      let productId;
+      if (n.db_row_id) {
+        // The row already exists: only add missing photos. Brand, condition and prices belong to
+        // cron-odoo-bags-sync; overwriting them here made the two jobs undo each other.
+        productId = n.db_row_id;
+      } else {
+        const mapped = {
+          odoo_product_id: String(n.odoo_id),
+          source: 'odoo_bags',
+          brand: extractBrand(n.name, n.default_code),
+          model: (n.name || '').trim(),
+          reference: n.default_code || null,
+          price_eur: priceEur,
+          cost_eur: cost > 0 ? cost : null,
+          b2c_price_eur: n.list_price > 0 ? n.list_price : null,
+          b2b_price_eur: n.x_b2b_price > 0 ? n.x_b2b_price : null,
+          category,
+          subcategory: subcategory || null,
+          condition: n.x_studio_condition || '',
+          notes: n.description_sale && typeof n.description_sale === 'string' && n.description_sale.trim() ? n.description_sale.trim() : null,
+          status: 'available',
+        };
+        const { data: upserted, error: upErr } = await supabase
+          .from('products')
+          .upsert(mapped, { onConflict: 'odoo_product_id' })
+          .select('id')
+          .single();
+        if (upErr) { errors.push({ odoo_id: n.odoo_id, stage: 'upsert', error: upErr.message }); continue; }
+        upsertedRows++;
+        productId = upserted.id;
+      }
 
       // Re-read DB image count (in case it changed since the plan)
       const { count: dbCount } = await supabase
@@ -401,7 +418,11 @@ export default async function handler(req, res) {
 
       // Upload primary (image_1920) if not already in DB.
       // For items that already have extras, shift them up so primary lands at position 0.
-      const primaryAlreadyUploaded = n.db_row_id ? hasPrimaryInDB.has(n.db_row_id) : false;
+      // Ask the database directly: the in-memory set can miss rows, and a missed row got its primary photo re-inserted on every run
+      const { count: primaryCount } = await supabase
+        .from('product_images').select('id', { count: 'exact', head: true })
+        .eq('product_id', productId).like('url', '%bag_primary%');
+      const primaryAlreadyUploaded = (primaryCount || 0) > 0;
       if (hasPrimary && !primaryAlreadyUploaded) {
         try {
           if (existing > 0) {
