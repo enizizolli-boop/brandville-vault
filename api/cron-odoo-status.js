@@ -107,95 +107,6 @@ function parseVal(raw) {
   return null;
 }
 
-async function fetchSoldProductTemplateIds() {
-  try {
-    // Step 1: product.product IDs from non-cancelled sale order lines
-    const body1 = `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>` +
-      `<param><value><string>${ODOO_DB}</string></value></param>` +
-      `<param><value><int>${ODOO_UID}</int></value></param>` +
-      `<param><value><string>${ODOO_API_KEY}</string></value></param>` +
-      `<param><value><string>sale.order.line</string></value></param>` +
-      `<param><value><string>search_read</string></value></param>` +
-      `<param><value><array><data><value><array><data>` +
-      `<value><array><data><value><string>order_id.state</string></value><value><string>in</string></value><value><array><data><value><string>sale</string></value><value><string>done</string></value></data></array></value></data></array></value>` +
-      `</data></array></value></data></array></value></param>` +
-      `<param><value><struct>` +
-      `<member><name>fields</name><value><array><data><value><string>product_id</string></value></data></array></value></member>` +
-      `<member><name>limit</name><value><int>5000</int></value></member>` +
-      `</struct></value></param></params></methodCall>`;
-    const res1 = await fetch(ODOO_URL + '/xmlrpc/2/object', { method: 'POST', headers: { 'Content-Type': 'text/xml' }, body: body1 });
-    const text1 = await res1.text();
-    if (text1.includes('<fault>')) throw new Error('Odoo sale.order.line fault: ' + text1.substring(0, 300));
-
-    const lines = parseItems(text1);
-    const variantIds = [...new Set(lines.map(l => {
-      const pid = Array.isArray(l.product_id) ? l.product_id[0] : l.product_id;
-      return typeof pid === 'number' ? pid : null;
-    }).filter(Boolean))];
-
-    if (!variantIds.length) return { ids: new Set(), skus: new Set() };
-
-    // Step 2: map product.product → product.template
-    const idsXml = variantIds.map(id => `<value><int>${id}</int></value>`).join('');
-    const domainXml2 = `<value><array><data><value><string>id</string></value><value><string>in</string></value><value><array><data>${idsXml}</data></array></value></data></array></value>`;
-    const body2 = `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>` +
-      `<param><value><string>${ODOO_DB}</string></value></param>` +
-      `<param><value><int>${ODOO_UID}</int></value></param>` +
-      `<param><value><string>${ODOO_API_KEY}</string></value></param>` +
-      `<param><value><string>product.product</string></value></param>` +
-      `<param><value><string>search_read</string></value></param>` +
-      `<param><value><array><data><value><array><data>${domainXml2}</data></array></value></data></array></value></param>` +
-      `<param><value><struct>` +
-      `<member><name>fields</name><value><array><data><value><string>product_tmpl_id</string></value></data></array></value></member>` +
-      `<member><name>limit</name><value><int>5000</int></value></member>` +
-      `</struct></value></param></params></methodCall>`;
-    const res2 = await fetch(ODOO_URL + '/xmlrpc/2/object', { method: 'POST', headers: { 'Content-Type': 'text/xml' }, body: body2 });
-    const text2 = await res2.text();
-    if (text2.includes('<fault>')) throw new Error('Odoo product.product fault: ' + text2.substring(0, 300));
-
-    const variants = parseItems(text2);
-    const ids = new Set();
-    const tmplIds = [];
-    for (const v of variants) {
-      const tmplId = Array.isArray(v.product_tmpl_id) ? v.product_tmpl_id[0] : v.product_tmpl_id;
-      if (typeof tmplId === 'number') { ids.add(tmplId); tmplIds.push(tmplId); }
-    }
-
-    // Step 3: fetch default_code (SKU) for each sold template — used to cross-check Zoho watches
-    const skus = new Set();
-    if (tmplIds.length > 0) {
-      const tmplIdsXml = [...new Set(tmplIds)].map(id => `<value><int>${id}</int></value>`).join('');
-      const domainXml3 = `<value><array><data><value><string>id</string></value><value><string>in</string></value><value><array><data>${tmplIdsXml}</data></array></value></data></array></value>`;
-      const body3 = `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>` +
-        `<param><value><string>${ODOO_DB}</string></value></param>` +
-        `<param><value><int>${ODOO_UID}</int></value></param>` +
-        `<param><value><string>${ODOO_API_KEY}</string></value></param>` +
-        `<param><value><string>product.template</string></value></param>` +
-        `<param><value><string>search_read</string></value></param>` +
-        `<param><value><array><data><value><array><data>${domainXml3}</data></array></value></data></array></value></param>` +
-        `<param><value><struct>` +
-        `<member><name>fields</name><value><array><data><value><string>id</string></value><value><string>default_code</string></value></data></array></value></member>` +
-        `<member><name>limit</name><value><int>5000</int></value></member>` +
-        `</struct></value></param></params></methodCall>`;
-      const res3 = await fetch(ODOO_URL + '/xmlrpc/2/object', { method: 'POST', headers: { 'Content-Type': 'text/xml' }, body: body3 });
-      const text3 = await res3.text();
-      if (!text3.includes('<fault>')) {
-        for (const t of parseItems(text3)) {
-          if (t.default_code && typeof t.default_code === 'string' && t.default_code.trim()) {
-            skus.add(t.default_code.trim());
-          }
-        }
-      }
-    }
-
-    return { ids, skus };
-  } catch (e) {
-    // Rethrow: an empty result here would make every sold Odoo bag look "not sold" and get restored.
-    console.error('fetchSoldProductTemplateIds error:', e);
-    throw e;
-  }
-}
-
 async function fetchOdooQtyMap(odooIds) {
   // Returns a Map of odoo_product_id (string) → qty_available for all given IDs
   if (!odooIds.length) return new Map();
@@ -240,53 +151,11 @@ export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end();
 
   try {
-    // Safety guard: if the Odoo order lookup fails or comes back empty, skip the Odoo bags/watches
-    // status update entirely (an empty set would restore every sold product to available).
-    let soldTemplateIds = new Set();
-    let odooOrdersOk = false;
-    try {
-      soldTemplateIds = (await fetchSoldProductTemplateIds()).ids;
-      odooOrdersOk = soldTemplateIds.size > 0;
-      if (!odooOrdersOk) console.error('Odoo sold lookup returned empty — skipping Odoo product status update');
-    } catch (e) {
-      console.error('Odoo sold lookup failed — skipping Odoo product status update:', e.message);
-    }
-    const soldIdStrings = [...soldTemplateIds].map(String);
-
-    // Fetch all Odoo-sourced products with their current status (exclude Jewellery — handled separately with qty check below)
-    // Paged: Supabase returns at most 1000 rows per request, so a single query skipped part of the catalogue.
-    const allProducts = [];
-    for (let from = 0; ; from += 1000) {
-      const { data: page, error } = await supabase
-        .from('products')
-        .select('id, odoo_product_id, status, source')
-        .in('source', ['odoo', 'odoo_bags'])
-        .neq('category', 'Jewellery')
-        .order('id')
-        .range(from, from + 999);
-      if (error) throw error;
-      allProducts.push(...page);
-      if (page.length < 1000) break;
-    }
-
-    let markedSold = 0;
-    let markedAvailable = 0;
-
-    for (const product of odooOrdersOk ? (allProducts || []) : []) {
-      const isSold = soldIdStrings.includes(product.odoo_product_id);
-
-      if (isSold && product.status !== 'sold') {
-        await supabase.from('products').update({ status: 'sold' }).eq('id', product.id);
-        markedSold++;
-      } else if (!isSold && product.status === 'sold' && product.source !== 'odoo_bags') {
-        // Order cancelled and stock available again — restore to available.
-        // Not for odoo_bags: "not on a sale order" does not mean "in stock" (POS/delivery sales have no
-        // sale order), and restoring here fought the bags sync, which marks out-of-stock bags sold.
-        // Bags are restored only by cron-odoo-bags-sync, when they are back in stock in Odoo.
-        await supabase.from('products').update({ status: 'available' }).eq('id', product.id);
-        markedAvailable++;
-      }
-    }
+    // Bags/accessories/shoes (source odoo_bags) are no longer handled here. Their sold/available status comes
+    // from cron-odoo-bags-sync, which uses Odoo stock (on hand and forecast quantity). The sale-order lookup that
+    // used to run here read only 5,000 of 27,000+ order lines and fought the bags sync.
+    const markedSold = 0;
+    const markedAvailable = 0;
 
     // Also update jewellery status (source = 'odoo', category = 'Jewellery')
     // Paged: Supabase returns at most 1000 rows per request, so a single query skipped part of the jewellery.
@@ -389,10 +258,8 @@ export default async function handler(req, res) {
     console.log(`Cron status sync: ${markedSold} marked sold, ${markedAvailable} restored available | jewellery: ${jewelleryMarkedSold} sold, ${jewelleryMarkedAvailable} restored | zoho: ${zohoMarkedSold} sold, ${zohoMarkedAvailable} restored`);
     return res.status(200).json({
       success: true,
-      sold_on_order: soldTemplateIds.size,
       marked_sold: markedSold,
       marked_available: markedAvailable,
-      total_checked: allProducts?.length || 0,
       jewellery_marked_sold: jewelleryMarkedSold,
       jewellery_marked_available: jewelleryMarkedAvailable,
       jewellery_checked: allJewellery?.length || 0,
