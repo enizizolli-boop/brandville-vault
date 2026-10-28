@@ -165,7 +165,7 @@ async function odooCount(domain) {
   return m ? parseInt(m[1]) : 0;
 }
 
-async function odooRead(domain, fields, limit, offset) {
+async function odooRead(domain, fields, limit, offset, order) {
   const fieldsXml = fields.map(f => `<value><string>${f}</string></value>`).join('');
   const body = `<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>` +
     `<param><value><string>${ODOO_DB}</string></value></param>` +
@@ -178,6 +178,7 @@ async function odooRead(domain, fields, limit, offset) {
     `<member><name>fields</name><value><array><data>${fieldsXml}</data></array></value></member>` +
     `<member><name>limit</name><value><int>${limit}</int></value></member>` +
     `<member><name>offset</name><value><int>${offset}</int></value></member>` +
+    (order ? `<member><name>order</name><value><string>${order}</string></value></member>` : '') +
     `</struct></value></param></params></methodCall>`;
   const res = await fetch(ODOO_URL + '/xmlrpc/2/object', { method: 'POST', headers: { 'Content-Type': 'text/xml' }, body });
   const text = await res.text();
@@ -216,18 +217,25 @@ export default async function handler(req, res) {
       removed = toDelete.length;
     }
 
-    // Process all items in batches
-    for (let offset = 0; offset < totalCount; offset += BATCH_SIZE) {
+    // Process the items in batches. One run cannot finish all of them inside the 300 s limit, so each run
+    // resumes where the previous one stopped (position saved in sync_log) and wraps around at the end.
+    const { data: cursorRow } = await supabase.from('sync_log').select('result').eq('key', 'sync_odoo_jewellery_cursor').maybeSingle();
+    let startOffset = Number(cursorRow?.result?.offset) || 0;
+    if (startOffset >= totalCount) startOffset = 0;
+    let nextOffset = 0; // 0 = reached the end of the list, start over next time
+
+    for (let offset = startOffset; offset < totalCount; offset += BATCH_SIZE) {
       // Stop if we're getting close to the 300s limit
       if (Date.now() - startTime > 270000) {
         console.log(`Stopping at offset ${offset} to avoid timeout`);
+        nextOffset = offset;
         break;
       }
 
       const items = await odooRead(
         domain,
         ['id', 'name', 'default_code', 'list_price', 'x_b2b_price', 'description_sale', 'image_1920', 'qty_available', 'virtual_available', 'categ_id', 'x_studio_condition', 'brand_id'],
-        BATCH_SIZE, offset
+        BATCH_SIZE, offset, 'id' // fixed order so the saved position stays valid between runs
       );
       if (!items || items.length === 0) break;
 
@@ -344,12 +352,19 @@ export default async function handler(req, res) {
       }
     }
 
+    // Saved only when the run finished without an error, so a failed run retries the same batch
+    await supabase.from('sync_log').upsert({
+      key: 'sync_odoo_jewellery_cursor',
+      last_sync_at: new Date().toISOString(),
+      result: { offset: nextOffset },
+    });
+
     const elapsed = Math.round((Date.now() - startTime) / 1000);
     console.log(`Full sync done: +${added} added, ${updated} updated, ${removed} removed, ${imagesAdded} images, ${elapsed}s`);
     await supabase.from('sync_log').upsert({
       key: 'sync_odoo_jewellery',
       last_sync_at: new Date().toISOString(),
-      result: { added, updated, removed, images_added: imagesAdded, total: totalCount, elapsed_seconds: elapsed },
+      result: { added, updated, removed, images_added: imagesAdded, total: totalCount, start_offset: startOffset, next_offset: nextOffset, elapsed_seconds: elapsed },
     });
     return res.status(200).json({ success: true, added, updated, removed, images_added: imagesAdded, total: totalCount, elapsed_seconds: elapsed });
 
