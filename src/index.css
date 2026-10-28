@@ -1343,6 +1343,11 @@ button { font-family: inherit; cursor: pointer; }
 
 /* ── Empty state ──────────────────────────────── */
 .empty-state { padding: 80px 20px; text-align: center; color: var(--faint); font-size: 14px; }
+/* Catalogue empty state: readable text, real icon, clear action */
+.empty-state--catalog { padding: 72px 20px; }
+.empty-state-icon { display: block; margin: 0 auto 16px; color: var(--gold); opacity: 0.8; }
+.empty-state-title { font-size: 18px; font-weight: 500; color: var(--text); margin-bottom: 8px; }
+.empty-state-text { font-size: 14px; line-height: 1.5; color: var(--muted); max-width: 340px; margin: 0 auto 22px; }
 
 /* ── Modal ────────────────────────────────────── */
 .modal-bg {

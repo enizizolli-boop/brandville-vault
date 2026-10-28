@@ -913,11 +913,22 @@ export default function DealerCatalog({ routeCategory }) {
               ))}
             </div>
           ) : filtered.length === 0 ? (
-            <div className="empty-state">
-              <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.3 }}>◻</div>
-              <div style={{ fontWeight: 500, marginBottom: 6 }}>No items match your filters</div>
+            <div className="empty-state empty-state--catalog">
+              <svg className="empty-state-icon" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" />
+                <path d="M21 21l-4.3-4.3" />
+                <path d="M8.5 11h5" />
+              </svg>
+              <div className="empty-state-title">
+                {hasActiveFilters ? 'No items match your filters' : 'No items available right now'}
+              </div>
+              <div className="empty-state-text">
+                {hasActiveFilters
+                  ? 'Try removing a filter or widening the price range.'
+                  : 'New pieces are added regularly. Please check back soon.'}
+              </div>
               {hasActiveFilters && (
-                <button className="sidebar-clear" onClick={clearAllFilters} style={{ marginTop: 4 }}>
+                <button className="btn btn-dark" onClick={clearAllFilters}>
                   Clear all filters
                 </button>
               )}
