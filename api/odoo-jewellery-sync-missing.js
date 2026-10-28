@@ -211,10 +211,20 @@ export default async function handler(req, res) {
     }
 
     // 3. Fetch Supabase state for jewellery products.
-    const { data: dbProducts } = await supabase
-      .from('products')
-      .select('id, odoo_product_id')
-      .eq('source', 'odoo');
+    // Paged: Supabase returns at most 1000 rows per request. Reading only the first 1000 made every other
+    // existing row look "missing", so the same items were re-synced (and overwritten) on every run.
+    const dbProducts = [];
+    for (let from = 0; ; from += 1000) {
+      const { data: page, error: pageErr } = await supabase
+        .from('products')
+        .select('id, odoo_product_id')
+        .eq('source', 'odoo')
+        .order('id')
+        .range(from, from + 999);
+      if (pageErr) throw pageErr;
+      dbProducts.push(...page);
+      if (page.length < 1000) break;
+    }
     const dbByOdooId = new Map((dbProducts || []).map(p => [String(p.odoo_product_id), p]));
 
     const dbIds = (dbProducts || []).map(p => p.id);
@@ -258,6 +268,9 @@ export default async function handler(req, res) {
           categ_id: item.categ_id,
           list_price: item.list_price,
           x_b2b_price: item.x_b2b_price,
+          // brand and condition were never carried over, so every row was written as brand Unknown / condition Fair
+          brand_id: item.brand_id,
+          x_studio_condition: item.x_studio_condition,
           db_image_count: dbImageCount,
           extras_count: extrasCount,
           db_row_id: dbRow?.id || null,
@@ -308,10 +321,10 @@ export default async function handler(req, res) {
         source: 'odoo',
         brand: (Array.isArray(n.brand_id) ? n.brand_id[1] : null) || brandMap[String(n.odoo_id)] || 'Unknown',
         model: (n.name || '').trim(),
-        reference: refClean,
+        reference: n.default_code || null, // same as the full sync (was digits only, so the two jobs kept overwriting each other)
         price_eur: n.list_price || null,
         b2b_price_eur: n.x_b2b_price > 0 ? n.x_b2b_price : null,
-        condition: n.x_studio_condition || 'Fair',
+        condition: n.x_studio_condition || 'Pre-owned', // same default as the full sync (was 'Fair')
         category: 'Jewellery',
         notes: n.description_sale && typeof n.description_sale === 'string' && n.description_sale.trim() ? n.description_sale.trim() : null,
         // Only set status on brand-new rows; leave existing status alone.
