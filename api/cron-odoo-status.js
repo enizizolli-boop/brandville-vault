@@ -92,6 +92,9 @@ function parseVal(raw) {
   if (m) return parseInt(m[1]);
   m = raw.match(/^<boolean>([01])<\/boolean>$/);
   if (m) return m[1] === '1';
+  // Odoo sends quantities as <double>; without this they were read as null and every item looked out of stock
+  m = raw.match(/^<double>([^<]+)<\/double>$/);
+  if (m) return parseFloat(m[1]);
   m = raw.match(/^<string>([\s\S]*)<\/string>$/);
   if (m) return m[1];
   if (raw === '<nil/>') return null;
@@ -135,7 +138,7 @@ async function fetchOdooQtyMap(odooIds) {
       const text = await res.text();
       if (!text.includes('<fault>')) {
         for (const item of parseItems(text)) {
-          if (item.id !== undefined) qtyMap.set(String(item.id), item.virtual_available ?? 0);
+          if (item.id !== undefined) qtyMap.set(String(item.id), typeof item.virtual_available === 'number' ? item.virtual_available : null);
         }
       }
     }
@@ -187,6 +190,8 @@ export default async function handler(req, res) {
       } else {
         for (const item of allJewellery) {
           const qty = qtyMap.get(item.odoo_product_id);
+          // null = Odoo returned the item but the quantity could not be read: leave the status alone
+          if (qty === null) continue;
           const isSold = qty === undefined || qty <= 0;
 
           if (isSold && item.status !== 'sold') {
