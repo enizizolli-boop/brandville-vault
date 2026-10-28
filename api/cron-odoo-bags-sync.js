@@ -215,6 +215,23 @@ const CATEG_MAP = {
   'card holder': { category: 'Accessories', subcategory: 'Cardholder' },
 };
 
+// Templates whose entire on-hand stock sits in the RealReal warehouse (consigned there, code 'Real').
+// They are not for sale in the Vault, so they are left out of the live list and get marked sold.
+// Stock in any other warehouse (Tirana, Magazina Zyra TR, Bulgaria, ...) still counts.
+async function fetchRealRealOnlyIds() {
+  const quants = await odooModelRead('stock.quant',
+    [['location_id.warehouse_id.code', '=', 'Real'], ['location_id.usage', '=', 'internal'], ['quantity', '>', 0]],
+    ['product_tmpl_id', 'quantity'], 5000);
+  const realReal = new Map();
+  for (const q of quants) {
+    const id = Array.isArray(q.product_tmpl_id) ? q.product_tmpl_id[0] : q.product_tmpl_id;
+    if (typeof id === 'number') realReal.set(id, (realReal.get(id) || 0) + (q.quantity || 0));
+  }
+  if (realReal.size === 0) return [];
+  const templates = await odooModelRead('product.template', [['id', 'in', [...realReal.keys()]]], ['id', 'qty_available'], realReal.size);
+  return templates.filter(t => (t.qty_available || 0) - realReal.get(t.id) <= 0).map(t => t.id);
+}
+
 export default async function handler(req, res) {
   try {
     const domain = [
@@ -226,6 +243,10 @@ export default async function handler(req, res) {
       ['virtual_available', '>', 0],
       ['categ_id', '!=', 8],
     ];
+
+    // Not for sale: bags whose only stock is at RealReal
+    const realRealOnly = await fetchRealRealOnlyIds();
+    if (realRealOnly.length > 0) domain.push(['id', 'not in', realRealOnly]);
 
     // Fetch all product template IDs first so we can filter attribute lines to only our products
     const allIdItems = await odooRead(domain, ['id'], 2000, 0);
