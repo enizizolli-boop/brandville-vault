@@ -42,6 +42,14 @@ function parseItems(xml) {
   return items;
 }
 
+// Odoo's XML-RPC escapes text (&amp; &lt; ...). Decode it, or "Van Cleef & Arpels" is stored as "Van Cleef &amp; Arpels".
+function decodeXml(s) {
+  return String(s)
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&amp;/g, '&');
+}
+
 function parseVal(raw) {
   raw = raw.trim();
   let m;
@@ -52,19 +60,19 @@ function parseVal(raw) {
   m = raw.match(/^<boolean>([01])<\/boolean>$/);
   if (m) return m[1] === '1';
   m = raw.match(/^<string>([\s\S]*)<\/string>$/);
-  if (m) return m[1];
+  if (m) return decodeXml(m[1]);
   m = raw.match(/^<base64>([\s\S]*)<\/base64>$/);
   if (m) return m[1].replace(/\s/g, '');
   if (raw === '<nil/>') return null;
   if (raw.startsWith('<array>')) {
     const intM = raw.match(/<int>(\d+)<\/int>/);
     const strM = raw.match(/<string>([^<]+)<\/string>/);
-    if (intM && strM) return [parseInt(intM[1]), strM[1]];
+    if (intM && strM) return [parseInt(intM[1]), decodeXml(strM[1])];
     if (intM) return parseInt(intM[1]);
     return null;
   }
   m = raw.match(/<string>([\s\S]*?)<\/string>/);
-  if (m) return m[1];
+  if (m) return decodeXml(m[1]);
   return null;
 }
 
