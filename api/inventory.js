@@ -20,7 +20,8 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Invalid or missing API key' });
   }
 
-  const { category, status = 'available', page = '0', limit = '100' } = req.query;
+  const { category, status = 'available', page = '0', limit = '100', preorders = 'true' } = req.query;
+  const includePreorders = preorders !== 'false';
   const pageNum = Math.max(0, parseInt(page) || 0);
   const pageSize = Math.min(500, Math.max(1, parseInt(limit) || 100));
   const from = pageNum * pageSize;
@@ -46,22 +47,27 @@ export default async function handler(req, res) {
   const { data: products, error, count } = await q;
   if (error) return res.status(500).json({ error: error.message });
 
-  const now = new Date().toISOString();
+  let preorderData = [];
+  let preorderCount = 0;
 
-  // Preorders query (available, not expired)
-  let pq = supabase
-    .from('preorders')
-    .select('id, brand, model, reference, price_eur, price_usd, category, subcategory, condition, scope_of_delivery, notes, status, created_at, expires_at, preorder_images(url, position)', { count: 'exact' })
-    .eq('status', 'available')
-    .or(`expires_at.is.null,expires_at.gte.${now}`)
-    .order('created_at', { ascending: false });
+  if (includePreorders) {
+    const now = new Date().toISOString();
+    let pq = supabase
+      .from('preorders')
+      .select('id, brand, model, reference, price_eur, price_usd, category, subcategory, condition, scope_of_delivery, notes, status, created_at, expires_at, preorder_images(url, position)', { count: 'exact' })
+      .eq('status', 'available')
+      .or(`expires_at.is.null,expires_at.gte.${now}`)
+      .order('created_at', { ascending: false });
 
-  if (category && VALID_CATEGORIES.includes(category)) {
-    pq = pq.eq('category', category);
+    if (category && VALID_CATEGORIES.includes(category)) {
+      pq = pq.eq('category', category);
+    }
+
+    const { data: preorders, error: pErr, count: pCount } = await pq;
+    if (pErr) return res.status(500).json({ error: pErr.message });
+    preorderData = preorders || [];
+    preorderCount = pCount || 0;
   }
-
-  const { data: preorders, error: pErr, count: preorderCount } = await pq;
-  if (pErr) return res.status(500).json({ error: pErr.message });
 
   const formatImages = (imgs) =>
     (imgs || [])
@@ -108,12 +114,12 @@ export default async function handler(req, res) {
 
   return res.status(200).json({
     products: (products || []).map(formatProduct),
-    preorders: (preorders || []).map(formatPreorder),
+    preorders: preorderData.map(formatPreorder),
     pagination: {
       page: pageNum,
       limit: pageSize,
       total_products: count || 0,
-      total_preorders: preorderCount || 0,
+      total_preorders: preorderCount,
       has_more: from + pageSize < (count || 0),
     },
   });

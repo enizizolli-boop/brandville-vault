@@ -314,6 +314,12 @@ export default function AdminPanel() {
     fetchUsers()
   }
 
+  async function toggleSupplier(userId, currentValue) {
+    const { error } = await supabase.from('profiles').update({ is_supplier: !currentValue }).eq('id', userId)
+    if (error) { alert('Failed to update: ' + error.message); return }
+    fetchUsers()
+  }
+
   async function assignAgent(supplierId, agentId) {
     await supabase.from('profiles').update({ assigned_agent_id: agentId || null }).eq('id', supplierId)
     fetchUsers()
@@ -481,6 +487,7 @@ export default function AdminPanel() {
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                   {u.role === 'dealer' && <button className="btn btn-sm" onClick={() => changeRole(u.id, 'agent')} style={{ fontSize: 11 }}>Make agent</button>}
+                  {u.role === 'dealer' && <button className="btn btn-sm" onClick={() => toggleSupplier(u.id, u.is_supplier)} style={{ fontSize: 11, background: u.is_supplier ? '#fef3c7' : undefined, color: u.is_supplier ? '#92400e' : undefined }}>{u.is_supplier ? 'Remove supplier' : 'Add supplier'}</button>}
                   {u.role === 'agent' && <button className="btn btn-sm" onClick={() => changeRole(u.id, 'dealer')} style={{ fontSize: 11 }}>Make dealer</button>}
                   {u.role === 'jewellery_agent' && <button className="btn btn-sm" onClick={() => changeRole(u.id, 'dealer')} style={{ fontSize: 11 }}>Make dealer</button>}
                   {u.role === 'supplier' && <button className="btn btn-sm" onClick={() => changeRole(u.id, 'dealer')} style={{ fontSize: 11 }}>Make dealer</button>}

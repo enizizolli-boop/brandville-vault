@@ -35,7 +35,7 @@ function PrivateRoute({ children, allowedRoles }) {
     if (errCode) return <Navigate to={`/login?auth_error=${encodeURIComponent(errCode)}`} replace />
     return <Navigate to="/login" replace />
   }
-  if (allowedRoles && !allowedRoles.includes(profile?.role)) return <Navigate to="/" replace />
+  if (allowedRoles && !allowedRoles.includes(profile?.role) && !(profile?.is_supplier && allowedRoles.includes('supplier'))) return <Navigate to="/" replace />
   return children
 }
 
