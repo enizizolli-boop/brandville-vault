@@ -81,12 +81,16 @@ async function fetchBrandMap(templateIds) {
   } catch (e) { console.error('fetchBrandMap error:', e); return {}; }
 }
 
-// Template ids of products on a non-cancelled sales order tagged "Consignment".
+// Template ids of products on a non-cancelled sales order tagged "Consignment" that is not fully invoiced
+// (invoice status "To Invoice" or "Nothing to Invoice"). A fully invoiced order is complete: its products drop out.
 // Throws on failure so the caller can leave is_consignment untouched instead of clearing it for every product.
 async function fetchConsignmentTemplateIds() {
   const lines = await odooModelRead(
     'sale.order.line',
-    [['order_id.tag_ids.name', '=', 'Consignment'], ['order_id.state', '!=', 'cancel'], ['product_id', '!=', false]],
+    [
+      ['order_id.tag_ids.name', '=', 'Consignment'], ['order_id.state', '!=', 'cancel'],
+      ['product_id', '!=', false], ['product_uom_qty', '>', 0], ['order_id.invoice_status', '!=', 'invoiced'],
+    ],
     ['product_template_id'], 5000
   );
   return new Set(lines.map(l => Array.isArray(l.product_template_id) ? l.product_template_id[0] : l.product_template_id).filter(Boolean));
@@ -290,15 +294,13 @@ export default async function handler(req, res) {
         const categName = Array.isArray(item.categ_id) ? item.categ_id[1] : (typeof item.categ_id === 'string' ? item.categ_id : null);
         const jewelleryType = categName ? (JEWELLERY_TYPE_MAP[categName.toLowerCase()] || null) : null;
 
-        // A consignment piece is reserved by its sales order (forecast 0, so it counts as sold) but can still be on hand.
-        // Flagged only while it is on hand, so the Consignment view lists pieces still in stock.
-        const onHand = Number(item.qty_available) || 0;
-        const isConsignment = consignmentIds ? (consignmentIds.has(item.id) && onHand > 0) : false;
+        // A consignment piece is on a Consignment sales order that is not fully invoiced. It stays visible whatever its
+        // quantity is (it is reserved or already at the customer); once the order is fully invoiced it is no longer flagged.
+        const isConsignment = consignmentIds ? consignmentIds.has(item.id) : false;
 
         // virtual_available (forecasted qty) drops to 0 when on a confirmed SO or already sold.
         // For max-1-stock items this is the single reliable sold signal — no SO lookup needed.
-        // Exception: a consignment piece (on a Consignment order, still on hand) stays available until the
-        // order is delivered. Once the stock leaves, onHand is 0, it is no longer flagged and counts as sold.
+        // Exception: a consignment piece (order not fully invoiced) stays available. After the full invoice it counts as sold again.
         const isSold = (item.virtual_available == null || item.virtual_available <= 0) && !isConsignment;
 
         const mapped = {

@@ -329,7 +329,7 @@ export default function DealerCatalog({ routeCategory }) {
   const fetchWatches = useCallback(async () => {
     let q = supabase.from('products').select('*, product_images(url, position)').order('created_at', { ascending: false })
     if (filterBrand) q = q.eq('brand', filterBrand)
-    // Consignment view: pieces on a Consignment sales order that are still on hand (the sync only flags those). Their status is 'sold'
+    // Consignment view: pieces on a Consignment sales order that is not fully invoiced (the sync only flags those). Their status is 'sold'
     // (reserved by the order), so this view ignores status.
     if (filterStatus === 'consignment') q = q.eq('is_consignment', true)
     else if (filterStatus) q = q.eq('status', filterStatus)
