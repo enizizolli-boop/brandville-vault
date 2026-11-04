@@ -329,7 +329,10 @@ export default function DealerCatalog({ routeCategory }) {
   const fetchWatches = useCallback(async () => {
     let q = supabase.from('products').select('*, product_images(url, position)').order('created_at', { ascending: false })
     if (filterBrand) q = q.eq('brand', filterBrand)
-    if (filterStatus) q = q.eq('status', filterStatus)
+    // Consignment view: pieces on a Consignment sales order that are still on hand (the sync only flags those). Their status is 'sold'
+    // (reserved by the order), so this view ignores status.
+    if (filterStatus === 'consignment') q = q.eq('is_consignment', true)
+    else if (filterStatus) q = q.eq('status', filterStatus)
     else q = q.neq('status', 'sold')
     if (lockedCategory === 'Bags') {
       if (filterCategory) q = q.eq('category', filterCategory)
@@ -346,7 +349,8 @@ export default function DealerCatalog({ routeCategory }) {
     let pq = supabase.from('preorders').select('*').order('created_at', { ascending: false }).limit(500)
       .or(`expires_at.is.null,expires_at.gte.${now}`)
     if (filterBrand) pq = pq.eq('brand', filterBrand)
-    if (filterStatus) pq = pq.eq('status', filterStatus)
+    if (filterStatus === 'consignment') pq = pq.limit(0) // preorders are never consignment
+    else if (filterStatus) pq = pq.eq('status', filterStatus)
     else pq = pq.neq('status', 'sold')
     if (lockedCategory === 'Bags') {
       if (filterCategory) pq = pq.eq('category', filterCategory)
@@ -612,6 +616,7 @@ export default function DealerCatalog({ routeCategory }) {
               <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
                 <option value="available">Available</option>
                 <option value="reserved">Reserved</option>
+                {!isB2C && <option value="consignment">Consignment</option>}
                 <option value="">All status</option>
               </select>
             </div>
@@ -797,6 +802,13 @@ export default function DealerCatalog({ routeCategory }) {
                     <span className="sidebar-check-count">{opt.count}</span>
                   </label>
                 ))}
+                {!isB2C && (
+                  <label className="sidebar-radio-row">
+                    <input type="radio" name="avail" checked={filterStatus === 'consignment'}
+                      onChange={() => { setFilterStatus('consignment'); setFilterNewOnly(false); setActiveTab('all') }} />
+                    <span>Consignment</span>
+                  </label>
+                )}
                 <label className="sidebar-radio-row">
                   <input type="radio" name="avail" checked={filterNewOnly}
                     onChange={() => { setFilterNewOnly(true); setFilterStatus(''); setActiveTab('new') }} />

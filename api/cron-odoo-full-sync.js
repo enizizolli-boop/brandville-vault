@@ -81,6 +81,17 @@ async function fetchBrandMap(templateIds) {
   } catch (e) { console.error('fetchBrandMap error:', e); return {}; }
 }
 
+// Template ids of products on a non-cancelled sales order tagged "Consignment".
+// Throws on failure so the caller can leave is_consignment untouched instead of clearing it for every product.
+async function fetchConsignmentTemplateIds() {
+  const lines = await odooModelRead(
+    'sale.order.line',
+    [['order_id.tag_ids.name', '=', 'Consignment'], ['order_id.state', '!=', 'cancel'], ['product_id', '!=', false]],
+    ['product_template_id'], 5000
+  );
+  return new Set(lines.map(l => Array.isArray(l.product_template_id) ? l.product_template_id[0] : l.product_template_id).filter(Boolean));
+}
+
 function parseItems(xml) {
   const norm = xml.replace(/>\s+</g, '><');
   const items = [];
@@ -200,6 +211,11 @@ export default async function handler(req, res) {
     const allOdooItems = await odooRead(domain, ['id'], 5000, 0);
     const allOdooIds = allOdooItems.map(i => String(i.id));
 
+    // Consignment products (jewellery only): null when the lookup fails, so is_consignment is then left as it is
+    let consignmentIds = null;
+    try { consignmentIds = await fetchConsignmentTemplateIds(); }
+    catch (e) { console.error('fetchConsignmentTemplateIds error:', e.message); }
+
     // Fetch brand from Odoo attribute (no hardcoded map needed)
     const brandMap = await fetchBrandMap(allOdooItems.map(i => i.id));
     // Paged: Supabase returns at most 1000 rows per request, so a single query skipped part of the jewellery.
@@ -277,6 +293,11 @@ export default async function handler(req, res) {
         const categName = Array.isArray(item.categ_id) ? item.categ_id[1] : (typeof item.categ_id === 'string' ? item.categ_id : null);
         const jewelleryType = categName ? (JEWELLERY_TYPE_MAP[categName.toLowerCase()] || null) : null;
 
+        // A consignment piece is reserved by its sales order (forecast 0, so it counts as sold) but can still be on hand.
+        // Flagged only while it is on hand, so the Consignment view lists pieces still in stock.
+        const onHand = Number(item.qty_available) || 0;
+        const isConsignment = consignmentIds ? (consignmentIds.has(item.id) && onHand > 0) : false;
+
         const mapped = {
           subcategory: jewelleryType,
           odoo_product_id: String(item.id),
@@ -286,6 +307,7 @@ export default async function handler(req, res) {
           reference: item.default_code || null,
           price_eur: item.list_price || null,
           b2b_price_eur: item.x_b2b_price > 0 ? item.x_b2b_price : null,
+          ...(consignmentIds ? { is_consignment: isConsignment } : {}),
           condition: item.x_studio_condition || 'Pre-owned',
           ...(isSold ? { status: 'sold' } : currentStatus === 'sold' ? { status: 'available' } : isExisting ? {} : { status: 'available' }),
           category: 'Jewellery',
@@ -300,7 +322,7 @@ export default async function handler(req, res) {
           updated++;
         } else {
           // Don't insert brand-new products that are already sold — only add available items
-          if (isSold) continue;
+          if (isSold && !isConsignment) continue;
           const { data: inserted, error } = await supabase.from('products').insert(mapped).select('id').single();
           if (error) { console.error('insert error', error.message); continue; }
           productId = inserted?.id;
