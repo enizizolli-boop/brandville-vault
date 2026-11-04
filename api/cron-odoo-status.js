@@ -166,7 +166,7 @@ export default async function handler(req, res) {
     for (let from = 0; ; from += 1000) {
       const { data: page, error: jErr } = await supabase
         .from('products')
-        .select('id, odoo_product_id, status')
+        .select('id, odoo_product_id, status, is_consignment')
         .eq('source', 'odoo')
         .eq('category', 'Jewellery')
         .order('id')
@@ -189,6 +189,8 @@ export default async function handler(req, res) {
         console.error('Odoo qty fetch returned empty map — skipping jewellery status update to prevent mass wipe');
       } else {
         for (const item of allJewellery) {
+          // Consignment pieces are reserved by their sales order but still on hand: the jewellery full sync owns their status
+          if (item.is_consignment) continue;
           const qty = qtyMap.get(item.odoo_product_id);
           // null = Odoo returned the item but the quantity could not be read: leave the status alone
           if (qty === null) continue;

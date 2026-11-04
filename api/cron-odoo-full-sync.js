@@ -286,9 +286,6 @@ export default async function handler(req, res) {
         const isExisting = !!existingEntry;
         const currentStatus = existingEntry?.status;
 
-        // virtual_available (forecasted qty) drops to 0 when on a confirmed SO or already sold.
-        // For max-1-stock items this is the single reliable sold signal — no SO lookup needed.
-        const isSold = item.virtual_available == null || item.virtual_available <= 0;
 
         const categName = Array.isArray(item.categ_id) ? item.categ_id[1] : (typeof item.categ_id === 'string' ? item.categ_id : null);
         const jewelleryType = categName ? (JEWELLERY_TYPE_MAP[categName.toLowerCase()] || null) : null;
@@ -297,6 +294,12 @@ export default async function handler(req, res) {
         // Flagged only while it is on hand, so the Consignment view lists pieces still in stock.
         const onHand = Number(item.qty_available) || 0;
         const isConsignment = consignmentIds ? (consignmentIds.has(item.id) && onHand > 0) : false;
+
+        // virtual_available (forecasted qty) drops to 0 when on a confirmed SO or already sold.
+        // For max-1-stock items this is the single reliable sold signal — no SO lookup needed.
+        // Exception: a consignment piece (on a Consignment order, still on hand) stays available until the
+        // order is delivered. Once the stock leaves, onHand is 0, it is no longer flagged and counts as sold.
+        const isSold = (item.virtual_available == null || item.virtual_available <= 0) && !isConsignment;
 
         const mapped = {
           subcategory: jewelleryType,
@@ -322,7 +325,7 @@ export default async function handler(req, res) {
           updated++;
         } else {
           // Don't insert brand-new products that are already sold — only add available items
-          if (isSold && !isConsignment) continue;
+          if (isSold) continue;
           const { data: inserted, error } = await supabase.from('products').insert(mapped).select('id').single();
           if (error) { console.error('insert error', error.message); continue; }
           productId = inserted?.id;
