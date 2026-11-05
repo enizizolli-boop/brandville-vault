@@ -240,6 +240,37 @@ async function fetchRealRealOnlyIds() {
   return templates.filter(t => (t.qty_available || 0) - realReal.get(t.id) <= 0).map(t => t.id);
 }
 
+// Hides available manual listings that duplicate an Odoo listing (same brand, same SKU number). No sync updates a
+// manual listing, so once the bag sells it would stay available. Only the status changes, so it can be restored.
+// Returns the references it hid. Throws on failure; the caller keeps the bags sync result either way.
+async function hideManualDuplicates() {
+  const { data: manual, error } = await supabase.from('products')
+    .select('id, reference, model, brand').eq('source', 'manual').eq('status', 'available');
+  if (error) throw error;
+
+  const normBrand = b => (b || '').trim().toLowerCase();
+  const refNumber = ref => (ref || '').trim().match(/(?:^|-)(\d{4,6})$/)?.[1] || null;
+  const skuNumber = l => refNumber(l.reference) || (l.model || '').trim().match(/^(\d{5})\b/)?.[1] || null;
+
+  const numbers = [...new Set(manual.map(skuNumber).filter(Boolean))];
+  const odooKeys = new Set();
+  for (let i = 0; i < numbers.length; i += 50) {
+    const { data: twins, error: twinErr } = await supabase.from('products')
+      .select('reference, brand').in('source', ['odoo', 'odoo_bags'])
+      .or(numbers.slice(i, i + 50).map(n => `reference.ilike.%-${n}`).join(','));
+    if (twinErr) throw twinErr;
+    for (const t of twins) odooKeys.add(`${normBrand(t.brand)}|${refNumber(t.reference)}`);
+  }
+
+  const duplicates = manual.filter(m => odooKeys.has(`${normBrand(m.brand)}|${skuNumber(m)}`));
+  if (duplicates.length > 0) {
+    const { error: hideErr } = await supabase.from('products').update({ status: 'sold' })
+      .in('id', duplicates.map(d => d.id)).eq('source', 'manual').eq('status', 'available');
+    if (hideErr) throw hideErr;
+  }
+  return duplicates.map(d => (d.reference || d.model || d.id).trim());
+}
+
 export default async function handler(req, res) {
   try {
     const domain = [
@@ -349,10 +380,18 @@ export default async function handler(req, res) {
       upserted += rows.slice(i, i + CHUNK).length;
     }
 
+    // A failure here must not fail the bags sync: the duplicates are picked up on the next run
+    let manualHidden = [];
+    try {
+      manualHidden = await hideManualDuplicates();
+    } catch (e) {
+      console.error('hideManualDuplicates error:', e);
+    }
+
     await supabase.from('sync_log').upsert({
       key: 'sync_odoo_bags',
       last_sync_at: new Date().toISOString(),
-      result: { upserted, removed: toDelete.length, total: items.length },
+      result: { upserted, removed: toDelete.length, total: items.length, manualHidden },
     });
 
     return res.status(200).json({
@@ -360,6 +399,7 @@ export default async function handler(req, res) {
       upserted,
       removed: toDelete.length,
       total: items.length,
+      manualHidden,
     });
   } catch (err) {
     console.error('Cron bags sync error:', err);
