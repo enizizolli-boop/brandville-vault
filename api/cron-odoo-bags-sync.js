@@ -240,6 +240,60 @@ async function fetchRealRealOnlyIds() {
   return templates.filter(t => (t.qty_available || 0) - realReal.get(t.id) <= 0).map(t => t.id);
 }
 
+const normBrand = b => (b || '').trim().toLowerCase();
+const refNumber = ref => (ref || '').trim().match(/(?:^|-)(\d{4,6})$/)?.[1] || null;
+const skuNumber = l => refNumber(l.reference) || (l.model || '').trim().match(/^(\d{5})\b/)?.[1] || null;
+
+// false = only report in sync_log what would be hidden. Set to true once the report has been reviewed.
+const MANUAL_SOLD_CHECK_APPLY = false;
+// More than this in one run means something is wrong (for example the Odoo login lost access to a company): hide nothing.
+const MANUAL_SOLD_CHECK_MAX = 10;
+const MANUAL_SOLD_CHECK_CATEGORIES = ['Bags', 'Accessories', 'Shoes'];
+
+// Hides available manual listings with no Odoo listing in the Vault once Odoo says the bag is gone. Uses the bags sync
+// rule: on hand and forecast must both be above 0. Any doubt leaves the listing alone: watches and jewellery (their
+// references are model numbers, not SKUs), no SKU number, no match or several matches in Odoo, a SKU of another brand,
+// a quantity that cannot be read. It only hides and only changes the status. Throws if an Odoo read fails.
+async function hideSoldManualListings(deadline) {
+  const { data: manual, error } = await supabase.from('products')
+    .select('id, reference, model, brand').eq('source', 'manual').eq('status', 'available')
+    .in('category', MANUAL_SOLD_CHECK_CATEGORIES);
+  if (error) throw error;
+
+  const skuBrand = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const candidates = manual.filter(skuNumber);
+  const sold = [];
+  for (let i = 0; i < candidates.length; i += 10) {
+    if (Date.now() > deadline) break; // the rest is checked on the next run
+    const batch = candidates.slice(i, i + 10);
+    const found = await Promise.all(batch.map(m => odooModelRead(
+      'product.template', [['default_code', '=ilike', `%-${skuNumber(m)}`]],
+      ['id', 'default_code', 'qty_available', 'virtual_available'], 2
+    )));
+    batch.forEach((m, j) => {
+      if (found[j].length !== 1) return;
+      const o = found[j][0];
+      if (skuBrand(String(o.default_code).replace(/-\d+$/, '')) !== skuBrand(m.brand)) return;
+      if (typeof o.qty_available !== 'number' || typeof o.virtual_available !== 'number') return;
+      if (o.qty_available <= 0 || o.virtual_available <= 0) {
+        sold.push({ id: m.id, label: `${o.default_code} ${o.qty_available}/${o.virtual_available}` });
+      }
+    });
+  }
+
+  const labels = sold.map(s => s.label);
+  if (sold.length > MANUAL_SOLD_CHECK_MAX) {
+    console.error('hideSoldManualListings: too many to hide, hiding none:', labels);
+    return { hidden: [], wouldHide: labels };
+  }
+  if (!MANUAL_SOLD_CHECK_APPLY || sold.length === 0) return { hidden: [], wouldHide: labels };
+
+  const { error: hideErr } = await supabase.from('products').update({ status: 'sold' })
+    .in('id', sold.map(s => s.id)).eq('source', 'manual').eq('status', 'available');
+  if (hideErr) throw hideErr;
+  return { hidden: labels, wouldHide: [] };
+}
+
 // Hides available manual listings that duplicate an Odoo listing (same brand, same SKU number). No sync updates a
 // manual listing, so once the bag sells it would stay available. Only the status changes, so it can be restored.
 // Returns the references it hid. Throws on failure; the caller keeps the bags sync result either way.
@@ -247,10 +301,6 @@ async function hideManualDuplicates() {
   const { data: manual, error } = await supabase.from('products')
     .select('id, reference, model, brand').eq('source', 'manual').eq('status', 'available');
   if (error) throw error;
-
-  const normBrand = b => (b || '').trim().toLowerCase();
-  const refNumber = ref => (ref || '').trim().match(/(?:^|-)(\d{4,6})$/)?.[1] || null;
-  const skuNumber = l => refNumber(l.reference) || (l.model || '').trim().match(/^(\d{5})\b/)?.[1] || null;
 
   const numbers = [...new Set(manual.map(skuNumber).filter(Boolean))];
   const odooKeys = new Set();
@@ -272,6 +322,7 @@ async function hideManualDuplicates() {
 }
 
 export default async function handler(req, res) {
+  const startTime = Date.now();
   try {
     const domain = [
       ['active', '=', true],
@@ -388,10 +439,18 @@ export default async function handler(req, res) {
       console.error('hideManualDuplicates error:', e);
     }
 
+    // Runs after the duplicates, so only listings with no Odoo twin are left. Stops at 50 s of the 60 s limit.
+    let manualSold = { hidden: [], wouldHide: [] };
+    try {
+      manualSold = await hideSoldManualListings(startTime + 50000);
+    } catch (e) {
+      console.error('hideSoldManualListings error:', e);
+    }
+
     await supabase.from('sync_log').upsert({
       key: 'sync_odoo_bags',
       last_sync_at: new Date().toISOString(),
-      result: { upserted, removed: toDelete.length, total: items.length, manualHidden },
+      result: { upserted, removed: toDelete.length, total: items.length, manualHidden, manualSold },
     });
 
     return res.status(200).json({
@@ -400,6 +459,7 @@ export default async function handler(req, res) {
       removed: toDelete.length,
       total: items.length,
       manualHidden,
+      manualSold,
     });
   } catch (err) {
     console.error('Cron bags sync error:', err);
