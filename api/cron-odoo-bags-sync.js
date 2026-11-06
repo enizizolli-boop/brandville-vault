@@ -244,8 +244,8 @@ const normBrand = b => (b || '').trim().toLowerCase();
 const refNumber = ref => (ref || '').trim().match(/(?:^|-)(\d{4,6})$/)?.[1] || null;
 const skuNumber = l => refNumber(l.reference) || (l.model || '').trim().match(/^(\d{5})\b/)?.[1] || null;
 
-// false = only report in sync_log what would be hidden. Set to true once the report has been reviewed.
-const MANUAL_SOLD_CHECK_APPLY = false;
+// false = only report in sync_log what would be hidden, true = hide them. Set to false to go back to report-only.
+const MANUAL_SOLD_CHECK_APPLY = true;
 // More than this in one run means something is wrong (for example the Odoo login lost access to a company): hide nothing.
 const MANUAL_SOLD_CHECK_MAX = 10;
 const MANUAL_SOLD_CHECK_CATEGORIES = ['Bags', 'Accessories', 'Shoes'];
