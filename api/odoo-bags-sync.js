@@ -1,4 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
+import { createHash } from 'crypto';
+
+// Fingerprint of a whole image. (Comparing only the first 100 base64 characters matched the file header, which is
+// the same for every photo of the same size and format, so different photos were dropped as duplicates.)
+const imageKey = b64 => createHash('sha1').update(String(b64)).digest('hex');
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL,
@@ -502,13 +507,13 @@ export default async function handler(req, res) {
       if (watchId) {
         // Deduplicate by image content — Odoo sometimes stores the primary image
         // in product.image records AND separately in template.image_1920, causing
-        // identical thumbnails. Compare first 100 chars of base64 to detect same file.
-        const seenPrefixes = new Set()
+        // identical thumbnails. Compare the whole image to detect the same file.
+        const seenKeys = new Set()
         const allImages = (extraImagesMap[String(item.id)] || []).filter(img => {
           if (!img.image_1920 || img.image_1920 === false) return false
-          const prefix = String(img.image_1920).slice(0, 100)
-          if (seenPrefixes.has(prefix)) return false
-          seenPrefixes.add(prefix)
+          const key = imageKey(img.image_1920)
+          if (seenKeys.has(key)) return false
+          seenKeys.add(key)
           return true
         })
         const odooTotal = allImages.length;
