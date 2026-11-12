@@ -17,24 +17,51 @@ const WATCH_BRANDS = [
   'Richard Mille','Rolex','TAG Heuer','Tudor','Ulysse Nardin','Vacheron Constantin','Zenith'
 ]
 const JEWELLERY_BRANDS = [
-  'Bulgari','Cartier','Chanel','Chopard','De Beers','Dior','Graff','Harry Winston',
-  'Hermès','Mikimoto','Other','Piaget','Tiffany & Co','Van Cleef & Arpels'
+  'Bulgari','Cartier','Chanel','Chopard','De Beers','Dior','Fred','Graff','Harry Winston',
+  'Hermès','Louis Vuitton','Messika','Mikimoto','Other','Piaget','Qeelin','Tasaki','Tiffany & Co','Van Cleef & Arpels'
 ]
 const BAG_BRANDS = [
-  'Balenciaga','Bottega Veneta','Celine','Chanel','Dior','Fendi','Gucci',
-  'Hermès','Loewe','Louis Vuitton','Other','Prada','Saint Laurent'
+  'Balenciaga','Bottega Veneta','Bulgari','Celine','Chanel','Dior','Fendi','Goyard','Gucci',
+  'Hermès','Jacquemus','Loewe','Louis Vuitton','Other','Prada','Saint Laurent'
 ]
 const SHOES_BRANDS = [
   'Chanel','Christian Louboutin','Dior','Gucci','Hermès','Louis Vuitton',
   'Manolo Blahnik','Other','Prada','Saint Laurent','Valentino'
 ]
 const ACCESSORIES_BRANDS = [
-  'Bottega Veneta','Burberry','Cartier','Celine','Chanel','Dior','Fendi',
+  'Bottega Veneta','Bulgari','Burberry','Cartier','Celine','Chanel','Chloé','Dior','Dsquared','Fendi',
   'Gucci','Hermès','Louis Vuitton','Other','Prada','Saint Laurent'
 ]
+// Filter option -> every brand spelling stored on products (Odoo names are copied as-is, e.g. "BVLGARI/Bulgari", "CHANEL").
+const BRAND_ALIASES = {
+  'A. Lange & Söhne': ['A. Lange & Sohne'],
+  'Bulgari': ['BVLGARI/Bulgari', 'BVLGARI', 'Bvlgari'],
+  'Chanel': ['CHANEL'],
+  'Chloé': ['Chloe'],
+  'Dior': ['Christian Dior', 'DIOR'],
+  'Hermès': ['Hermes', 'HERMES'],
+  'Saint Laurent': ['Yves Saint Laurent', 'YSL'],
+  'Tiffany & Co': ['Tiffany', 'Tiffany & Co.'],
+}
+const brandValues = b => [b, ...(BRAND_ALIASES[b] || [])]
 const ALL_BRANDS = [...new Set([...WATCH_BRANDS,...JEWELLERY_BRANDS,...BAG_BRANDS,...SHOES_BRANDS,...ACCESSORIES_BRANDS])].sort()
 
 const BAGS_CATEGORIES = ['Bags', 'Accessories', 'Shoes']
+
+function brandOptionsFor(lockedCategory) {
+  return lockedCategory === 'Watches' ? WATCH_BRANDS :
+    lockedCategory === 'Jewellery' ? JEWELLERY_BRANDS :
+    lockedCategory === 'Bags' ? [...new Set([...BAG_BRANDS,...SHOES_BRANDS,...ACCESSORIES_BRANDS])].sort() :
+    ALL_BRANDS
+}
+
+// Adds the brand filter to a products/preorders query. "Other" = every brand without its own option in this list.
+function applyBrandFilter(query, brand, lockedCategory) {
+  if (!brand) return query
+  if (brand !== 'Other') return query.in('brand', brandValues(brand))
+  const known = brandOptionsFor(lockedCategory).filter(b => b !== 'Other').flatMap(brandValues)
+  return query.not('brand', 'in', `(${known.map(v => `"${v.replace(/"/g, '\\"')}"`).join(',')})`)
+}
 const WA_NUMBERS = { Watches: '18488639660', Bags: '18254757069', Jewellery: '17325061373' }
 const WA_SVG = (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -328,7 +355,7 @@ export default function DealerCatalog({ routeCategory }) {
 
   const fetchWatches = useCallback(async () => {
     let q = supabase.from('products').select('*, product_images(url, position)').order('created_at', { ascending: false })
-    if (filterBrand) q = q.eq('brand', filterBrand)
+    q = applyBrandFilter(q, filterBrand, lockedCategory)
     // Consignment view: pieces on a Consignment sales order that is not fully invoiced (the sync only flags those). Their status is 'sold'
     // (reserved by the order), so this view ignores status.
     if (filterStatus === 'consignment') q = q.eq('is_consignment', true)
@@ -348,7 +375,7 @@ export default function DealerCatalog({ routeCategory }) {
     const now = new Date().toISOString()
     let pq = supabase.from('preorders').select('*').order('created_at', { ascending: false }).limit(500)
       .or(`expires_at.is.null,expires_at.gte.${now}`)
-    if (filterBrand) pq = pq.eq('brand', filterBrand)
+    pq = applyBrandFilter(pq, filterBrand, lockedCategory)
     if (filterStatus === 'consignment') pq = pq.limit(0) // preorders are never consignment
     else if (filterStatus) pq = pq.eq('status', filterStatus)
     else pq = pq.neq('status', 'sold')
@@ -537,12 +564,7 @@ export default function DealerCatalog({ routeCategory }) {
     filterJewelleryType || search || sortBy || filterPriceMin > 1000 || filterPriceMax < 150000 ||
     filterYearMin || filterYearMax || filterNewOnly || (!lockedCategory && filterCategory) || filterSourceType || filterReadyToShip
 
-  const brandOptions = (
-    lockedCategory === 'Watches' ? WATCH_BRANDS :
-    lockedCategory === 'Jewellery' ? JEWELLERY_BRANDS :
-    lockedCategory === 'Bags' ? [...new Set([...BAG_BRANDS,...SHOES_BRANDS,...ACCESSORIES_BRANDS])].sort() :
-    ALL_BRANDS
-  )
+  const brandOptions = brandOptionsFor(lockedCategory)
 
   const TABS = [
     { key: 'all', label: 'All Inventory', count: allWatchesCount },
