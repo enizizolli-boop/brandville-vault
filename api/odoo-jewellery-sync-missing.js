@@ -383,12 +383,17 @@ export default async function handler(req, res) {
         ...(n.db_row_id ? {} : { status: 'available' }),
       };
 
-      const { data: upserted, error: upErr } = await supabase
-        .from('products')
-        .upsert(mapped, { onConflict: 'odoo_product_id' })
-        .select('id')
-        .single();
-      if (upErr) { errors.push({ odoo_id: n.odoo_id, stage: 'upsert', error: upErr.message }); continue; }
+      const write = m => supabase.from('products').upsert(m, { onConflict: 'odoo_product_id' }).select('id').single();
+      let { data: upserted, error: upErr } = await write(mapped);
+      // The database may reject scope_of_delivery (e.g. a rule that only allows the watch values): write the row without
+      // it so the piece and its photos still sync, and report it.
+      if (upErr && 'scope_of_delivery' in mapped) {
+        const { scope_of_delivery, ...rest } = mapped;
+        const retry = await write(rest);
+        if (!retry.error) errors.push({ odoo_id: n.odoo_id, sku: n.default_code, stage: 'scope_rejected', value: scope_of_delivery, error: upErr.message });
+        ({ data: upserted, error: upErr } = retry);
+      }
+      if (upErr) { errors.push({ odoo_id: n.odoo_id, sku: n.default_code, stage: 'upsert', error: upErr.message }); continue; }
       upsertedRows++;
       const productId = upserted.id;
 

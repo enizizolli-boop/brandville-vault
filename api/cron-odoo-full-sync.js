@@ -256,6 +256,29 @@ export default async function handler(req, res) {
 
   const startTime = Date.now();
   let added = 0, updated = 0, imagesAdded = 0, removed = 0;
+  // Write problems, recorded in sync_log (before, they only went to the console, so a rejected write went unnoticed).
+  const writeErrors = [];
+  let scopeRejected = 0;
+  // Writes a product row. If the database rejects scope_of_delivery (e.g. a rule that only allows the watch values),
+  // the row is written again without it, so price, condition and sold status still sync.
+  async function writeProduct(run, runWith, mapped, item) {
+    let r = await run();
+    if (r.error && 'scope_of_delivery' in mapped) {
+      const { scope_of_delivery, ...rest } = mapped;
+      const retry = await runWith(rest);
+      if (!retry.error) {
+        scopeRejected++;
+        if (writeErrors.length < 20) writeErrors.push({ sku: item.default_code, stage: 'scope_rejected', value: scope_of_delivery, error: r.error.message });
+        return retry;
+      }
+      r = retry;
+    }
+    if (r.error) {
+      console.error('jewellery write error', item.default_code, r.error.message);
+      if (writeErrors.length < 20) writeErrors.push({ sku: item.default_code, stage: 'write', error: r.error.message });
+    }
+    return r;
+  }
 
   try {
     const domain = [['sale_ok', '=', true], ['active', '=', true], ['categ_id', 'child_of', JEWELRY_CATEG_ID]];
@@ -374,15 +397,17 @@ export default async function handler(req, res) {
 
         let productId;
         if (isExisting) {
-          const { error } = await supabase.from('products').update(mapped).eq('id', existingEntry.id);
-          if (error) { console.error('update error', error.message); continue; }
+          const { error } = await writeProduct(() => supabase.from('products').update(mapped).eq('id', existingEntry.id),
+            m => supabase.from('products').update(m).eq('id', existingEntry.id), mapped, item);
+          if (error) continue;
           productId = existingEntry.id;
           updated++;
         } else {
           // Don't insert brand-new products that are already sold — only add available items
           if (isSold) continue;
-          const { data: inserted, error } = await supabase.from('products').insert(mapped).select('id').single();
-          if (error) { console.error('insert error', error.message); continue; }
+          const { data: inserted, error } = await writeProduct(() => supabase.from('products').insert(mapped).select('id').single(),
+            m => supabase.from('products').insert(m).select('id').single(), mapped, item);
+          if (error) continue;
           productId = inserted?.id;
           added++;
         }
@@ -444,7 +469,7 @@ export default async function handler(req, res) {
     await supabase.from('sync_log').upsert({
       key: 'sync_odoo_jewellery',
       last_sync_at: new Date().toISOString(),
-      result: { added, updated, removed, images_added: imagesAdded, total: totalCount, start_offset: startOffset, next_offset: nextOffset, elapsed_seconds: elapsed, delivery_lookup: deliveryMap ? 'ok' : 'failed' },
+      result: { added, updated, removed, images_added: imagesAdded, total: totalCount, start_offset: startOffset, next_offset: nextOffset, elapsed_seconds: elapsed, delivery_lookup: deliveryMap ? 'ok' : 'failed', scope_rejected: scopeRejected, error_count: writeErrors.length, errors: writeErrors.length ? writeErrors : undefined },
     });
     return res.status(200).json({ success: true, added, updated, removed, images_added: imagesAdded, total: totalCount, elapsed_seconds: elapsed });
 

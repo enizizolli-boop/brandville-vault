@@ -427,7 +427,7 @@ export default async function handler(req, res) {
       }
 
       // Re-read the Vault photos (they may have changed since the plan) and stop if they already match.
-      const { data: current, error: curErr } = await supabase.from('product_images')
+      let { data: current, error: curErr } = await supabase.from('product_images')
         .select('id, url, position').eq('product_id', productId).order('position').order('id');
       if (curErr) { errors.push({ odoo_id: n.odoo_id, stage: 'read_images', error: curErr.message }); continue; }
       if (sameList(current.map(i => urlKey(i.url)), photos.map(p => p.ck))) { itemsDone++; continue; }
@@ -454,17 +454,33 @@ export default async function handler(req, res) {
       if (failed) continue; // the old photos stay; the next run retries
 
       // Swap: add the new rows first and only then remove the old ones, so the bag is never left without photos.
-      const { error: insErr } = await supabase.from('product_images').insert(newRows);
-      if (insErr) { errors.push({ odoo_id: n.odoo_id, stage: 'insert', error: insErr.message }); continue; }
+      // (product_id, position) is unique, so the new rows go in at temporary positions above any real one and move to
+      // 0, 1, 2 ... after the old rows are gone. If that last step stops halfway, the order is still right.
+      const TEMP = 100000;
+      // Leftovers of a swap that stopped halfway sit at temporary positions and would block this insert. The old photos
+      // are still there in that case, so they can go.
+      const leftovers = current.filter(i => i.position >= TEMP);
+      if (leftovers.length) {
+        const { error: lErr } = await supabase.from('product_images').delete().in('id', leftovers.map(i => i.id));
+        if (lErr) { errors.push({ odoo_id: n.odoo_id, sku: n.default_code, stage: 'cleanup', error: lErr.message }); continue; }
+        current = current.filter(i => i.position < TEMP);
+      }
+      const { data: inserted, error: insErr } = await supabase.from('product_images')
+        .insert(newRows.map(r => ({ ...r, position: TEMP + r.position }))).select('id, position');
+      if (insErr) { errors.push({ odoo_id: n.odoo_id, sku: n.default_code, stage: 'insert', error: insErr.message }); continue; }
       if (current.length) {
         const { error: delErr } = await supabase.from('product_images').delete().in('id', current.map(i => i.id));
-        if (delErr) { errors.push({ odoo_id: n.odoo_id, stage: 'delete_old', error: delErr.message }); continue; }
+        if (delErr) { errors.push({ odoo_id: n.odoo_id, sku: n.default_code, stage: 'delete_old', error: delErr.message }); continue; }
         const keep = new Set(newRows.map(r => r.url));
         const oldPaths = current.filter(i => !keep.has(i.url)).map(i => storagePath(i.url)).filter(Boolean);
         if (oldPaths.length) {
           const { error: rmErr } = await supabase.storage.from('watch-images').remove(oldPaths);
           if (rmErr) console.error('odoo-bags-sync-missing: old photo files not removed (harmless, unused):', productId, rmErr.message);
         }
+      }
+      for (const row of [...inserted].sort((a, b) => a.position - b.position)) {
+        const { error: posErr } = await supabase.from('product_images').update({ position: row.position - TEMP }).eq('id', row.id);
+        if (posErr) { errors.push({ odoo_id: n.odoo_id, sku: n.default_code, stage: 'reorder', error: posErr.message }); break; }
       }
 
       // Should not happen: Odoo's checksums and the downloaded photos disagree. Reported so it gets looked at.
