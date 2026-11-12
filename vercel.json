@@ -32,6 +32,10 @@
     {
       "path": "/api/cron-exchange-rate",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron-sync-health",
+      "schedule": "0 6 * * *"
     }
   ],
   "functions": {
@@ -51,6 +55,7 @@
     "api/odoo-bags-sync-missing.js": { "maxDuration": 300 },
     "api/odoo-jewellery-sync-missing.js": { "maxDuration": 300 },
     "api/cron-zoho-images-missing.js": { "maxDuration": 60 },
-    "api/inventory.js": { "maxDuration": 30 }
+    "api/inventory.js": { "maxDuration": 30 },
+    "api/cron-sync-health.js": { "maxDuration": 120 }
   }
 }

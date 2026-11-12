@@ -357,6 +357,10 @@ export default async function handler(req, res) {
     const domain = [
       ['active', '=', true],
       ['is_published', '=', true],
+      // Shop rule in Odoo: a bag in the Tirana (1|Tirane) or Sofia (BGStore) shop shows in the Vault only after 2 months
+      // there. Odoo sets x_vault_hold itself and clears it on x_vault_from. A held bag drops out of this list, so it is
+      // marked sold (hidden) like any other bag that left the list, and comes back as available once the hold ends.
+      ['x_vault_hold', '=', false],
       ['qty_available', '>', 0],
       // also require forecast > 0: a bag reserved on a confirmed order (on hand 1, forecast 0) is sold.
       // on hand must stay > 0 too, so a stale incoming transfer can never bring a sold bag back.

@@ -141,13 +141,51 @@ async function fetchBrandMap(templateIds, attrName = 'Brand') {
   } catch (e) { console.error('fetchBrandMap error:', attrName, e); return null; } // null = lookup failed
 }
 
-// Jewellery "scope of delivery" from Odoo: the "Comes with" attribute (Box, Papers, Box/Papers/Screwdriver, No Box or Papers ...)
-// plus the Extras checkboxes x_extra_covers and x_extra_purchase_invoice. Returns e.g. "Box, Papers, Screwdriver, Covers".
-function jewelleryScope(comesWith, covers, purchaseInvoice) {
-  const none = comesWith && /^no box/i.test(comesWith);
-  const parts = comesWith && !none ? comesWith.split('/').map(s => s.trim()).filter(Boolean) : [];
-  if (covers === true) parts.push('Covers');
-  if (purchaseInvoice === true) parts.push('Purchase Invoice');
+// Odoo JSON-RPC. Used where a list must come back whole: the XML parser above keeps only the first id of a list.
+async function odooJson(model, method, args, kwargs = {}) {
+  const res = await fetch(ODOO_URL + '/jsonrpc', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', method: 'call', params: { service: 'object', method: 'execute_kw', args: [ODOO_DB, ODOO_UID, ODOO_API_KEY, model, method, args, kwargs] } }),
+  });
+  const j = await res.json();
+  if (j.error) throw new Error(`Odoo ${model}.${method}: ` + (j.error.data?.message || j.error.message));
+  return j.result;
+}
+
+// "Comes with" (Box, Papers, Box/Papers/Screwdriver, No Box or Papers ...) and "Extras" (Covers, Purchase Invoice; zero to two)
+// as the staff see them: the product_fix_attributes module's own table, product.attribute.line.custom. Odoo's standard
+// attribute lines are not used: they hold only a fraction of the values (7 vs 85 available jewellery on 2026-11-12) and keep
+// a value after it is removed in the module's dropdown. Returns { tmplId: { comesWith, extras: [] } }, or null on failure.
+async function fetchDeliveryAttrs(templateIds) {
+  try {
+    const attrs = await odooJson('product.attribute', 'search_read', [[['name', 'in', ['Comes with', 'Extras']]]], { fields: ['id', 'name'] });
+    if (!attrs.length) return {};
+    const attrName = Object.fromEntries(attrs.map(a => [a.id, a.name]));
+    const values = await odooJson('product.attribute.value', 'search_read', [[['attribute_id', 'in', attrs.map(a => a.id)]]], { fields: ['id', 'name'] });
+    const valueName = Object.fromEntries(values.map(v => [v.id, v.name]));
+    const out = {};
+    for (let i = 0; i < templateIds.length; i += 1000) {
+      const rows = await odooJson('product.attribute.line.custom', 'search_read',
+        [[['attribute_id', 'in', attrs.map(a => a.id)], ['product_tmpl_id', 'in', templateIds.slice(i, i + 1000)]]],
+        { fields: ['product_tmpl_id', 'attribute_id', 'value_ids'] });
+      for (const r of rows) {
+        const names = [...r.value_ids].sort((a, b) => a - b).map(v => valueName[v]).filter(Boolean);
+        if (!names.length) continue;
+        const entry = (out[String(r.product_tmpl_id[0])] ||= { comesWith: null, extras: [] });
+        if (attrName[r.attribute_id[0]] === 'Comes with') entry.comesWith = names.join('/');
+        else for (const n of names) if (!entry.extras.includes(n)) entry.extras.push(n);
+      }
+    }
+    return out;
+  } catch (e) { console.error('fetchDeliveryAttrs error:', e.message); return null; }
+}
+
+// Jewellery "scope of delivery" shown in the Vault, e.g. "Box, Papers, Screwdriver, Covers, Purchase Invoice".
+function jewelleryScope(d) {
+  if (!d) return null;
+  const none = d.comesWith && /^no box/i.test(d.comesWith);
+  const parts = d.comesWith && !none ? d.comesWith.split('/').map(s => s.trim()).filter(Boolean) : [];
+  parts.push(...d.extras);
   if (parts.length) return parts.join(', ');
   return none ? 'No Box or Papers' : null;
 }
@@ -180,7 +218,7 @@ export default async function handler(req, res) {
     while (true) {
       const batch = await odooSearchRead(
         'product.template', domain,
-        ['id', 'name', 'default_code', 'list_price', 'x_b2b_price', 'description_sale', 'categ_id', 'x_studio_condition', 'brand_id', 'x_extra_covers', 'x_extra_purchase_invoice'],
+        ['id', 'name', 'default_code', 'list_price', 'x_b2b_price', 'description_sale', 'categ_id', 'x_studio_condition', 'brand_id'],
         pageSize, page * pageSize
       );
       if (!batch.length) break;
@@ -191,7 +229,7 @@ export default async function handler(req, res) {
 
     // 2. Fetch brand from Odoo attribute (no hardcoded map needed)
     const brandMap = (await fetchBrandMap(odooItems.map(i => i.id))) || {};
-    const comesWithMap = await fetchBrandMap(odooItems.map(i => i.id), 'Comes with');
+    const deliveryMap = await fetchDeliveryAttrs(odooItems.map(i => i.id));
 
     // 3. Count extra images per template (chunked to avoid huge payloads).
     const allIds = odooItems.map(b => b.id);
@@ -284,8 +322,6 @@ export default async function handler(req, res) {
           // brand and condition were never carried over, so every row was written as brand Unknown / condition Fair
           brand_id: item.brand_id,
           x_studio_condition: item.x_studio_condition,
-          x_extra_covers: item.x_extra_covers,
-          x_extra_purchase_invoice: item.x_extra_purchase_invoice,
           db_image_count: dbImageCount,
           extras_count: extrasCount,
           db_row_id: dbRow?.id || null,
@@ -340,7 +376,7 @@ export default async function handler(req, res) {
         price_eur: n.list_price || null,
         b2b_price_eur: n.x_b2b_price > 0 ? n.x_b2b_price : null,
         condition: n.x_studio_condition || 'Pre-owned', // same default as the full sync (was 'Fair')
-        ...(comesWithMap ? { scope_of_delivery: jewelleryScope(comesWithMap[String(n.odoo_id)], n.x_extra_covers, n.x_extra_purchase_invoice) } : {}),
+        ...(deliveryMap ? { scope_of_delivery: jewelleryScope(deliveryMap[String(n.odoo_id)]) } : {}),
         category: 'Jewellery',
         notes: n.description_sale && typeof n.description_sale === 'string' && n.description_sale.trim() ? n.description_sale.trim() : null,
         // Only set status on brand-new rows; leave existing status alone.

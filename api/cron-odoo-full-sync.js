@@ -81,13 +81,51 @@ async function fetchBrandMap(templateIds, attrName = 'Brand') {
   } catch (e) { console.error('fetchBrandMap error:', attrName, e); return null; } // null = lookup failed
 }
 
-// Jewellery "scope of delivery" from Odoo: the "Comes with" attribute (Box, Papers, Box/Papers/Screwdriver, No Box or Papers ...)
-// plus the Extras checkboxes x_extra_covers and x_extra_purchase_invoice. Returns e.g. "Box, Papers, Screwdriver, Covers".
-function jewelleryScope(comesWith, covers, purchaseInvoice) {
-  const none = comesWith && /^no box/i.test(comesWith);
-  const parts = comesWith && !none ? comesWith.split('/').map(s => s.trim()).filter(Boolean) : [];
-  if (covers === true) parts.push('Covers');
-  if (purchaseInvoice === true) parts.push('Purchase Invoice');
+// Odoo JSON-RPC. Used where a list must come back whole: the XML parser above keeps only the first id of a list.
+async function odooJson(model, method, args, kwargs = {}) {
+  const res = await fetch(ODOO_URL + '/jsonrpc', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', method: 'call', params: { service: 'object', method: 'execute_kw', args: [ODOO_DB, ODOO_UID, ODOO_API_KEY, model, method, args, kwargs] } }),
+  });
+  const j = await res.json();
+  if (j.error) throw new Error(`Odoo ${model}.${method}: ` + (j.error.data?.message || j.error.message));
+  return j.result;
+}
+
+// "Comes with" (Box, Papers, Box/Papers/Screwdriver, No Box or Papers ...) and "Extras" (Covers, Purchase Invoice; zero to two)
+// as the staff see them: the product_fix_attributes module's own table, product.attribute.line.custom. Odoo's standard
+// attribute lines are not used: they hold only a fraction of the values (7 vs 85 available jewellery on 2026-11-12) and keep
+// a value after it is removed in the module's dropdown. Returns { tmplId: { comesWith, extras: [] } }, or null on failure.
+async function fetchDeliveryAttrs(templateIds) {
+  try {
+    const attrs = await odooJson('product.attribute', 'search_read', [[['name', 'in', ['Comes with', 'Extras']]]], { fields: ['id', 'name'] });
+    if (!attrs.length) return {};
+    const attrName = Object.fromEntries(attrs.map(a => [a.id, a.name]));
+    const values = await odooJson('product.attribute.value', 'search_read', [[['attribute_id', 'in', attrs.map(a => a.id)]]], { fields: ['id', 'name'] });
+    const valueName = Object.fromEntries(values.map(v => [v.id, v.name]));
+    const out = {};
+    for (let i = 0; i < templateIds.length; i += 1000) {
+      const rows = await odooJson('product.attribute.line.custom', 'search_read',
+        [[['attribute_id', 'in', attrs.map(a => a.id)], ['product_tmpl_id', 'in', templateIds.slice(i, i + 1000)]]],
+        { fields: ['product_tmpl_id', 'attribute_id', 'value_ids'] });
+      for (const r of rows) {
+        const names = [...r.value_ids].sort((a, b) => a - b).map(v => valueName[v]).filter(Boolean);
+        if (!names.length) continue;
+        const entry = (out[String(r.product_tmpl_id[0])] ||= { comesWith: null, extras: [] });
+        if (attrName[r.attribute_id[0]] === 'Comes with') entry.comesWith = names.join('/');
+        else for (const n of names) if (!entry.extras.includes(n)) entry.extras.push(n);
+      }
+    }
+    return out;
+  } catch (e) { console.error('fetchDeliveryAttrs error:', e.message); return null; }
+}
+
+// Jewellery "scope of delivery" shown in the Vault, e.g. "Box, Papers, Screwdriver, Covers, Purchase Invoice".
+function jewelleryScope(d) {
+  if (!d) return null;
+  const none = d.comesWith && /^no box/i.test(d.comesWith);
+  const parts = d.comesWith && !none ? d.comesWith.split('/').map(s => s.trim()).filter(Boolean) : [];
+  parts.push(...d.extras);
   if (parts.length) return parts.join(', ');
   return none ? 'No Box or Papers' : null;
 }
@@ -234,8 +272,8 @@ export default async function handler(req, res) {
 
     // Fetch brand from Odoo attribute (no hardcoded map needed)
     const brandMap = (await fetchBrandMap(allOdooItems.map(i => i.id))) || {};
-    // "Comes with" attribute (null when the lookup fails: scope_of_delivery is then left as it is)
-    const comesWithMap = await fetchBrandMap(allOdooItems.map(i => i.id), 'Comes with');
+    // "Comes with" + "Extras" (null when the lookup fails: scope_of_delivery is then left as it is)
+    const deliveryMap = await fetchDeliveryAttrs(allOdooItems.map(i => i.id));
     // Paged: Supabase returns at most 1000 rows per request, so a single query skipped part of the jewellery.
     const allExisting = [];
     for (let from = 0; ; from += 1000) {
@@ -268,7 +306,7 @@ export default async function handler(req, res) {
 
       const items = await odooRead(
         domain,
-        ['id', 'name', 'default_code', 'list_price', 'x_b2b_price', 'description_sale', 'image_1920', 'qty_available', 'virtual_available', 'categ_id', 'x_studio_condition', 'brand_id', 'x_extra_covers', 'x_extra_purchase_invoice'],
+        ['id', 'name', 'default_code', 'list_price', 'x_b2b_price', 'description_sale', 'image_1920', 'qty_available', 'virtual_available', 'categ_id', 'x_studio_condition', 'brand_id'],
         BATCH_SIZE, offset, 'id' // fixed order so the saved position stays valid between runs
       );
       if (!items || items.length === 0) break;
@@ -328,7 +366,7 @@ export default async function handler(req, res) {
           b2b_price_eur: item.x_b2b_price > 0 ? item.x_b2b_price : null,
           ...(consignmentIds ? { is_consignment: isConsignment } : {}),
           condition: item.x_studio_condition || 'Pre-owned',
-          ...(comesWithMap ? { scope_of_delivery: jewelleryScope(comesWithMap[String(item.id)], item.x_extra_covers, item.x_extra_purchase_invoice) } : {}),
+          ...(deliveryMap ? { scope_of_delivery: jewelleryScope(deliveryMap[String(item.id)]) } : {}),
           ...(isSold ? { status: 'sold' } : currentStatus === 'sold' ? { status: 'available' } : isExisting ? {} : { status: 'available' }),
           category: 'Jewellery',
           notes: item.description_sale && typeof item.description_sale === 'string' ? item.description_sale.trim() || null : null,
@@ -406,7 +444,7 @@ export default async function handler(req, res) {
     await supabase.from('sync_log').upsert({
       key: 'sync_odoo_jewellery',
       last_sync_at: new Date().toISOString(),
-      result: { added, updated, removed, images_added: imagesAdded, total: totalCount, start_offset: startOffset, next_offset: nextOffset, elapsed_seconds: elapsed },
+      result: { added, updated, removed, images_added: imagesAdded, total: totalCount, start_offset: startOffset, next_offset: nextOffset, elapsed_seconds: elapsed, delivery_lookup: deliveryMap ? 'ok' : 'failed' },
     });
     return res.status(200).json({ success: true, added, updated, removed, images_added: imagesAdded, total: totalCount, elapsed_seconds: elapsed });
 

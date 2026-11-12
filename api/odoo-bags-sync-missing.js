@@ -206,6 +206,14 @@ async function fetchRealRealOnlyIds() {
   return templates.filter(t => (t.qty_available || 0) - realReal.get(t.id) <= 0).map(t => t.id);
 }
 
+// Last run of this job in sync_log (key sync_odoo_bags_photos). Never throws: logging must not break the sync.
+async function logRun(result) {
+  try {
+    const { error } = await supabase.from('sync_log').upsert({ key: 'sync_odoo_bags_photos', last_sync_at: new Date().toISOString(), result });
+    if (error) console.error('odoo-bags-sync-missing: sync_log write failed:', error.message);
+  } catch (e) { console.error('odoo-bags-sync-missing: sync_log write failed:', e.message); }
+}
+
 export default async function handler(req, res) {
   const startTime = Date.now();
   const limit = parseInt(req.query?.limit || '20');
@@ -217,6 +225,10 @@ export default async function handler(req, res) {
     const domain = [
       ['active', '=', true],
       ['is_published', '=', true],
+      // Shop rule in Odoo: a bag in the Tirana (1|Tirane) or Sofia (BGStore) shop shows in the Vault only after 2 months
+      // there. Odoo sets x_vault_hold itself and clears it on x_vault_from. A held bag drops out of this list, so it is
+      // marked sold (hidden) like any other bag that left the list, and comes back as available once the hold ends.
+      ['x_vault_hold', '=', false],
       ['qty_available', '>', 0],
       // also require forecast > 0: a bag reserved on a confirmed order (on hand 1, forecast 0) is sold.
       // on hand must stay > 0 too, so a stale incoming transfer can never bring a sold bag back.
@@ -371,7 +383,10 @@ export default async function handler(req, res) {
       };
       addPhoto(fullItem?.image_1920, true);
       for (const ex of extrasRows) addPhoto(ex.image_1920, false);
-      if (photos.length === 0) continue;
+      if (photos.length === 0) {
+        errors.push({ odoo_id: n.odoo_id, sku: n.default_code, stage: 'download', error: `Odoo lists ${n.odoo_image_count} photos but none could be read` });
+        continue;
+      }
 
       // Upsert product row
       const cost = n.standard_price || 0;
@@ -423,12 +438,14 @@ export default async function handler(req, res) {
       const newRows = [];
       let failed = false;
       for (const [position, p] of photos.entries()) {
+        // Stop before Vercel's 300 s limit even in the middle of a bag: the old photos stay and the next run redoes it.
+        if (Date.now() - startTime > 285000) { errors.push({ odoo_id: n.odoo_id, sku: n.default_code, stage: 'timeout', error: 'stopped mid-bag near the time limit' }); failed = true; break; }
         let url = urlByKey.get(p.ck);
         if (!url) {
           const { ext, type } = imageFormat(p.b64);
           const path = `${productId}/bag_${p.primary ? 'primary' : 'extra'}_${p.ck}.${ext}`;
           const { error: upErr } = await supabase.storage.from('watch-images').upload(path, Buffer.from(p.b64, 'base64'), { contentType: type, upsert: true });
-          if (upErr) { errors.push({ odoo_id: n.odoo_id, stage: 'upload', error: upErr.message }); failed = true; break; }
+          if (upErr) { errors.push({ odoo_id: n.odoo_id, sku: n.default_code, stage: 'upload', error: upErr.message }); failed = true; break; }
           url = supabase.storage.from('watch-images').getPublicUrl(path).data.publicUrl;
           imagesAdded++;
         }
@@ -444,7 +461,10 @@ export default async function handler(req, res) {
         if (delErr) { errors.push({ odoo_id: n.odoo_id, stage: 'delete_old', error: delErr.message }); continue; }
         const keep = new Set(newRows.map(r => r.url));
         const oldPaths = current.filter(i => !keep.has(i.url)).map(i => storagePath(i.url)).filter(Boolean);
-        if (oldPaths.length) await supabase.storage.from('watch-images').remove(oldPaths);
+        if (oldPaths.length) {
+          const { error: rmErr } = await supabase.storage.from('watch-images').remove(oldPaths);
+          if (rmErr) console.error('odoo-bags-sync-missing: old photo files not removed (harmless, unused):', productId, rmErr.message);
+        }
       }
 
       // Should not happen: Odoo's checksums and the downloaded photos disagree. Reported so it gets looked at.
@@ -456,7 +476,7 @@ export default async function handler(req, res) {
       itemsDone++;
     }
 
-    return res.status(200).json({
+    const result = {
       total_odoo_bags: odooBags.length,
       total_db_bags: dbProducts?.length || 0,
       needs_sync_count: needs.length,
@@ -465,10 +485,16 @@ export default async function handler(req, res) {
       images_added: imagesAdded,
       remaining: Math.max(0, needs.length - itemsDone),
       elapsed_ms: Date.now() - startTime,
+      error_count: errors.length,
       errors: errors.length ? errors.slice(0, 20) : undefined,
-    });
+    };
+    // Recorded so failures are visible (cron-sync-health reads it); before, errors only went into a response nobody read.
+    if (errors.length) console.error('odoo-bags-sync-missing errors:', JSON.stringify(errors.slice(0, 20)));
+    if (!onlySku) await logRun({ ok: true, ...result });
+    return res.status(200).json(result);
   } catch (err) {
     console.error('odoo-bags-sync-missing error:', err);
+    if (!dryRun && !onlySku) await logRun({ ok: false, error: err.message, elapsed_ms: Date.now() - startTime });
     return res.status(500).json({ error: err.message });
   }
 }
