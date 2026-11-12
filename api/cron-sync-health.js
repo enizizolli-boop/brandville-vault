@@ -8,7 +8,8 @@ import { createClient } from '@supabase/supabase-js';
 //
 // The rules below must stay the same as in the syncs they check:
 //   bags      -> cron-odoo-bags-sync.js / odoo-bags-sync-missing.js (domain, RealReal, photo fingerprints)
-//   jewellery -> cron-odoo-full-sync.js (sold rule, consignment, fetchDeliveryAttrs + jewelleryScope)
+//   jewellery -> cron-odoo-full-sync.js (sold rule, consignment, fetchDeliveryAttrs + jewelleryScope),
+//                odoo-jewellery-sync-missing.js (photo fingerprints)
 
 export const config = { maxDuration: 120 };
 
@@ -22,7 +23,7 @@ const ODOO_UID = parseInt(process.env.ODOO_USER_ID);
 const ODOO_API_KEY = process.env.ODOO_API_KEY;
 
 // Minutes after which a sync counts as stopped (its cron interval plus margin).
-const MAX_AGE_MIN = { sync_odoo_bags: 75, sync_odoo_jewellery: 45, sync_odoo_bags_photos: 35 };
+const MAX_AGE_MIN = { sync_odoo_bags: 75, sync_odoo_jewellery: 45, sync_odoo_bags_photos: 35, sync_odoo_jewellery_photos: 35 };
 const SAMPLE = 15;
 
 async function odoo(model, method, args, kwargs = {}) {
@@ -96,6 +97,36 @@ async function deliveryAttrs(templateIds) {
     const e = (out[String(r.product_tmpl_id[0])] ||= { comesWith: null, extras: [] });
     if (attrName[r.attribute_id[0]] === 'Comes with') e.comesWith = names.join('/');
     else for (const n of names) if (!e.extras.includes(n)) e.extras.push(n);
+  }
+  return out;
+}
+
+// Compares the Vault photos of the given Odoo templates with Odoo's, by fingerprint. rowByOdoo: odoo id -> Vault row (id).
+async function comparePhotos(ids, rowByOdoo) {
+  const extras = await chunked(ids, 500, c => odoo('product.image', 'search_read', [[['product_tmpl_id', 'in', c]]], { fields: ['product_tmpl_id', 'sequence'] }));
+  const extrasBy = {};
+  for (const e of extras) (extrasBy[e.product_tmpl_id[0]] ||= []).push(e);
+  const pCk = await checksums('product.template', ids);
+  const eCk = await checksums('product.image', extras.map(e => e.id));
+  const dbIds = ids.map(id => rowByOdoo[String(id)]?.id).filter(Boolean);
+  const keysBy = {};
+  for (let i = 0; i < dbIds.length; i += 100) {
+    const imgs = await allRows(() => supabase.from('product_images').select('product_id, url, position, id')
+      .in('product_id', dbIds.slice(i, i + 100)).order('product_id').order('position').order('id'));
+    for (const r of imgs) (keysBy[r.product_id] ||= []).push(urlKey(r.url));
+  }
+  const out = { wrong: [], oldNames: [], noPhotos: [] };
+  for (const id of ids) {
+    const row = rowByOdoo[String(id)];
+    if (!row) continue;
+    const expected = [];
+    if (pCk[id]) expected.push(pCk[id]);
+    for (const e of (extrasBy[id] || []).sort(byOdooOrder)) { const ck = eCk[e.id]; if (ck && !expected.includes(ck)) expected.push(ck); }
+    const got = keysBy[row.id] || [];
+    if (got.length === 0) out.noPhotos.push(String(id));
+    else if (sameList(got, expected)) continue;
+    else if (got.length === expected.length && got.includes(null)) out.oldNames.push(String(id));
+    else out.wrong.push([String(id), got.length, expected.length]);
   }
   return out;
 }
@@ -174,7 +205,7 @@ async function checkJewellery(add) {
     [[['sale_ok', '=', true], ['active', '=', true], ['categ_id', 'child_of', 8]]], { fields: ['id', 'default_code', 'virtual_available'] });
   const forSale = new Set(all.filter(t => t.virtual_available > 0).map(t => String(t.id)));
   const sku = Object.fromEntries(all.map(t => [String(t.id), t.default_code]));
-  const vault = await allRows(() => supabase.from('products').select('odoo_product_id, reference, status, is_consignment, jewellery_extras')
+  const vault = await allRows(() => supabase.from('products').select('id, odoo_product_id, reference, status, is_consignment, jewellery_extras')
     .eq('source', 'odoo').eq('category', 'Jewellery').order('id'));
   const visible = vault.filter(r => r.status === 'available');
   const visibleIds = new Set(visible.map(r => r.odoo_product_id));
@@ -190,7 +221,13 @@ async function checkJewellery(add) {
   const scopeWrong = visible.filter(r => (jewelleryScope(delivery[r.odoo_product_id]) || null) !== (r.jewellery_extras || null))
     .map(r => `${r.reference}: Vault "${r.jewellery_extras || ''}" / Odoo "${jewelleryScope(delivery[r.odoo_product_id]) || ''}"`);
   if (scopeWrong.length) add('warn', `jewellery: ${scopeWrong.length} with a jewellery_extras (Comes with / Extras) that differs from Odoo`, scopeWrong);
-  return { for_sale: forSale.size, visible: visible.length };
+
+  // Photos of the pieces shown and for sale: same fingerprint comparison as odoo-jewellery-sync-missing.js.
+  const rowByOdoo = Object.fromEntries(visible.filter(r => forSale.has(r.odoo_product_id)).map(r => [r.odoo_product_id, r]));
+  const p = await comparePhotos(Object.keys(rowByOdoo).map(Number), rowByOdoo);
+  if (p.noPhotos.length) add('warn', `jewellery: ${p.noPhotos.length} shown in the Vault with no photo`, p.noPhotos.map(id => sku[id]));
+  if (p.wrong.length) add('warn', `jewellery: ${p.wrong.length} with photos that differ from Odoo (Vault/Odoo count; the photo job fixes 20 pieces per 10 min)`, p.wrong.map(([id, got, exp]) => `${sku[id]} (${got}/${exp})`));
+  return { for_sale: forSale.size, visible: visible.length, photos_checked: Object.keys(rowByOdoo).length, photos_old_file_names: p.oldNames.length };
 }
 
 export default async function handler(req, res) {
