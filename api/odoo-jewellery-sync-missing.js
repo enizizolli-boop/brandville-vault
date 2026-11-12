@@ -180,7 +180,7 @@ async function fetchDeliveryAttrs(templateIds) {
   } catch (e) { console.error('fetchDeliveryAttrs error:', e.message); return null; }
 }
 
-// Jewellery "scope of delivery" shown in the Vault, e.g. "Box, Papers, Screwdriver, Covers, Purchase Invoice".
+// Text stored in products.jewellery_extras, e.g. "Box, Papers, Screwdriver, Covers, Purchase Invoice".
 function jewelleryScope(d) {
   if (!d) return null;
   const none = d.comesWith && /^no box/i.test(d.comesWith);
@@ -376,7 +376,7 @@ export default async function handler(req, res) {
         price_eur: n.list_price || null,
         b2b_price_eur: n.x_b2b_price > 0 ? n.x_b2b_price : null,
         condition: n.x_studio_condition || 'Pre-owned', // same default as the full sync (was 'Fair')
-        ...(deliveryMap ? { scope_of_delivery: jewelleryScope(deliveryMap[String(n.odoo_id)]) } : {}),
+        ...(deliveryMap ? { jewellery_extras: jewelleryScope(deliveryMap[String(n.odoo_id)]) } : {}),
         category: 'Jewellery',
         notes: n.description_sale && typeof n.description_sale === 'string' && n.description_sale.trim() ? n.description_sale.trim() : null,
         // Only set status on brand-new rows; leave existing status alone.
@@ -385,12 +385,12 @@ export default async function handler(req, res) {
 
       const write = m => supabase.from('products').upsert(m, { onConflict: 'odoo_product_id' }).select('id').single();
       let { data: upserted, error: upErr } = await write(mapped);
-      // The database may reject scope_of_delivery (e.g. a rule that only allows the watch values): write the row without
+      // The database may reject jewellery_extras (e.g. the column was not added yet): write the row without
       // it so the piece and its photos still sync, and report it.
-      if (upErr && 'scope_of_delivery' in mapped) {
-        const { scope_of_delivery, ...rest } = mapped;
+      if (upErr && 'jewellery_extras' in mapped) {
+        const { jewellery_extras, ...rest } = mapped;
         const retry = await write(rest);
-        if (!retry.error) errors.push({ odoo_id: n.odoo_id, sku: n.default_code, stage: 'scope_rejected', value: scope_of_delivery, error: upErr.message });
+        if (!retry.error) errors.push({ odoo_id: n.odoo_id, sku: n.default_code, stage: 'scope_rejected', value: jewellery_extras, error: upErr.message });
         ({ data: upserted, error: upErr } = retry);
       }
       if (upErr) { errors.push({ odoo_id: n.odoo_id, sku: n.default_code, stage: 'upsert', error: upErr.message }); continue; }

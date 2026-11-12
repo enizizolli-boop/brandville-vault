@@ -120,7 +120,7 @@ async function fetchDeliveryAttrs(templateIds) {
   } catch (e) { console.error('fetchDeliveryAttrs error:', e.message); return null; }
 }
 
-// Jewellery "scope of delivery" shown in the Vault, e.g. "Box, Papers, Screwdriver, Covers, Purchase Invoice".
+// Text stored in products.jewellery_extras, e.g. "Box, Papers, Screwdriver, Covers, Purchase Invoice".
 function jewelleryScope(d) {
   if (!d) return null;
   const none = d.comesWith && /^no box/i.test(d.comesWith);
@@ -259,16 +259,16 @@ export default async function handler(req, res) {
   // Write problems, recorded in sync_log (before, they only went to the console, so a rejected write went unnoticed).
   const writeErrors = [];
   let scopeRejected = 0;
-  // Writes a product row. If the database rejects scope_of_delivery (e.g. a rule that only allows the watch values),
+  // Writes a product row. If the database rejects jewellery_extras (e.g. the column was not added yet),
   // the row is written again without it, so price, condition and sold status still sync.
   async function writeProduct(run, runWith, mapped, item) {
     let r = await run();
-    if (r.error && 'scope_of_delivery' in mapped) {
-      const { scope_of_delivery, ...rest } = mapped;
+    if (r.error && 'jewellery_extras' in mapped) {
+      const { jewellery_extras, ...rest } = mapped;
       const retry = await runWith(rest);
       if (!retry.error) {
         scopeRejected++;
-        if (writeErrors.length < 20) writeErrors.push({ sku: item.default_code, stage: 'scope_rejected', value: scope_of_delivery, error: r.error.message });
+        if (writeErrors.length < 20) writeErrors.push({ sku: item.default_code, stage: 'scope_rejected', value: jewellery_extras, error: r.error.message });
         return retry;
       }
       r = retry;
@@ -295,7 +295,7 @@ export default async function handler(req, res) {
 
     // Fetch brand from Odoo attribute (no hardcoded map needed)
     const brandMap = (await fetchBrandMap(allOdooItems.map(i => i.id))) || {};
-    // "Comes with" + "Extras" (null when the lookup fails: scope_of_delivery is then left as it is)
+    // "Comes with" + "Extras" (null when the lookup fails: jewellery_extras is then left as it is)
     const deliveryMap = await fetchDeliveryAttrs(allOdooItems.map(i => i.id));
     // Paged: Supabase returns at most 1000 rows per request, so a single query skipped part of the jewellery.
     const allExisting = [];
@@ -389,7 +389,7 @@ export default async function handler(req, res) {
           b2b_price_eur: item.x_b2b_price > 0 ? item.x_b2b_price : null,
           ...(consignmentIds ? { is_consignment: isConsignment } : {}),
           condition: item.x_studio_condition || 'Pre-owned',
-          ...(deliveryMap ? { scope_of_delivery: jewelleryScope(deliveryMap[String(item.id)]) } : {}),
+          ...(deliveryMap ? { jewellery_extras: jewelleryScope(deliveryMap[String(item.id)]) } : {}),
           ...(isSold ? { status: 'sold' } : currentStatus === 'sold' ? { status: 'available' } : isExisting ? {} : { status: 'available' }),
           category: 'Jewellery',
           notes: item.description_sale && typeof item.description_sale === 'string' ? item.description_sale.trim() || null : null,

@@ -174,7 +174,7 @@ async function checkJewellery(add) {
     [[['sale_ok', '=', true], ['active', '=', true], ['categ_id', 'child_of', 8]]], { fields: ['id', 'default_code', 'virtual_available'] });
   const forSale = new Set(all.filter(t => t.virtual_available > 0).map(t => String(t.id)));
   const sku = Object.fromEntries(all.map(t => [String(t.id), t.default_code]));
-  const vault = await allRows(() => supabase.from('products').select('odoo_product_id, reference, status, is_consignment, scope_of_delivery')
+  const vault = await allRows(() => supabase.from('products').select('odoo_product_id, reference, status, is_consignment, jewellery_extras')
     .eq('source', 'odoo').eq('category', 'Jewellery').order('id'));
   const visible = vault.filter(r => r.status === 'available');
   const visibleIds = new Set(visible.map(r => r.odoo_product_id));
@@ -185,11 +185,11 @@ async function checkJewellery(add) {
   const forSaleNotShown = [...forSale].filter(id => !visibleIds.has(id));
   if (forSaleNotShown.length) add('warn', `jewellery: ${forSaleNotShown.length} for sale in Odoo but not shown in the Vault`, forSaleNotShown.map(id => sku[id]));
 
-  // Scope of delivery: the full sync covers every piece about once an hour, so a difference that lasts is a bug.
+  // jewellery_extras: the full sync covers every piece about once an hour, so a difference that lasts is a bug.
   const delivery = await deliveryAttrs(all.map(t => t.id));
-  const scopeWrong = visible.filter(r => (jewelleryScope(delivery[r.odoo_product_id]) || null) !== (r.scope_of_delivery || null))
-    .map(r => `${r.reference}: Vault "${r.scope_of_delivery || ''}" / Odoo "${jewelleryScope(delivery[r.odoo_product_id]) || ''}"`);
-  if (scopeWrong.length) add('warn', `jewellery: ${scopeWrong.length} with a scope of delivery (Comes with / Extras) that differs from Odoo`, scopeWrong);
+  const scopeWrong = visible.filter(r => (jewelleryScope(delivery[r.odoo_product_id]) || null) !== (r.jewellery_extras || null))
+    .map(r => `${r.reference}: Vault "${r.jewellery_extras || ''}" / Odoo "${jewelleryScope(delivery[r.odoo_product_id]) || ''}"`);
+  if (scopeWrong.length) add('warn', `jewellery: ${scopeWrong.length} with a jewellery_extras (Comes with / Extras) that differs from Odoo`, scopeWrong);
   return { for_sale: forSale.size, visible: visible.length };
 }
 
