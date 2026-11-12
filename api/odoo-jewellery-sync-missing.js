@@ -114,10 +114,10 @@ async function odooReadById(model, ids, fields) {
   return parseItems(text);
 }
 
-async function fetchBrandMap(templateIds) {
+async function fetchBrandMap(templateIds, attrName = 'Brand') {
   if (!templateIds.length) return {};
   try {
-    const attrs = await odooSearchRead('product.attribute', [['name', '=', 'Brand']], ['id'], 1, 0);
+    const attrs = await odooSearchRead('product.attribute', [['name', '=', attrName]], ['id'], 1, 0);
     if (!attrs.length) return {};
     const brandAttrId = attrs[0].id;
     const lines = await odooSearchRead(
@@ -138,8 +138,20 @@ async function fetchBrandMap(templateIds) {
       if (tmplId && valueId && valueMap[valueId]) brandMap[tmplId] = valueMap[valueId];
     }
     return brandMap;
-  } catch (e) { console.error('fetchBrandMap error:', e); return {}; }
+  } catch (e) { console.error('fetchBrandMap error:', attrName, e); return null; } // null = lookup failed
 }
+
+// Jewellery "scope of delivery" from Odoo: the "Comes with" attribute (Box, Papers, Box/Papers/Screwdriver, No Box or Papers ...)
+// plus the Extras checkboxes x_extra_covers and x_extra_purchase_invoice. Returns e.g. "Box, Papers, Screwdriver, Covers".
+function jewelleryScope(comesWith, covers, purchaseInvoice) {
+  const none = comesWith && /^no box/i.test(comesWith);
+  const parts = comesWith && !none ? comesWith.split('/').map(s => s.trim()).filter(Boolean) : [];
+  if (covers === true) parts.push('Covers');
+  if (purchaseInvoice === true) parts.push('Purchase Invoice');
+  if (parts.length) return parts.join(', ');
+  return none ? 'No Box or Papers' : null;
+}
+
 
 const JEWELLERY_TYPE_MAP = {
   'bracelets': 'Bracelets', 'bracelet': 'Bracelets',
@@ -168,7 +180,7 @@ export default async function handler(req, res) {
     while (true) {
       const batch = await odooSearchRead(
         'product.template', domain,
-        ['id', 'name', 'default_code', 'list_price', 'x_b2b_price', 'description_sale', 'categ_id', 'x_studio_condition', 'brand_id'],
+        ['id', 'name', 'default_code', 'list_price', 'x_b2b_price', 'description_sale', 'categ_id', 'x_studio_condition', 'brand_id', 'x_extra_covers', 'x_extra_purchase_invoice'],
         pageSize, page * pageSize
       );
       if (!batch.length) break;
@@ -178,7 +190,8 @@ export default async function handler(req, res) {
     }
 
     // 2. Fetch brand from Odoo attribute (no hardcoded map needed)
-    const brandMap = await fetchBrandMap(odooItems.map(i => i.id));
+    const brandMap = (await fetchBrandMap(odooItems.map(i => i.id))) || {};
+    const comesWithMap = await fetchBrandMap(odooItems.map(i => i.id), 'Comes with');
 
     // 3. Count extra images per template (chunked to avoid huge payloads).
     const allIds = odooItems.map(b => b.id);
@@ -271,6 +284,8 @@ export default async function handler(req, res) {
           // brand and condition were never carried over, so every row was written as brand Unknown / condition Fair
           brand_id: item.brand_id,
           x_studio_condition: item.x_studio_condition,
+          x_extra_covers: item.x_extra_covers,
+          x_extra_purchase_invoice: item.x_extra_purchase_invoice,
           db_image_count: dbImageCount,
           extras_count: extrasCount,
           db_row_id: dbRow?.id || null,
@@ -325,6 +340,7 @@ export default async function handler(req, res) {
         price_eur: n.list_price || null,
         b2b_price_eur: n.x_b2b_price > 0 ? n.x_b2b_price : null,
         condition: n.x_studio_condition || 'Pre-owned', // same default as the full sync (was 'Fair')
+        ...(comesWithMap ? { scope_of_delivery: jewelleryScope(comesWithMap[String(n.odoo_id)], n.x_extra_covers, n.x_extra_purchase_invoice) } : {}),
         category: 'Jewellery',
         notes: n.description_sale && typeof n.description_sale === 'string' && n.description_sale.trim() ? n.description_sale.trim() : null,
         // Only set status on brand-new rows; leave existing status alone.
