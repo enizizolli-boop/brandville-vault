@@ -110,6 +110,44 @@ function parseVal(raw) {
   return null;
 }
 
+// Odoo JSON-RPC (returns whole lists, unlike the XML parser above).
+async function odooJson(model, method, args, kwargs = {}) {
+  const res = await fetch(ODOO_URL + '/jsonrpc', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', method: 'call', params: { service: 'object', method: 'execute_kw', args: [ODOO_DB, ODOO_UID, ODOO_API_KEY, model, method, args, kwargs] } }),
+  });
+  const j = await res.json();
+  if (j.error) throw new Error(`Odoo ${model}.${method}: ` + (j.error.data?.message || j.error.message));
+  return j.result;
+}
+
+// Template ids of jewellery sold to a client on a confirmed sales order but not delivered yet (e.g. a pre-order that has
+// not reached the office): reserved for that client, so not for sale. Same rule as cron-odoo-full-sync.js (see there).
+// Not counted: Consignment orders, delivered lines, and lines delivered and then returned. Throws on failure.
+const JEWELRY_CATEG_ID = 8;
+async function fetchReservedTemplateIds() {
+  const lines = [];
+  for (let offset = 0; ; offset += 2000) {
+    const page = await odooJson('sale.order.line', 'search_read',
+      [[['order_id.state', '=', 'sale'], ['product_id.categ_id', 'child_of', JEWELRY_CATEG_ID], ['product_uom_qty', '>', 0]]],
+      { fields: ['id', 'order_id', 'product_template_id', 'product_uom_qty', 'qty_delivered'], limit: 2000, offset, order: 'id' });
+    lines.push(...page);
+    if (page.length < 2000) break;
+  }
+  const open = lines.filter(l => l.product_template_id && l.qty_delivered < l.product_uom_qty);
+  if (!open.length) return new Set();
+  const consignment = new Set(await odooJson('sale.order', 'search', [[['tag_ids.name', '=', 'Consignment']]]));
+  const delivered = new Set();
+  const ids = open.map(l => l.id);
+  for (let i = 0; i < ids.length; i += 1000) {
+    const moves = await odooJson('stock.move', 'search_read',
+      [[['sale_line_id', 'in', ids.slice(i, i + 1000)], ['state', '=', 'done'], ['location_dest_id.usage', '=', 'customer']]],
+      { fields: ['sale_line_id'] });
+    for (const m of moves) delivered.add(m.sale_line_id[0]);
+  }
+  return new Set(open.filter(l => !consignment.has(l.order_id[0]) && !delivered.has(l.id)).map(l => l.product_template_id[0]));
+}
+
 async function fetchOdooQtyMap(odooIds) {
   // Returns a Map of odoo_product_id (string) → qty_available for all given IDs
   if (!odooIds.length) return new Map();
@@ -182,6 +220,10 @@ export default async function handler(req, res) {
     if (allJewellery && allJewellery.length > 0) {
       const jewelleryOdooIds = allJewellery.map(w => parseInt(w.odoo_product_id)).filter(Boolean);
       const qtyMap = await fetchOdooQtyMap(jewelleryOdooIds);
+      // Reserved for a client on a confirmed sales order. null when the lookup fails: then nothing is restored to available.
+      let reservedIds = null;
+      try { reservedIds = await fetchReservedTemplateIds(); }
+      catch (e) { console.error('fetchReservedTemplateIds error:', e.message); }
 
       // Safety guard: if Odoo returned nothing (timeout/error), skip entirely —
       // an empty qtyMap would mark every item as sold (qty === undefined → isSold)
@@ -194,12 +236,13 @@ export default async function handler(req, res) {
           const qty = qtyMap.get(item.odoo_product_id);
           // null = Odoo returned the item but the quantity could not be read: leave the status alone
           if (qty === null) continue;
-          const isSold = qty === undefined || qty <= 0;
+          const isReserved = reservedIds ? reservedIds.has(parseInt(item.odoo_product_id)) : false;
+          const isSold = qty === undefined || qty <= 0 || isReserved;
 
           if (isSold && item.status !== 'sold') {
             await supabase.from('products').update({ status: 'sold' }).eq('id', item.id);
             jewelleryMarkedSold++;
-          } else if (!isSold && item.status === 'sold') {
+          } else if (!isSold && item.status === 'sold' && reservedIds) {
             await supabase.from('products').update({ status: 'available' }).eq('id', item.id);
             jewelleryMarkedAvailable++;
           }

@@ -225,10 +225,40 @@ async function checkBags(add, details) {
   return { live: live.length, visible: visible.length, photos_checked: dbIds.length };
 }
 
+// Template ids of jewellery sold to a client on a confirmed sales order but not delivered yet (e.g. a pre-order that has
+// not reached the office): reserved for that client, so not for sale. Same rule as cron-odoo-full-sync.js (see there).
+// Not counted: Consignment orders, delivered lines, and lines delivered and then returned. Throws on failure.
+async function fetchReservedTemplateIds() {
+  const lines = [];
+  for (let offset = 0; ; offset += 2000) {
+    const page = await odoo('sale.order.line', 'search_read',
+      [[['order_id.state', '=', 'sale'], ['product_id.categ_id', 'child_of', 8], ['product_uom_qty', '>', 0]]],
+      { fields: ['id', 'order_id', 'product_template_id', 'product_uom_qty', 'qty_delivered'], limit: 2000, offset, order: 'id' });
+    lines.push(...page);
+    if (page.length < 2000) break;
+  }
+  const open = lines.filter(l => l.product_template_id && l.qty_delivered < l.product_uom_qty);
+  if (!open.length) return new Set();
+  const consignment = new Set(await odoo('sale.order', 'search', [[['tag_ids.name', '=', 'Consignment']]]));
+  const delivered = new Set();
+  const ids = open.map(l => l.id);
+  for (let i = 0; i < ids.length; i += 1000) {
+    const moves = await odoo('stock.move', 'search_read',
+      [[['sale_line_id', 'in', ids.slice(i, i + 1000)], ['state', '=', 'done'], ['location_dest_id.usage', '=', 'customer']]],
+      { fields: ['sale_line_id'] });
+    for (const m of moves) delivered.add(m.sale_line_id[0]);
+  }
+  return new Set(open.filter(l => !consignment.has(l.order_id[0]) && !delivered.has(l.id)).map(l => l.product_template_id[0]));
+}
+
 async function checkJewellery(add) {
   const all = await odoo('product.template', 'search_read',
     [[['sale_ok', '=', true], ['active', '=', true], ['categ_id', 'child_of', 8]]], { fields: ['id', 'default_code', 'virtual_available'] });
-  const forSale = new Set(all.filter(t => t.virtual_available > 0).map(t => String(t.id)));
+  // For sale = forecast above 0 and not reserved for a client on a confirmed sales order (same rule as the jewellery syncs).
+  let reserved = new Set();
+  try { reserved = await fetchReservedTemplateIds(); }
+  catch (e) { add('warn', `jewellery: could not read reserved pieces (confirmed sales orders) from Odoo: ${e.message}`); }
+  const forSale = new Set(all.filter(t => t.virtual_available > 0 && !reserved.has(t.id)).map(t => String(t.id)));
   const sku = Object.fromEntries(all.map(t => [String(t.id), t.default_code]));
   const vault = await allRows(() => supabase.from('products').select('id, odoo_product_id, reference, status, is_consignment, jewellery_comes_with, jewellery_extras, jewellery_extras_visible')
     .eq('source', 'odoo').eq('category', 'Jewellery').order('id'));

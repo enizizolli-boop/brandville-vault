@@ -188,6 +188,34 @@ async function fetchConsignmentTemplateIds() {
   return new Set(lines.map(l => Array.isArray(l.product_template_id) ? l.product_template_id[0] : l.product_template_id).filter(Boolean));
 }
 
+// Template ids of jewellery sold to a client on a confirmed sales order but not delivered yet (e.g. a pre-order that has
+// not reached the office): reserved for that client, so not for sale. Odoo's forecast misses these when the order line has
+// no delivery move (6 pieces on 2026-11-16, e.g. S10317), so the order itself is checked. Not counted: Consignment orders
+// (they stay available until fully invoiced), delivered lines, and lines delivered and then returned (the piece is back in
+// stock, e.g. Cartier-28814 / S10082). Same rule in cron-odoo-status.js. Throws on failure.
+async function fetchReservedTemplateIds() {
+  const lines = [];
+  for (let offset = 0; ; offset += 2000) {
+    const page = await odooJson('sale.order.line', 'search_read',
+      [[['order_id.state', '=', 'sale'], ['product_id.categ_id', 'child_of', JEWELRY_CATEG_ID], ['product_uom_qty', '>', 0]]],
+      { fields: ['id', 'order_id', 'product_template_id', 'product_uom_qty', 'qty_delivered'], limit: 2000, offset, order: 'id' });
+    lines.push(...page);
+    if (page.length < 2000) break;
+  }
+  const open = lines.filter(l => l.product_template_id && l.qty_delivered < l.product_uom_qty);
+  if (!open.length) return new Set();
+  const consignment = new Set(await odooJson('sale.order', 'search', [[['tag_ids.name', '=', 'Consignment']]]));
+  const delivered = new Set(); // lines with a done delivery to the customer (a later return keeps them out)
+  const ids = open.map(l => l.id);
+  for (let i = 0; i < ids.length; i += 1000) {
+    const moves = await odooJson('stock.move', 'search_read',
+      [[['sale_line_id', 'in', ids.slice(i, i + 1000)], ['state', '=', 'done'], ['location_dest_id.usage', '=', 'customer']]],
+      { fields: ['sale_line_id'] });
+    for (const m of moves) delivered.add(m.sale_line_id[0]);
+  }
+  return new Set(open.filter(l => !consignment.has(l.order_id[0]) && !delivered.has(l.id)).map(l => l.product_template_id[0]));
+}
+
 function parseItems(xml) {
   const norm = xml.replace(/>\s+</g, '><');
   const items = [];
@@ -334,6 +362,12 @@ export default async function handler(req, res) {
     try { consignmentIds = await fetchConsignmentTemplateIds(); }
     catch (e) { console.error('fetchConsignmentTemplateIds error:', e.message); }
 
+    // Jewellery reserved for a client on a confirmed sales order. null when the lookup fails: no piece is then
+    // restored from sold to available in this run, so a reserved piece cannot come back by mistake.
+    let reservedIds = null;
+    try { reservedIds = await fetchReservedTemplateIds(); }
+    catch (e) { console.error('fetchReservedTemplateIds error:', e.message); }
+
     // Fetch brand from Odoo attribute (no hardcoded map needed)
     const brandMap = (await fetchBrandMap(allOdooItems.map(i => i.id))) || {};
     // "Comes with" + "Extras" (null when the lookup fails: the delivery columns are then left as they are)
@@ -417,7 +451,9 @@ export default async function handler(req, res) {
         // virtual_available (forecasted qty) drops to 0 when on a confirmed SO or already sold.
         // For max-1-stock items this is the single reliable sold signal — no SO lookup needed.
         // Exception: a consignment piece (order not fully invoiced) stays available. After the full invoice it counts as sold again.
-        const isSold = (item.virtual_available == null || item.virtual_available <= 0) && !isConsignment;
+        // Also sold: reserved for a client on a confirmed sales order (see fetchReservedTemplateIds).
+        const isReserved = reservedIds ? reservedIds.has(item.id) : false;
+        const isSold = (item.virtual_available == null || item.virtual_available <= 0 || isReserved) && !isConsignment;
 
         const mapped = {
           subcategory: jewelleryType,
@@ -431,7 +467,7 @@ export default async function handler(req, res) {
           ...(consignmentIds ? { is_consignment: isConsignment } : {}),
           condition: item.x_studio_condition || 'Pre-owned',
           ...deliveryFields(deliveryMap, item.id),
-          ...(isSold ? { status: 'sold' } : currentStatus === 'sold' ? { status: 'available' } : isExisting ? {} : { status: 'available' }),
+          ...(isSold ? { status: 'sold' } : currentStatus === 'sold' ? (reservedIds ? { status: 'available' } : {}) : isExisting ? {} : { status: 'available' }),
           category: 'Jewellery',
           notes: item.description_sale && typeof item.description_sale === 'string' ? item.description_sale.trim() || null : null,
         };
@@ -510,7 +546,7 @@ export default async function handler(req, res) {
     await supabase.from('sync_log').upsert({
       key: 'sync_odoo_jewellery',
       last_sync_at: new Date().toISOString(),
-      result: { added, updated, removed, images_added: imagesAdded, total: totalCount, start_offset: startOffset, next_offset: nextOffset, elapsed_seconds: elapsed, delivery_lookup: deliveryMap ? 'ok' : 'failed', scope_rejected: scopeRejected, error_count: writeErrors.length, errors: writeErrors.length ? writeErrors : undefined },
+      result: { added, updated, removed, images_added: imagesAdded, total: totalCount, start_offset: startOffset, next_offset: nextOffset, elapsed_seconds: elapsed, delivery_lookup: deliveryMap ? 'ok' : 'failed', reserved_lookup: reservedIds ? 'ok' : 'failed', reserved_count: reservedIds ? reservedIds.size : undefined,scope_rejected: scopeRejected, error_count: writeErrors.length, errors: writeErrors.length ? writeErrors : undefined },
     });
     return res.status(200).json({ success: true, added, updated, removed, images_added: imagesAdded, total: totalCount, elapsed_seconds: elapsed });
 

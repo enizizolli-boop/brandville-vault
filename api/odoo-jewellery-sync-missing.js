@@ -220,6 +220,32 @@ function sortExtras(entry) {
   entry.extras.sort((a, b) => rank(a) - rank(b));
 }
 
+// Template ids of jewellery sold to a client on a confirmed sales order but not delivered yet (e.g. a pre-order that has
+// not reached the office): reserved for that client, so not for sale. Same rule as cron-odoo-full-sync.js (see there).
+// Not counted: Consignment orders, delivered lines, and lines delivered and then returned. Throws on failure.
+async function fetchReservedTemplateIds() {
+  const lines = [];
+  for (let offset = 0; ; offset += 2000) {
+    const page = await odooJson('sale.order.line', 'search_read',
+      [[['order_id.state', '=', 'sale'], ['product_id.categ_id', 'child_of', JEWELRY_CATEG_ID], ['product_uom_qty', '>', 0]]],
+      { fields: ['id', 'order_id', 'product_template_id', 'product_uom_qty', 'qty_delivered'], limit: 2000, offset, order: 'id' });
+    lines.push(...page);
+    if (page.length < 2000) break;
+  }
+  const open = lines.filter(l => l.product_template_id && l.qty_delivered < l.product_uom_qty);
+  if (!open.length) return new Set();
+  const consignment = new Set(await odooJson('sale.order', 'search', [[['tag_ids.name', '=', 'Consignment']]]));
+  const delivered = new Set();
+  const ids = open.map(l => l.id);
+  for (let i = 0; i < ids.length; i += 1000) {
+    const moves = await odooJson('stock.move', 'search_read',
+      [[['sale_line_id', 'in', ids.slice(i, i + 1000)], ['state', '=', 'done'], ['location_dest_id.usage', '=', 'customer']]],
+      { fields: ['sale_line_id'] });
+    for (const m of moves) delivered.add(m.sale_line_id[0]);
+  }
+  return new Set(open.filter(l => !consignment.has(l.order_id[0]) && !delivered.has(l.id)).map(l => l.product_template_id[0]));
+}
+
 // Text stored in products.jewellery_comes_with, e.g. "Box, Papers, Screwdriver" or "No Box or Papers". Same as the full sync.
 function comesWithText(d) {
   if (!d || !d.comesWith) return null;
@@ -420,6 +446,14 @@ export default async function handler(req, res) {
     // 6. Process up to `limit` pieces: download their photos and make the Vault match Odoo exactly.
     const toProcess = needs.slice(0, limit);
     let upsertedRows = 0, imagesAdded = 0, itemsDone = 0;
+    // A brand-new piece that is reserved for a client on a confirmed sales order is added as sold, not available.
+    // Looked up only when there is a new piece; if the lookup fails, new pieces are added as available as before
+    // (the jewellery full sync and status check correct them within 15 minutes).
+    let reservedIds = new Set();
+    if (toProcess.some(n => !n.db_row_id)) {
+      try { reservedIds = await fetchReservedTemplateIds(); }
+      catch (e) { console.error('fetchReservedTemplateIds error:', e.message); }
+    }
     const errors = [];
 
     for (const n of toProcess) {
@@ -461,7 +495,7 @@ export default async function handler(req, res) {
         category: 'Jewellery',
         notes: n.description_sale && typeof n.description_sale === 'string' && n.description_sale.trim() ? n.description_sale.trim() : null,
         // Only set status on brand-new rows; leave existing status alone.
-        ...(n.db_row_id ? {} : { status: 'available' }),
+        ...(n.db_row_id ? {} : { status: reservedIds.has(n.odoo_id) ? 'sold' : 'available' }),
       };
 
       const write = m => supabase.from('products').upsert(m, { onConflict: 'odoo_product_id' }).select('id').single();
