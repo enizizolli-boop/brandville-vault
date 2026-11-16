@@ -57,15 +57,19 @@ Deno.serve(async (req) => {
     // --- Fetch available products ---
     const { data: products, error: productsError } = await supabase
       .from('products')
-      .select('id, brand, model, reference, condition, price_eur, scope_of_delivery, jewellery_extras, category, notes')
+      .select('id, brand, model, reference, condition, price_eur, scope_of_delivery, jewellery_comes_with, jewellery_extras, jewellery_extras_visible, category, notes')
       .eq('status', 'available')
       .order('brand', { ascending: true })
       .order('model', { ascending: true })
 
     if (productsError) throw productsError
 
+    // Preview links go to outside customers: Extras (Covers, Purchase Invoice) are sent only when they are set to
+    // Visible in Odoo. Removed here, on the server, so hidden Extras never reach the browser.
+    let result = (products || []).map(({ jewellery_extras, jewellery_extras_visible, ...p }: any) =>
+      jewellery_extras_visible ? { ...p, jewellery_extras } : p)
+
     // --- Attach ALL images per product (ordered by position) ---
-    let result = products || []
     if (result.length > 0) {
       const ids = result.map((p: any) => p.id)
       const BATCH = 100

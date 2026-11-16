@@ -8,7 +8,7 @@ import { createClient } from '@supabase/supabase-js';
 //
 // The rules below must stay the same as in the syncs they check:
 //   bags      -> cron-odoo-bags-sync.js / odoo-bags-sync-missing.js (domain, RealReal, photo fingerprints)
-//   jewellery -> cron-odoo-full-sync.js (sold rule, consignment, fetchDeliveryAttrs + jewelleryScope),
+//   jewellery -> cron-odoo-full-sync.js (sold rule, consignment, fetchDeliveryAttrs + comesWithText / extrasText),
 //                odoo-jewellery-sync-missing.js (photo fingerprints)
 
 export const config = { maxDuration: 120 };
@@ -88,18 +88,23 @@ function sortExtras(entry) {
   entry.extras.sort((a, b) => rank(a) - rank(b));
 }
 
-function jewelleryScope(d) {
-  if (!d) return null;
-  const none = d.comesWith && /^no box/i.test(d.comesWith);
-  const parts = d.comesWith && !none ? d.comesWith.split('/').map(s => s.trim()).filter(Boolean) : [];
-  parts.push(...d.extras);
-  if (parts.length) return parts.join(', ');
-  return none ? 'No Box or Papers' : null;
+// Same texts as the jewellery syncs (products.jewellery_comes_with / products.jewellery_extras).
+function comesWithText(d) {
+  if (!d || !d.comesWith) return null;
+  if (/^no box/i.test(d.comesWith)) return 'No Box or Papers';
+  const parts = d.comesWith.split('/').map(s => s.trim()).filter(Boolean);
+  return parts.length ? parts.join(', ') : null;
 }
 
+function extrasText(d) {
+  return d && d.extras.length ? d.extras.join(', ') : null;
+}
+
+// Returns { byTmpl: { tmplId: { comesWith, extras } }, extrasVisible } (the "Extras" attribute's Odoo visibility setting).
 async function deliveryAttrs(templateIds) {
-  const attrs = await odoo('product.attribute', 'search_read', [[['name', 'in', ['Comes with', 'Extras']]]], { fields: ['id', 'name'] });
-  if (!attrs.length) return {};
+  const attrs = await odoo('product.attribute', 'search_read', [[['name', 'in', ['Comes with', 'Extras']]]], { fields: ['id', 'name', 'visibility'] });
+  const extrasVisible = attrs.some(a => a.name === 'Extras' && a.visibility === 'visible');
+  if (!attrs.length) return { byTmpl: {}, extrasVisible };
   const attrName = Object.fromEntries(attrs.map(a => [a.id, a.name]));
   const valueName = Object.fromEntries((await odoo('product.attribute.value', 'search_read', [[['attribute_id', 'in', attrs.map(a => a.id)]]], { fields: ['id', 'name'] })).map(v => [v.id, v.name]));
   const rows = await chunked(templateIds, 1000, c => odoo('product.attribute.line.custom', 'search_read',
@@ -118,7 +123,7 @@ async function deliveryAttrs(templateIds) {
     { fields: ['id', 'x_extra_covers', 'x_extra_purchase_invoice'] }));
   for (const t of ticked) addTickedExtras(out, t);
   for (const e of Object.values(out)) sortExtras(e);
-  return out;
+  return { byTmpl: out, extrasVisible };
 }
 
 // Compares the Vault photos of the given Odoo templates with Odoo's, by fingerprint. rowByOdoo: odoo id -> Vault row (id).
@@ -225,7 +230,7 @@ async function checkJewellery(add) {
     [[['sale_ok', '=', true], ['active', '=', true], ['categ_id', 'child_of', 8]]], { fields: ['id', 'default_code', 'virtual_available'] });
   const forSale = new Set(all.filter(t => t.virtual_available > 0).map(t => String(t.id)));
   const sku = Object.fromEntries(all.map(t => [String(t.id), t.default_code]));
-  const vault = await allRows(() => supabase.from('products').select('id, odoo_product_id, reference, status, is_consignment, jewellery_extras')
+  const vault = await allRows(() => supabase.from('products').select('id, odoo_product_id, reference, status, is_consignment, jewellery_comes_with, jewellery_extras, jewellery_extras_visible')
     .eq('source', 'odoo').eq('category', 'Jewellery').order('id'));
   const visible = vault.filter(r => r.status === 'available');
   const visibleIds = new Set(visible.map(r => r.odoo_product_id));
@@ -236,11 +241,18 @@ async function checkJewellery(add) {
   const forSaleNotShown = [...forSale].filter(id => !visibleIds.has(id));
   if (forSaleNotShown.length) add('warn', `jewellery: ${forSaleNotShown.length} for sale in Odoo but not shown in the Vault`, forSaleNotShown.map(id => sku[id]));
 
-  // jewellery_extras: the full sync covers every piece about once an hour, so a difference that lasts is a bug.
+  // Comes with / Extras / Extras shown: the full sync covers every piece about once an hour, so a difference that lasts is a bug.
   const delivery = await deliveryAttrs(all.map(t => t.id));
-  const scopeWrong = visible.filter(r => (jewelleryScope(delivery[r.odoo_product_id]) || null) !== (r.jewellery_extras || null))
-    .map(r => `${r.reference}: Vault "${r.jewellery_extras || ''}" / Odoo "${jewelleryScope(delivery[r.odoo_product_id]) || ''}"`);
-  if (scopeWrong.length) add('warn', `jewellery: ${scopeWrong.length} with a jewellery_extras (Comes with / Extras) that differs from Odoo`, scopeWrong);
+  const show = (s) => s || '';
+  const scopeWrong = [];
+  for (const r of visible) {
+    const d = delivery.byTmpl[r.odoo_product_id];
+    const cw = comesWithText(d), ex = extrasText(d);
+    if ((cw || null) !== (r.jewellery_comes_with || null)) scopeWrong.push(`${r.reference}: Comes with Vault "${show(r.jewellery_comes_with)}" / Odoo "${show(cw)}"`);
+    if ((ex || null) !== (r.jewellery_extras || null)) scopeWrong.push(`${r.reference}: Extras Vault "${show(r.jewellery_extras)}" / Odoo "${show(ex)}"`);
+    if (r.jewellery_extras_visible !== delivery.extrasVisible) scopeWrong.push(`${r.reference}: Extras shown Vault ${r.jewellery_extras_visible} / Odoo ${delivery.extrasVisible}`);
+  }
+  if (scopeWrong.length) add('warn', `jewellery: ${scopeWrong.length} Comes with / Extras differences from Odoo`, scopeWrong);
 
   // Photos of the pieces shown and for sale: same fingerprint comparison as odoo-jewellery-sync-missing.js.
   const rowByOdoo = Object.fromEntries(visible.filter(r => forSale.has(r.odoo_product_id)).map(r => [r.odoo_product_id, r]));

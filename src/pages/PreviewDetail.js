@@ -221,11 +221,21 @@ export default function PreviewDetail() {
                 <span>{product.scope_of_delivery}</span>
               </div>
             )}
-            {product.jewellery_extras && (
+            {product.jewellery_comes_with && (
               <div className="detail-meta-row">
                 <span className="detail-meta-key">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
                   Comes with
+                </span>
+                <span>{product.jewellery_comes_with}</span>
+              </div>
+            )}
+            {/* The preview-catalog function sends Extras only when they are set to Visible in Odoo */}
+            {product.jewellery_extras && (
+              <div className="detail-meta-row">
+                <span className="detail-meta-key">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                  Extras
                 </span>
                 <span>{product.jewellery_extras}</span>
               </div>

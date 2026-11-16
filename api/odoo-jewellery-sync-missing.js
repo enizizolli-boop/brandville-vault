@@ -171,11 +171,14 @@ async function odooJson(model, method, args, kwargs = {}) {
 // "Comes with" (Box, Papers, Box/Papers/Screwdriver, No Box or Papers ...) and "Extras" (Covers, Purchase Invoice; zero to two)
 // as the staff see them: the product_fix_attributes module's own table, product.attribute.line.custom. Odoo's standard
 // attribute lines are not used: they hold only a fraction of the values (7 vs 85 available jewellery on 2026-11-12) and keep
-// a value after it is removed in the module's dropdown. Returns { tmplId: { comesWith, extras: [] } }, or null on failure.
+// a value after it is removed in the module's dropdown.
+// Returns { byTmpl: { tmplId: { comesWith, extras: [] } }, extrasVisible }, or null on failure. extrasVisible is the
+// visibility setting of the "Extras" attribute in Odoo (true only when set to Visible; it is Hidden on 2026-11-16).
 async function fetchDeliveryAttrs(templateIds) {
   try {
-    const attrs = await odooJson('product.attribute', 'search_read', [[['name', 'in', ['Comes with', 'Extras']]]], { fields: ['id', 'name'] });
-    if (!attrs.length) return {};
+    const attrs = await odooJson('product.attribute', 'search_read', [[['name', 'in', ['Comes with', 'Extras']]]], { fields: ['id', 'name', 'visibility'] });
+    const extrasVisible = attrs.some(a => a.name === 'Extras' && a.visibility === 'visible');
+    if (!attrs.length) return { byTmpl: {}, extrasVisible };
     const attrName = Object.fromEntries(attrs.map(a => [a.id, a.name]));
     const values = await odooJson('product.attribute.value', 'search_read', [[['attribute_id', 'in', attrs.map(a => a.id)]]], { fields: ['id', 'name'] });
     const valueName = Object.fromEntries(values.map(v => [v.id, v.name]));
@@ -199,7 +202,7 @@ async function fetchDeliveryAttrs(templateIds) {
       for (const t of ticked) addTickedExtras(out, t);
     }
     for (const entry of Object.values(out)) sortExtras(entry);
-    return out;
+    return { byTmpl: out, extrasVisible };
   } catch (e) { console.error('fetchDeliveryAttrs error:', e.message); return null; }
 }
 
@@ -217,14 +220,32 @@ function sortExtras(entry) {
   entry.extras.sort((a, b) => rank(a) - rank(b));
 }
 
-// Text stored in products.jewellery_extras, e.g. "Box, Papers, Screwdriver, Covers, Purchase Invoice".
-function jewelleryScope(d) {
-  if (!d) return null;
-  const none = d.comesWith && /^no box/i.test(d.comesWith);
-  const parts = d.comesWith && !none ? d.comesWith.split('/').map(s => s.trim()).filter(Boolean) : [];
-  parts.push(...d.extras);
-  if (parts.length) return parts.join(', ');
-  return none ? 'No Box or Papers' : null;
+// Text stored in products.jewellery_comes_with, e.g. "Box, Papers, Screwdriver" or "No Box or Papers". Same as the full sync.
+function comesWithText(d) {
+  if (!d || !d.comesWith) return null;
+  if (/^no box/i.test(d.comesWith)) return 'No Box or Papers';
+  const parts = d.comesWith.split('/').map(s => s.trim()).filter(Boolean);
+  return parts.length ? parts.join(', ') : null;
+}
+
+// Text stored in products.jewellery_extras, e.g. "Covers, Purchase Invoice".
+function extrasText(d) {
+  return d && d.extras.length ? d.extras.join(', ') : null;
+}
+
+// The delivery columns of a jewellery row (written together; left out when the Odoo lookup failed).
+const DELIVERY_COLS = ['jewellery_comes_with', 'jewellery_extras', 'jewellery_extras_visible'];
+function deliveryFields(delivery, tmplId) {
+  if (!delivery) return {};
+  const d = delivery.byTmpl[String(tmplId)];
+  return { jewellery_comes_with: comesWithText(d), jewellery_extras: extrasText(d), jewellery_extras_visible: delivery.extrasVisible };
+}
+
+// The row without its delivery columns, for a retry when the database rejects them (e.g. a column was not added yet).
+function withoutDelivery(mapped) {
+  const rest = { ...mapped };
+  for (const c of DELIVERY_COLS) delete rest[c];
+  return rest;
 }
 
 
@@ -436,7 +457,7 @@ export default async function handler(req, res) {
         price_eur: n.list_price || null,
         b2b_price_eur: n.x_b2b_price > 0 ? n.x_b2b_price : null,
         condition: n.x_studio_condition || 'Pre-owned', // same default as the full sync (was 'Fair')
-        ...(deliveryMap ? { jewellery_extras: jewelleryScope(deliveryMap[String(n.odoo_id)]) } : {}),
+        ...deliveryFields(deliveryMap, n.odoo_id),
         category: 'Jewellery',
         notes: n.description_sale && typeof n.description_sale === 'string' && n.description_sale.trim() ? n.description_sale.trim() : null,
         // Only set status on brand-new rows; leave existing status alone.
@@ -445,12 +466,11 @@ export default async function handler(req, res) {
 
       const write = m => supabase.from('products').upsert(m, { onConflict: 'odoo_product_id' }).select('id').single();
       let { data: upserted, error: upErr } = await write(mapped);
-      // The database may reject jewellery_extras (e.g. the column was not added yet): write the row without
-      // it so the piece and its photos still sync, and report it.
-      if (upErr && 'jewellery_extras' in mapped) {
-        const { jewellery_extras, ...rest } = mapped;
-        const retry = await write(rest);
-        if (!retry.error) errors.push({ odoo_id: n.odoo_id, sku: n.default_code, stage: 'scope_rejected', value: jewellery_extras, error: upErr.message });
+      // The database may reject the delivery columns (e.g. a column was not added yet): write the row without
+      // them so the piece and its photos still sync, and report it.
+      if (upErr && DELIVERY_COLS.some(c => c in mapped)) {
+        const retry = await write(withoutDelivery(mapped));
+        if (!retry.error) errors.push({ odoo_id: n.odoo_id, sku: n.default_code, stage: 'scope_rejected', value: [mapped.jewellery_comes_with, mapped.jewellery_extras].filter(Boolean).join(' | '), error: upErr.message });
         ({ data: upserted, error: upErr } = retry);
       }
       if (upErr) { errors.push({ odoo_id: n.odoo_id, sku: n.default_code, stage: 'upsert', error: upErr.message }); continue; }
