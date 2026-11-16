@@ -191,9 +191,30 @@ async function fetchDeliveryAttrs(templateIds) {
         if (attrName[r.attribute_id[0]] === 'Comes with') entry.comesWith = names.join('/');
         else for (const n of names) if (!entry.extras.includes(n)) entry.extras.push(n);
       }
+      // The "Covers" and "Purchase Invoice" tick boxes on the product (x_extra_covers, x_extra_purchase_invoice, added in
+      // Odoo on 2026-11-12). A piece has an extra when its box is ticked or the Extras attribute has it.
+      const ticked = await odooJson('product.template', 'search_read',
+        [[['id', 'in', templateIds.slice(i, i + 1000)], '|', ['x_extra_covers', '=', true], ['x_extra_purchase_invoice', '=', true]]],
+        { fields: ['id', 'x_extra_covers', 'x_extra_purchase_invoice'] });
+      for (const t of ticked) addTickedExtras(out, t);
     }
+    for (const entry of Object.values(out)) sortExtras(entry);
     return out;
   } catch (e) { console.error('fetchDeliveryAttrs error:', e.message); return null; }
+}
+
+// Adds Covers / Purchase Invoice from the product's tick boxes to the delivery map entry (no duplicates).
+function addTickedExtras(out, t) {
+  const entry = (out[String(t.id)] ||= { comesWith: null, extras: [] });
+  if (t.x_extra_covers && !entry.extras.includes('Covers')) entry.extras.push('Covers');
+  if (t.x_extra_purchase_invoice && !entry.extras.includes('Purchase Invoice')) entry.extras.push('Purchase Invoice');
+}
+
+// Fixed order (Covers, then Purchase Invoice, then anything else) so the text stays the same whichever source set it.
+const EXTRAS_ORDER = ['Covers', 'Purchase Invoice'];
+function sortExtras(entry) {
+  const rank = n => (EXTRAS_ORDER.indexOf(n) + 1) || EXTRAS_ORDER.length + 1;
+  entry.extras.sort((a, b) => rank(a) - rank(b));
 }
 
 // Text stored in products.jewellery_extras, e.g. "Box, Papers, Screwdriver, Covers, Purchase Invoice".

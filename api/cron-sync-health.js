@@ -74,6 +74,20 @@ async function checksums(model, ids) {
   return Object.fromEntries(rows.filter(r => r.checksum).map(r => [r.res_id, r.checksum]));
 }
 
+// Adds Covers / Purchase Invoice from the product's tick boxes to the delivery map entry (no duplicates).
+function addTickedExtras(out, t) {
+  const entry = (out[String(t.id)] ||= { comesWith: null, extras: [] });
+  if (t.x_extra_covers && !entry.extras.includes('Covers')) entry.extras.push('Covers');
+  if (t.x_extra_purchase_invoice && !entry.extras.includes('Purchase Invoice')) entry.extras.push('Purchase Invoice');
+}
+
+// Fixed order (Covers, then Purchase Invoice, then anything else) so the text stays the same whichever source set it.
+const EXTRAS_ORDER = ['Covers', 'Purchase Invoice'];
+function sortExtras(entry) {
+  const rank = n => (EXTRAS_ORDER.indexOf(n) + 1) || EXTRAS_ORDER.length + 1;
+  entry.extras.sort((a, b) => rank(a) - rank(b));
+}
+
 function jewelleryScope(d) {
   if (!d) return null;
   const none = d.comesWith && /^no box/i.test(d.comesWith);
@@ -98,6 +112,12 @@ async function deliveryAttrs(templateIds) {
     if (attrName[r.attribute_id[0]] === 'Comes with') e.comesWith = names.join('/');
     else for (const n of names) if (!e.extras.includes(n)) e.extras.push(n);
   }
+  // Same rule as the jewellery syncs: the Covers / Purchase Invoice tick boxes count as well as the Extras attribute.
+  const ticked = await chunked(templateIds, 1000, c => odoo('product.template', 'search_read',
+    [[['id', 'in', c], '|', ['x_extra_covers', '=', true], ['x_extra_purchase_invoice', '=', true]]],
+    { fields: ['id', 'x_extra_covers', 'x_extra_purchase_invoice'] }));
+  for (const t of ticked) addTickedExtras(out, t);
+  for (const e of Object.values(out)) sortExtras(e);
   return out;
 }
 
