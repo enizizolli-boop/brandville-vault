@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { createHash } from 'crypto';
+import { toJpeg } from './_imageUtils.js';
 
 // Fingerprint of a whole image. (Comparing only the first 100 base64 characters matched the file header, which is
 // the same for every photo of the same size and format, so different photos were dropped as duplicates.)
@@ -537,7 +538,7 @@ export default async function handler(req, res) {
             if (!imgData || imgData === false) continue;
             try {
               const pos = existing + uploaded;
-              const buffer = Buffer.from(imgData, 'base64');
+              const buffer = await toJpeg(Buffer.from(imgData, 'base64'));
               const path = pos === 0 ? watchId + '/bag_primary.jpg' : watchId + '/bag_extra_' + pos + '.jpg';
               const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
               if (!upErr) {

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import JSZip from 'jszip';
+import { toJpeg } from './_imageUtils.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL,
@@ -161,14 +162,15 @@ async function syncGalleryImages(accessToken, itemId, productId, forceRefresh = 
           for (let i = 0; i < imageFiles.length; i++) {
             if (!forceRefresh && i < existingCount) continue;
             try {
-              const imgBuffer = Buffer.from(await imageFiles[i].async('arraybuffer'));
+              const rawBuffer = Buffer.from(await imageFiles[i].async('arraybuffer'));
               // Fingerprint = file size + first 512 bytes as hex string
-              const fingerprint = `${imgBuffer.length}:${imgBuffer.slice(0, 512).toString('hex')}`;
+              const fingerprint = `${rawBuffer.length}:${rawBuffer.slice(0, 512).toString('hex')}`;
               if (seenFingerprints.has(fingerprint)) {
                 console.log(`[img] ${itemId}: skipping duplicate image at ZIP index ${i}`);
                 continue;
               }
               seenFingerprints.add(fingerprint);
+              const imgBuffer = await toJpeg(rawBuffer);
               const path = `${productId}/zoho_${pos}.jpg`;
               const { error: upErr } = await supabase.storage.from('watch-images').upload(path, imgBuffer, { contentType: 'image/jpeg', upsert: true });
               if (upErr) continue;
@@ -203,7 +205,7 @@ async function syncGalleryImages(accessToken, itemId, productId, forceRefresh = 
             { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
           );
           if (!imgRes.ok) continue;
-          const buf = Buffer.from(await imgRes.arrayBuffer());
+          const buf = await toJpeg(Buffer.from(await imgRes.arrayBuffer()));
           const path = `${productId}/zoho_${i}.jpg`;
           const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buf, { contentType: 'image/jpeg', upsert: true });
           if (upErr) continue;
@@ -231,7 +233,7 @@ async function syncGalleryImages(accessToken, itemId, productId, forceRefresh = 
         { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
       );
       if (!imgRes.ok) return 0;
-      const buf = Buffer.from(await imgRes.arrayBuffer());
+      const buf = await toJpeg(Buffer.from(await imgRes.arrayBuffer()));
       const path = `${productId}/zoho_0.jpg`;
       const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buf, { contentType: 'image/jpeg', upsert: true });
       if (upErr) return 0;

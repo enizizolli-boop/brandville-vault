@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { createHash } from 'crypto';
+import { toJpeg } from './_imageUtils.js';
 
 // Photos are compared by fingerprint: the SHA-1 of the image bytes, which is exactly the checksum Odoo stores for every
 // image. (Comparing only the first 100 base64 characters matched the file header, which is the same for every photo of
@@ -9,11 +10,6 @@ const imageKey = b64 => createHash('sha1').update(Buffer.from(String(b64), 'base
 const urlKey = url => (String(url).match(/_([0-9a-f]{40})\.(?:jpg|png|webp)(?:\?|$)/) || [])[1] || null;
 const sameList = (a, b) => a.length === b.length && a.every((k, i) => k === b[i]);
 const byOdooOrder = (a, b) => (a.sequence || 0) - (b.sequence || 0) || a.id - b.id;
-function imageFormat(b64) {
-  if (b64.startsWith('iVBOR')) return { ext: 'png', type: 'image/png' };
-  if (b64.startsWith('UklGR')) return { ext: 'webp', type: 'image/webp' };
-  return { ext: 'jpg', type: 'image/jpeg' };
-}
 // Path inside the watch-images bucket from a public address.
 const storagePath = url => (String(url).split('/object/public/watch-images/')[1] || '').split('?')[0] || null;
 
@@ -442,9 +438,9 @@ export default async function handler(req, res) {
         if (Date.now() - startTime > 285000) { errors.push({ odoo_id: n.odoo_id, sku: n.default_code, stage: 'timeout', error: 'stopped mid-bag near the time limit' }); failed = true; break; }
         let url = urlByKey.get(p.ck);
         if (!url) {
-          const { ext, type } = imageFormat(p.b64);
-          const path = `${productId}/bag_${p.primary ? 'primary' : 'extra'}_${p.ck}.${ext}`;
-          const { error: upErr } = await supabase.storage.from('watch-images').upload(path, Buffer.from(p.b64, 'base64'), { contentType: type, upsert: true });
+          const buffer = await toJpeg(Buffer.from(p.b64, 'base64'));
+          const path = `${productId}/bag_${p.primary ? 'primary' : 'extra'}_${p.ck}.jpg`;
+          const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
           if (upErr) { errors.push({ odoo_id: n.odoo_id, sku: n.default_code, stage: 'upload', error: upErr.message }); failed = true; break; }
           url = supabase.storage.from('watch-images').getPublicUrl(path).data.publicUrl;
           imagesAdded++;

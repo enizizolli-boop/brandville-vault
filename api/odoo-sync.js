@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { toJpeg } from './_imageUtils.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL,
@@ -354,7 +355,7 @@ export default async function handler(req, res) {
         // Primary image
         if (item.image_1920 && item.image_1920 !== false) {
           try {
-            const buffer = Buffer.from(item.image_1920, 'base64');
+            const buffer = await toJpeg(Buffer.from(item.image_1920, 'base64'));
             const path = watchId + '/odoo_primary.jpg';
             const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
             if (!upErr) {
@@ -372,7 +373,7 @@ export default async function handler(req, res) {
           const extraImg = extras[i];
           if (!extraImg.image_1920 || extraImg.image_1920 === false) continue;
           try {
-            const buffer = Buffer.from(extraImg.image_1920, 'base64');
+            const buffer = await toJpeg(Buffer.from(extraImg.image_1920, 'base64'));
             const path = watchId + '/odoo_extra_' + i + '.jpg';
             const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
             if (!upErr) {
