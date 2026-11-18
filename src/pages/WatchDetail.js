@@ -10,6 +10,23 @@ import { useCurrency } from '../context/CurrencyContext'
 import Topbar from '../components/Topbar'
 import Footer from '../components/Footer'
 
+function toJpegBlob(file) {
+  return new Promise((resolve) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.naturalWidth
+      canvas.height = img.naturalHeight
+      canvas.getContext('2d').drawImage(img, 0, 0)
+      URL.revokeObjectURL(url)
+      canvas.toBlob(blob => resolve(blob || file), 'image/jpeg', 0.9)
+    }
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file) }
+    img.src = url
+  })
+}
+
 const WHATSAPP_NUMBERS = {
   Watches: '18488639660',
   Bags: '18254757069',
@@ -296,9 +313,9 @@ export default function WatchDetail() {
     const newIds = []
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
-      const ext = file.name.split('.').pop()
-      const path = `${watch.id}/${Date.now()}_${i}.${ext}`
-      const { error: upErr } = await supabase.storage.from('watch-images').upload(path, file)
+      const jpegBlob = await toJpegBlob(file)
+      const path = `${watch.id}/${Date.now()}_${i}.jpg`
+      const { error: upErr } = await supabase.storage.from('watch-images').upload(path, jpegBlob, { contentType: 'image/jpeg' })
       if (upErr) { setMsg(`Upload failed: ${upErr.message}`); continue }
       const { data: { publicUrl } } = supabase.storage.from('watch-images').getPublicUrl(path)
       // Insert at temp position — renumber everything after the loop
