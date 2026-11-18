@@ -18,7 +18,10 @@ function toJpegBlob(file) {
       const canvas = document.createElement('canvas')
       canvas.width = img.naturalWidth
       canvas.height = img.naturalHeight
-      canvas.getContext('2d').drawImage(img, 0, 0)
+      const ctx = canvas.getContext('2d')
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(img, 0, 0)
       URL.revokeObjectURL(url)
       canvas.toBlob(blob => resolve(blob || file), 'image/jpeg', 0.9)
     }
