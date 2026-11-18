@@ -23,33 +23,33 @@ function extractStoragePath(url) {
 
 async function run() {
   let converted = 0, skipped = 0, errors = 0;
-  let page = 0;
-
+  let batchNum = 0;
   while (true) {
     const { data: images, error } = await supabase
       .from('product_images')
       .select('id, url, product_id, position')
-      .ilike('url', '%.webp')
-      .range(page * BATCH_SIZE, (page + 1) * BATCH_SIZE - 1);
+      .or('url.ilike.%.webp,url.ilike.%.png')
+      .range(0, BATCH_SIZE - 1);
 
     if (error) { console.error('DB fetch error:', error.message); break; }
     if (!images || images.length === 0) break;
+    batchNum++;
 
-    console.log(`\nBatch ${page + 1}: processing ${images.length} images...`);
+    console.log(`\nBatch ${batchNum}: processing ${images.length} images...`);
 
     for (const img of images) {
       try {
         // Download original webp
         const res = await fetch(img.url);
         if (!res.ok) { console.error(`  SKIP ${img.id}: download failed (${res.status})`); skipped++; continue; }
-        const webpBuffer = Buffer.from(await res.arrayBuffer());
+        const webpBuffer = Buffer.from(await res.arrayBuffer()); // works for webp and png
 
         // Convert to jpeg
         const jpegBuffer = await sharp(webpBuffer).jpeg({ quality: 90 }).toBuffer();
 
-        // Build new storage path (.webp → .jpg)
+        // Build new storage path (.webp/.png → .jpg)
         const oldPath = extractStoragePath(img.url);
-        const newPath = oldPath.replace(/\.webp$/i, '.jpg');
+        const newPath = oldPath.replace(/\.(webp|png)$/i, '.jpg');
 
         // Upload jpeg
         const { error: upErr } = await supabase.storage.from(BUCKET).upload(newPath, jpegBuffer, {
@@ -75,9 +75,6 @@ async function run() {
         errors++;
       }
     }
-
-    if (images.length < BATCH_SIZE) break;
-    page++;
 
     // Brief pause between batches to avoid rate limits
     await new Promise(r => setTimeout(r, 500));

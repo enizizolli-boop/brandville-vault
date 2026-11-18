@@ -317,11 +317,11 @@ export default async function handler(req, res) {
       const dbRow = dbByOdooId.get(String(bag.id));
       if (!dbRow && expected.length === 0) continue; // nothing to show yet
       const vault = dbRow ? (keysByDbId.get(dbRow.id) || []) : [];
-      if (dbRow && sameList(vault, expected)) continue;
-      const reason = !dbRow ? 'new'
-        : vault.length !== expected.length ? 'count'
-        : vault.includes(null) ? 'old_file_names'
-        : 'changed';
+      // Only process if Odoo has photos not yet in Vault (by fingerprint). Never reorder or delete existing photos.
+      const vaultSet = new Set(vault.filter(Boolean));
+      const newCks = expected.filter(ck => !vaultSet.has(ck));
+      if (dbRow && newCks.length === 0) continue;
+      const reason = !dbRow ? 'new' : 'missing';
       needs.push({
         odoo_id: bag.id,
         name: bag.name,
@@ -338,10 +338,8 @@ export default async function handler(req, res) {
         db_row_id: dbRow?.id || null,
       });
     }
-    // Order: bags not in the Vault yet, then real photo differences, then old file names. Shuffled within each group on
-    // every run, so a bag that keeps failing can never block the queue. (The old job always took the same first bags; some
-    // of them could never be completed, so every run worked on those and new bags never reached the Vault.)
-    const rank = { new: 0, count: 1, changed: 1, old_file_names: 2 };
+    // New bags first, then bags with photos missing from Vault. Shuffled within each group.
+    const rank = { new: 0, missing: 1 };
     for (const n of needs) n._r = Math.random();
     needs.sort((a, b) => rank[a.reason] - rank[b.reason] || a._r - b._r);
 
@@ -428,61 +426,24 @@ export default async function handler(req, res) {
       if (curErr) { errors.push({ odoo_id: n.odoo_id, stage: 'read_images', error: curErr.message }); continue; }
       if (sameList(current.map(i => urlKey(i.url)), photos.map(p => p.ck))) { itemsDone++; continue; }
 
-      // Build the full set in Odoo's order. A photo already in the Vault (same fingerprint) is reused; others are uploaded
-      // under a file named after the fingerprint, so a changed photo never reuses an old (cached) address.
-      const urlByKey = new Map(current.filter(i => urlKey(i.url)).map(i => [urlKey(i.url), i.url]));
-      const newRows = [];
+      // Append only: upload photos that are in Odoo but not yet in Vault (by fingerprint).
+      // Never delete, replace or reorder existing Vault photos.
+      const vaultFingerprints = new Set(current.map(i => urlKey(i.url)).filter(Boolean));
+      const toAdd = photos.filter(p => !vaultFingerprints.has(p.ck));
+      if (toAdd.length === 0) { itemsDone++; continue; }
+
+      const maxPos = current.length > 0 ? Math.max(...current.map(i => i.position)) : -1;
       let failed = false;
-      for (const [position, p] of photos.entries()) {
-        // Stop before Vercel's 300 s limit even in the middle of a bag: the old photos stay and the next run redoes it.
+      for (const [i, p] of toAdd.entries()) {
         if (Date.now() - startTime > 285000) { errors.push({ odoo_id: n.odoo_id, sku: n.default_code, stage: 'timeout', error: 'stopped mid-bag near the time limit' }); failed = true; break; }
-        let url = urlByKey.get(p.ck);
-        if (!url) {
-          const buffer = await toJpeg(Buffer.from(p.b64, 'base64'));
-          const path = `${productId}/bag_${p.primary ? 'primary' : 'extra'}_${p.ck}.jpg`;
-          const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
-          if (upErr) { errors.push({ odoo_id: n.odoo_id, sku: n.default_code, stage: 'upload', error: upErr.message }); failed = true; break; }
-          url = supabase.storage.from('watch-images').getPublicUrl(path).data.publicUrl;
-          imagesAdded++;
-        }
-        newRows.push({ product_id: productId, url, position });
-      }
-      if (failed) continue; // the old photos stay; the next run retries
-
-      // Swap: add the new rows first and only then remove the old ones, so the bag is never left without photos.
-      // (product_id, position) is unique, so the new rows go in at temporary positions above any real one and move to
-      // 0, 1, 2 ... after the old rows are gone. If that last step stops halfway, the order is still right.
-      const TEMP = 100000;
-      // Leftovers of a swap that stopped halfway sit at temporary positions and would block this insert. The old photos
-      // are still there in that case, so they can go.
-      const leftovers = current.filter(i => i.position >= TEMP);
-      if (leftovers.length) {
-        const { error: lErr } = await supabase.from('product_images').delete().in('id', leftovers.map(i => i.id));
-        if (lErr) { errors.push({ odoo_id: n.odoo_id, sku: n.default_code, stage: 'cleanup', error: lErr.message }); continue; }
-        current = current.filter(i => i.position < TEMP);
-      }
-      const { data: inserted, error: insErr } = await supabase.from('product_images')
-        .insert(newRows.map(r => ({ ...r, position: TEMP + r.position }))).select('id, position');
-      if (insErr) { errors.push({ odoo_id: n.odoo_id, sku: n.default_code, stage: 'insert', error: insErr.message }); continue; }
-      if (current.length) {
-        const { error: delErr } = await supabase.from('product_images').delete().in('id', current.map(i => i.id));
-        if (delErr) { errors.push({ odoo_id: n.odoo_id, sku: n.default_code, stage: 'delete_old', error: delErr.message }); continue; }
-        const keep = new Set(newRows.map(r => r.url));
-        const oldPaths = current.filter(i => !keep.has(i.url)).map(i => storagePath(i.url)).filter(Boolean);
-        if (oldPaths.length) {
-          const { error: rmErr } = await supabase.storage.from('watch-images').remove(oldPaths);
-          if (rmErr) console.error('odoo-bags-sync-missing: old photo files not removed (harmless, unused):', productId, rmErr.message);
-        }
-      }
-      for (const row of [...inserted].sort((a, b) => a.position - b.position)) {
-        const { error: posErr } = await supabase.from('product_images').update({ position: row.position - TEMP }).eq('id', row.id);
-        if (posErr) { errors.push({ odoo_id: n.odoo_id, sku: n.default_code, stage: 'reorder', error: posErr.message }); break; }
-      }
-
-      // Should not happen: Odoo's checksums and the downloaded photos disagree. Reported so it gets looked at.
-      const expected = expectedByTmpl[n.odoo_id] || [];
-      if (!sameList(photos.map(p => p.ck), expected)) {
-        errors.push({ odoo_id: n.odoo_id, sku: n.default_code, stage: 'verify', error: `synced ${photos.length} photos, Odoo checksums list ${expected.length}` });
+        const buffer = await toJpeg(Buffer.from(p.b64, 'base64'));
+        const path = `${productId}/bag_${p.primary ? 'primary' : 'extra'}_${p.ck}.jpg`;
+        const { error: upErr } = await supabase.storage.from('watch-images').upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
+        if (upErr) { errors.push({ odoo_id: n.odoo_id, sku: n.default_code, stage: 'upload', error: upErr.message }); failed = true; break; }
+        const url = supabase.storage.from('watch-images').getPublicUrl(path).data.publicUrl;
+        const { error: insErr } = await supabase.from('product_images').insert({ product_id: productId, url, position: maxPos + 1 + i });
+        if (insErr) { errors.push({ odoo_id: n.odoo_id, sku: n.default_code, stage: 'insert', error: insErr.message }); failed = true; break; }
+        imagesAdded++;
       }
 
       itemsDone++;
