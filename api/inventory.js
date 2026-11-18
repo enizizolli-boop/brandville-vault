@@ -30,7 +30,7 @@ export default async function handler(req, res) {
   // Products query
   let q = supabase
     .from('products')
-    .select('id, brand, model, reference, price_eur, price_usd, category, subcategory, condition, scope_of_delivery, notes, status, source, created_at, updated_at, product_images(url, position)', { count: 'exact' })
+    .select('id, brand, model, reference, price_eur, price_usd, b2b_price_eur, b2c_price_eur, category, subcategory, condition, scope_of_delivery, notes, status, source, created_at, updated_at, product_images(url, position)', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(from, to);
 
@@ -82,6 +82,10 @@ export default async function handler(req, res) {
     reference: p.reference || null,
     price_eur: p.price_eur ? Number(p.price_eur) : null,
     price_usd: p.price_usd ? Number(p.price_usd) : null,
+    ...(p.source === 'odoo' ? {
+      b2b_price_eur: p.b2b_price_eur ? Number(p.b2b_price_eur) : null,
+      b2c_price_eur: p.b2c_price_eur ? Number(p.b2c_price_eur) : null,
+    } : {}),
     category: p.category,
     subcategory: p.subcategory || null,
     condition: p.condition || null,
