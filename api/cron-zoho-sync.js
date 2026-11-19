@@ -488,7 +488,7 @@ export default async function handler(req, res) {
     // Secondary pass: backfill up to 3 available items with no images per cron run
     try {
       const { data: imgCandidates } = await supabase
-        .from('products').select('id, zoho_item_id').eq('source', 'zoho').eq('status', 'available').limit(50);
+        .from('products').select('id, zoho_item_id').eq('source', 'zoho').eq('status', 'available').order('created_at', { ascending: false }).limit(50);
       if (imgCandidates && imgCandidates.length > 0) {
         const { data: imgCheck } = await supabase
           .from('product_images').select('product_id').in('product_id', imgCandidates.map(r => r.id)).limit(5000);
